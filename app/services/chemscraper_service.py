@@ -1,0 +1,26 @@
+from fastapi import HTTPException
+import requests
+import io
+from services.minio_service import MinIOService
+from fastapi.responses import JSONResponse
+
+class ChemScraperService:
+    def __init__(self) -> None:
+        pass
+
+    def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
+        chemscraper_url = 'https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu/extractPdf'
+        
+        data = service.get_file(bucket_name, objectPath)
+        if data is None:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        data_bytes = io.BytesIO(data)
+        response = requests.post(chemscraper_url, files={'pdf': (filename, data_bytes)})
+
+        if response.status_code == 200:
+            tsv_content = response.text.encode()
+            upload_result = service.upload_file(bucket_name, "results/" + jobId + ".tsv", tsv_content)
+            if upload_result:
+                return True
+        return False

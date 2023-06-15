@@ -1,32 +1,51 @@
 import csv
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
 from fastapi.responses import JSONResponse
+
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
+from services.chemscraper_service import ChemScraperService
+
 from models.molecule import Molecule
+from models.analyzeRequestBody import AnalyzeRequestBody
+from typing import Optional
 
 router = APIRouter()
-bucket_name = "chemscraper"
 
-@router.post("/submit/{bucket_name}")
-async def upload_file(file: UploadFile = File(...), service: MinIOService = Depends()):
-
+@router.post("/{bucket_name}/upload")
+async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = Query(None), service: MinIOService = Depends()):
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
-
     if first_four_bytes == b'%PDF':
-        job_id = uuid.uuid4()
+        if job_id == "":
+            job_id = str(uuid.uuid4())
         file_content = await file.read()
-        upload_result = service.upload_file(bucket_name, "input/" + job_id + ".pdf", file_content)
+        upload_result = service.upload_file(bucket_name, "inputs/" + job_id + '/' + file.filename, file_content)
         if upload_result:
-            content = {"job_id": job_id}
+            content = {"jobID": job_id, "uploaded_at": datetime.now().isoformat()}
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)    
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-@router.get("/results/{bucket_name}/{job_id}",response_model=List[Molecule])
+@router.post("/chemscraper/analyze")
+def analyzeDocuments(requestBody: AnalyzeRequestBody, service: MinIOService = Depends()):
+    # Analyze only one document for NSF demo
+    if len(requestBody.fileList) > 0 and requestBody.jobId != "":
+        filename = requestBody.fileList[0]
+        chemscraperService = ChemScraperService()
+        objectPath = f"inputs/{requestBody.jobId}/{filename}"
+        # return JSONResponse(content={"response": chemscraperService.runChemscraperOnDocument('chemscraper', filename, objectPath, requestBody.jobId, service)}, status_code=status.HTTP_200_OK)
+        result = chemscraperService.runChemscraperOnDocument('chemscraper', filename, objectPath, requestBody.jobId, service)
+        if result:
+            content = {"jobID": requestBody.jobId, "processed_at": datetime.now().isoformat()}
+            JSONResponse(content=content, status_code=status.HTTP_200_OK) 
+        else:
+            JSONResponse(content={"error": "Unable to process file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@router.get("/{bucket_name}/results/{job_id}",response_model=List[Molecule])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     tsv_content = service.get_file(bucket_name, "results/" + job_id + ".tsv")
     if tsv_content is None:
