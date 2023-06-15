@@ -1,0 +1,87 @@
+ingress:
+  hostname: mmli.fastapi.staging.mmli1.ncsa.illinois.edu
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+
+postgresql:
+  enabled: true
+  global:
+    storageClass: csi-cinder-sc-retain
+  auth:
+    existingSecret: "mmli-backend-postgresql"
+    username: "postgres"
+    database: "mmli"
+
+minio:
+  enabled: true
+#  global:
+#    storageClass: hostpath
+  auth:
+    existingSecret: "mmli-backend-minio"
+    rootUser: minioadmin
+
+extraDeploy:
+# Enable DecentCI backups
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: backups
+    namespace: mmli-backend
+    labels:  
+      app.kubernetes.io/name: decentci-backups
+      app.kubernetes.io/component: config
+  data:
+    backups: |
+      # TODO: Configure backups for MinIO?
+      #- backup-name: decentci-backups-mmli-backend-minio-files
+
+      - backup-name: decentci-backups-mmli-backend-db
+        schedule: "01 7 * * *"
+        database:
+          type: postgresql
+          host: mmli-backend-postgresql.mmli-backend.svc.cluster.local
+          auth:
+            username: mmli
+            database: mmli
+            passwordKey: postgres-password
+            existingSecret: mmli-backend-postgresql
+    global: |
+      enabled: true
+      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/mmli-backend
+      backup-nfs-server: taiga-nfs.ncsa.illinois.edu
+
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-postgresql
+    namespace: staging
+  spec:
+    encryptedData:
+      password: AgCbRoahf5WQGBOsE6EVogPw6ZVw8tnK8AFeRw1tO8szQik0HPeijA/ajUYnAgFgz2+bfmipzR7/pUy5fMYVWg2dE7urAl+P4bu9jhafCdOk07Oj6vAoEYbkY99HngzYNudqBGf720fLZf5Y0yeaTf4FEvohHKLkZOVKSDreZTplY3UGR974GDjXh2WjWVMiYncMP0WsviTaLi9r7TinhT+fRL8F2k4lJEXPF/CyGyrcrIuUn7pgALXiojDrVx6PKV0RA1RIpwDSKBlmgSjfVOAK2MN0yoIQkgKjv3RD3FCBV7YFnw6aVgRKi1vyFJf6EKDgw6TMzEpgsqAyhoC/74BSV6Wv0ilXUhEfhT2hIVbBN3QHjtxDhJaMX0zLkvtL1pLvSan8pkyKNAbWYAGRSHiXrWtwGQHpMXbN3G4x0eVlceuqEsXbeuBQqnHDX4WsPiYJbVpGWPgj3+KG5KYouQ5EaDmijc3PuvIDPD732cIEVcpl9fFDMweQ1duQrATuyYG0wGEIZeu1r3csj35++tw5bSq/sV9isSWh7VRNWGGid9617hP91k3bsyCNvg5fMaWBXvbPVIxGy6S7k0uanK6yrr2Os75+YvOTyPALkFxhFeuuSeqVySaBaHm3uJiOnehjAm6OOlLMF3PwBMQhl24t/e/nWvkrmaV5zeB6WU8Sy72zvN9yh5vEzBSNkDQMWzdkFmaLiKO730XK5K7cXmId7qeWOAUGlEBc/tmyYKdkffk=
+      postgres-password: AgCR91cLIaOfyWBttckuIbMHYcJwJvQWJIp22BTUk/dBCdiT7X0tMCR2idXwznUCinXNVC62FI6uQTVHOpOeCnULYaEDsI1ANSM32wUC1n5d499tC96BYjsFEfNo3N9m/pD5rtUBKdF5OadCd56GZRhZ4GuofH01heyZUz2c6SUiBvVMZVlOqVem81yXGZcO3SjIREfpogboS5teDeud3nx/6LerSWTeVxAHNrycpGkC3APYDiw3qDtcJpiFSvtrr36iCizS5GZNGAXn6OV8RyCrmYfNCzyiryKt21Hv3q2FiqNGNpXGpHO4rhKuwTTPRJZR0+qJ4N3meuQU7EPnb10xXnAi5L/mx9G5kO90277xTAs0+0LMl5BhB05GwmG87X8jQSuuZNNNa3Uzf+e7uGR/8emqlIVUGqm+j7qdCGYeG/qEwOa9E41iYBi0Q2k/L9YyF4syw3ZjmjOWKUWA0K6jWPGy2vRsrjEgiksrkNV6FaKtD/SaaNPWUkxLVzx35SvbXKNLrcR8YCBEd++WAu89Aup+VBv58c3apyj4SvQlXg4f8jOfa2B4Dmyk8dr2dCIRDHWVG/YWlLEh4vxSITQ6mDTyPAOyZSGt9PAsNG6brl5BoPQvVuwcWQdsBq9ohaetFx/8Uyxj/ObMfyMJn8zYzd+z1Ws1GYjag+9jW0vq5cVPt9IOXB4ofhidAIufq1J+R/KqHX/KYweCrGen0PrYhIbTtUyWwgO6dclOylZ2cWY=
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-postgresql
+        namespace: staging
+
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-minio
+    namespace: staging
+  spec:
+    encryptedData:
+      root-password: AgC/g5EhTnSoqxOHOX50KutmB+OU1lXURoViqZEFw8JXKfqjqTXH2767O8CX/zEqNqe88/Wvgd7Lv9AEg2Ron8k09XPSy8+zlfTvf7HeaF40zXXZj1sOQ6Nf7OGB+qPP6KTuOFI7wLS7SIlrtW5FCHzIHQQIns9aCIrM1lXWU2OV8z3kmKCnehhhqqm2ClCdLp27nY65XriVXlXodlrvr9ZjWU7icjhGuVHIT7TdmW/5G7d/LFbz8XtRx72PK3FVc8cI9x+2bWz6tCiEk3ssr1DJuAqt3uTgu2qhgGZuTi+IwVqVv3Hl/mtrn8ah/vEKcC3Do19dq1qcCDh41PQt4QJb38cjwd8ak9yIY40DhR7kRiST3/LDTNF/1de3VBnYmmcWw4kB6NIM8TlB+i9KJfUwOkOhyr4nNGEYgpwAJ+YJ9wWx2laQcPy9LWDiC5wo3+YqKWQnmfyvTOSYRss1TaWXl8EOgBlzGfHCLDV0F0++Vdpa2RqmqKrU3NlHzNdpV0x8VCf8QPI2Q9hxIbKhhIpPqJBD1BsSoeCJNHwWWGpqobM9VG4/2JcTgVfCoKUSTj6iaUJfzfR0sUq8x/UskrhTOWlbkABTYS/C44ZszAlsImx7BtrqigNVfonR83SgD7HwVrF6dQh5CTzp6f5Um2/zG6Hiu45/l6utlhqSAqJqBIUoTUUlYrCAmgTWcfIEEx2VaJFjhrkRS+KpTF6eJewQ1tqUQwl3XsSo8REvOtJFZr0=
+      root-user: AgC1xX5PHRgRo2BlnIVXgCNgDJNSWL10qV+M4Ni1etB4d1GSZ+1Crh4P8aa/8isJZaHYLafQQePbHuayz2b3fdyLVSbipRJr46E/zr84f9WG14T5Jlnq1rlFMbz0gDtQM38Zkvn5TE4er297Ah/D070PhAliG58ogCK4EGjZTehkPb0nGrDLeJZiRcfJMceVPypBhRp+iwmmcZqu7ZbitAx6QU2xxgkwtl3WjiKg8/xb7FVguV+21V1VybHktltYLdBq+9bVI1ITATgpmiwnmz5cPT8g8sH7xHwG9rbqIZbechEmQ1pTIrQildTmZsgw6ovs7Inq/3/9wKquawqVx5pDfu9SIQN9X3TbwTQJnj9IoRyCplSYQjUGzM8AUJuVYguS/2SFxVpjA8ZQfmd6EzxTuuHYSLHePzTeeKCof6GpjuyimYapxaYlCNbI4qKNRKh1PecI/Ghmjwy4woQ85B+6W5qfS8HMr9CzIydJpZ9Cy90+ck7weZr6U5b4mCUiH50VDbw0K+TXSGivYahExKSOaVvJw19CzL5P7uToF+MHEhwgIqVsDZUvpyNlfDCIkk1B6L0MoL1VHISM4eDg1t92Jq9G/8XVlWU5oMtnX2IH7yPd90FmjV0LNRlgw/yYbyan0wJSe6GQfZJmObpow1NjkrbflZoKJvEWkcqnz/yfwSQpYpjpqPrJSxaTrlj7zaDHU/M8D3Wp4Roe+Qmynoht+hvu6LNfyoZ5OTxMgRaUY2E=
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-minio
+        namespace: staging 
+

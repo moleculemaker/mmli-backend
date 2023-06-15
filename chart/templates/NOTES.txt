@@ -1,0 +1,7 @@
+Application is now running!
+
+{{- if .Values.ingress.tls }}
+Access https://{{ .Values.ingress.hostname }} to access FastAPI
+{{- else }}
+Access http://{{ .Values.ingress.hostname }} to access FastAPI
+{{- end }}
