@@ -43,6 +43,34 @@ spec:
           - name: POSTGRES_USER
             value: {{ .Values.postgresql.auth.username }}
 
+          # MINIO_SERVER=localhost:9000
+          - name: MINIO_SERVER
+            value: {{ .Values.minio.hostname }}
+
+          # MINIO_ACCESS_KEY=your-access-key
+          - name: MINIO_ACCESS_KEY 
+{{- if .Values.minio.auth.existingSecret }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.minio.auth.existingSecret }}
+                key: root-user
+{{- else }}
+            value: {{ .Values.minio.auth.rootUser }}
+{{- end }}
+
+          # MINIO_SECRET_KEY=your-secret-key
+          - name: MINIO_SECRET_KEY
+{{- if .Values.minio.auth.existingSecret }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.minio.auth.existingSecret }}
+                key: root-password
+{{- else }}
+            value: {{ .Values.minio.auth.rootPassword }}
+{{- end }}
+
+
+
           - name: DATABASE_URL
             value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
 

@@ -8,6 +8,7 @@ ingress:
 
 postgresql:
   enabled: true
+  hostname: mmli-backend-staging-postgresql.staging.svc.cluster.local
   global:
     storageClass: csi-cinder-sc-retain
   auth:
@@ -17,11 +18,11 @@ postgresql:
 
 minio:
   enabled: true
-#  global:
-#    storageClass: hostpath
+  hostname: mmli-backend-staging-minio.staging.svc.cluster.local
+  global:
+    storageClass: csi-cinder-sc-retain
   auth:
     existingSecret: "mmli-backend-minio"
-    rootUser: minioadmin
 
 extraDeploy:
 # Enable DecentCI backups

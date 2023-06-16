@@ -9,6 +9,7 @@ controller:
 # https://artifacthub.io/packages/helm/bitnami/postgresql?modal=values
 postgresql:
   enabled: true
+  hostname: ""
   auth:
     # Use an existing secret - this overrides username, password, and rootPassword
     # existingSecret: ""
@@ -26,6 +27,7 @@ postgresql:
 # https://artifacthub.io/packages/helm/bitnami/minio?modal=values
 minio:
   enabled: true
+  hostname: ""
   auth:
     # Use an existing secret - this overrides username, password, and rootPassword
     # existingSecret: ""
