@@ -13,5 +13,6 @@ COPY ./app /code/app
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mmli
 
 # Override default command in the container
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+WORKDIR /code/app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
