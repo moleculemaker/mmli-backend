@@ -36,3 +36,26 @@ class MinIOService:
         except S3Error as err:
             print("Error: ", err)
             return False
+        
+    def get_file_urls(self, bucket_name, path):
+        try:
+            urls = []
+            objects = self.client.list_objects(bucket_name, prefix=path, recursive=True)
+            for obj in objects:
+                url = self.client.presigned_get_object(bucket_name, obj.object_name)
+                url = url.split('?', 1)[0]
+                urls.append(url)
+            return urls
+        except S3Error as err:
+            print("Error: ", err)
+
+    def check_file_exists(self, bucket_name, object_name):
+        try:
+            self.client.stat_object(bucket_name, object_name)
+            return True
+        except S3Error as err:
+            if err.code == "NoSuchKey":
+                return False
+            else:
+                print("Error: ", err)
+                return False
