@@ -8,7 +8,7 @@ class RDKitService:
     def renderSVGFromSMILE(smileString):
         try:
             m = Chem.MolFromSmiles(smileString)
-            d = Draw.rdMolDraw2D.MolDraw2DSVG(300, 300)
+            d = Draw.rdMolDraw2D.MolDraw2DSVG(120, 120)
             if m is None:
                 raise Exception("An Error ocurred creating the molecule structure")
             d.DrawMolecule(m)

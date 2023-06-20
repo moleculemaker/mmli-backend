@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import List
 
 class Molecule(BaseModel):
+    id: int
     doc_no: str
     file_path: str
     page_no: str

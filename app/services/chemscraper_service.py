@@ -10,7 +10,6 @@ class ChemScraperService:
 
     def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
         chemscraper_url = 'https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu/extractPdf'
-        
         data = service.get_file(bucket_name, objectPath)
         if data is None:
             raise HTTPException(status_code=404, detail="File not found")
@@ -23,4 +22,7 @@ class ChemScraperService:
             upload_result = service.upload_file(bucket_name, "results/" + jobId + ".tsv", tsv_content)
             if upload_result:
                 return True
+        else:
+            error_content = response.text.encode()
+            upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
         return False
