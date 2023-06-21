@@ -54,7 +54,7 @@ def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Dep
         return "Error"
     else:
         # JSONResponse(content={"Result": "Processing"}, status_code=status.HTTP_200_OK)
-        return "Result"
+        return "Processing"
 
 @router.get("/{bucket_name}/results/{job_id}",response_model=List[Molecule])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):

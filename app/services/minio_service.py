@@ -3,8 +3,11 @@ import os
 from minio import Minio
 from minio.error import S3Error
 from dotenv import load_dotenv
+from urllib.parse import urlparse, urlunparse
 
 class MinIOService:
+    minio_api_baseURL = "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
+
     def __init__(self):
         load_dotenv()
         self.client = Minio(
@@ -44,7 +47,11 @@ class MinIOService:
             for obj in objects:
                 url = self.client.presigned_get_object(bucket_name, obj.object_name)
                 url = url.split('?', 1)[0]
-                urls.append(url)
+                parsed_url = urlparse(url)
+                minio_api_url = urlunparse(
+                    (parsed_url.scheme, self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+                )
+                urls.append(minio_api_url)
             return urls
         except S3Error as err:
             print("Error: ", err)
