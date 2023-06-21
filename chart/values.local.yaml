@@ -13,6 +13,8 @@ postgresql:
 
 minio:
   enabled: true
+  ingress:
+    ingressClassName: nginx
 #  global:
 #    storageClass: hostpath
   auth:

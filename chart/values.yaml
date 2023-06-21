@@ -4,7 +4,7 @@ ingress:
   annotations: {}
 
 controller:
-  image: moleculemaker/mmli-backend:pr-1
+  image: moleculemaker/mmli-backend:main
 
 # https://artifacthub.io/packages/helm/bitnami/postgresql?modal=values
 postgresql:
@@ -27,7 +27,11 @@ postgresql:
 # https://artifacthub.io/packages/helm/bitnami/minio?modal=values
 minio:
   enabled: true
-  hostname: ""
+  ingress:
+    enabled: true
+    tls: false
+    hostname: minio.mmli.fastapi.localhost 
+    annotations: {}
   auth:
     # Use an existing secret - this overrides username, password, and rootPassword
     # existingSecret: ""

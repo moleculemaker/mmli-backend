@@ -22,7 +22,13 @@ postgresql:
 
 minio:
   enabled: true
-  hostname: mmli-backend-staging-minio.staging.svc.cluster.local
+  ingress:
+    tls: true
+    hostname: mmli-backend-staging-minio.staging.svc.cluster.local:9000
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      kubernetes.io/tls-acme: "true"
+      traefik.ingress.kubernetes.io/router.tls: "true"
   global:
     storageClass: csi-cinder-sc-retain
   auth:
