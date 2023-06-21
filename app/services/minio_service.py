@@ -49,7 +49,7 @@ class MinIOService:
                 url = url.split('?', 1)[0]
                 parsed_url = urlparse(url)
                 minio_api_url = urlunparse(
-                    (parsed_url.scheme, self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+                    ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
                 )
                 urls.append(minio_api_url)
             return urls
