@@ -27,6 +27,11 @@ postgresql:
 # https://artifacthub.io/packages/helm/bitnami/minio?modal=values
 minio:
   enabled: true
+  apiIngress:
+    enabled: true
+    tls: false
+    hostname: minioapi.mmli.fastapi.localhost
+    annotations: {}
   ingress:
     enabled: true
     tls: false
