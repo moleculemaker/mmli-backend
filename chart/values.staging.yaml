@@ -5,6 +5,7 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-production
     kubernetes.io/tls-acme: "true"
     traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
 
 # TODO: parameterize chemscraper URL
 config:
@@ -29,6 +30,7 @@ minio:
       cert-manager.io/cluster-issuer: letsencrypt-production
       kubernetes.io/tls-acme: "true"
       traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
   global:
     storageClass: csi-cinder-sc-retain
   auth:
