@@ -1,0 +1,79 @@
+# Defines the deployment of the app running in a pod on any worker node
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: mmli-fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mmli-fastapi
+  template:
+    metadata:
+      labels:
+        app: mmli-fastapi
+    spec:
+      containers:
+        - name: mmli-fastapi
+          image: {{ .Values.controller.image }}
+          env:
+
+          - name: POSTGRES_HOST
+{{- if .Values.postgresql.hostname }}
+            value: {{ .Values.postgresql.hostname }}
+{{ else }}
+            value: {{ .Release.Name }}-postgresql.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}
+
+          - name: POSTGRES_PASSWORD
+{{- if .Values.postgresql.auth.existingSecret }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.postgresql.auth.existingSecret }}
+                key: postgres-password
+{{- else }}
+            value: {{ .Values.postgresql.auth.password }}
+{{- end }}
+
+          - name: POSTGRES_DATABASE
+            value: {{ .Values.postgresql.auth.database }}
+
+          - name: POSTGRES_USER
+            value: {{ .Values.postgresql.auth.username }}
+
+          # MINIO_SERVER=localhost:9000
+          - name: MINIO_SERVER
+            value: {{ .Values.minio.hostname }}
+
+          # MINIO_ACCESS_KEY=your-access-key
+          - name: MINIO_ACCESS_KEY 
+{{- if .Values.minio.auth.existingSecret }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.minio.auth.existingSecret }}
+                key: root-user
+{{- else }}
+            value: {{ .Values.minio.auth.rootUser }}
+{{- end }}
+
+          # MINIO_SECRET_KEY=your-secret-key
+          - name: MINIO_SECRET_KEY
+{{- if .Values.minio.auth.existingSecret }}
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.minio.auth.existingSecret }}
+                key: root-password
+{{- else }}
+            value: {{ .Values.minio.auth.rootPassword }}
+{{- end }}
+
+
+
+          - name: DATABASE_URL
+            value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+
+          ports:
+            - containerPort: 8080
+          imagePullPolicy: Always

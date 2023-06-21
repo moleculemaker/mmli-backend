@@ -1,0 +1,13 @@
+apiVersion: v2
+description: "Unified MMLI Backend for AlphaSynthesis"
+name: mmli-backend
+version: 1.0.0
+dependencies:
+- name: postgresql
+  version: ~12.2.2
+  repository: "https://charts.bitnami.com/bitnami"
+  condition: postgresql.enabled
+- name: minio
+  version: ~12.6.4
+  repository: "https://charts.bitnami.com/bitnami"
+  condition: minio.enabled

@@ -1,0 +1,38 @@
+version: "3.8"
+services:
+  postgresql:
+    container_name: mmli-backend-postgresql
+    image: postgres
+    restart: always
+    ports: 
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - "postgres:/var/lib/postgresql/data"
+  minio:
+    container_name: mmli-backend-minio
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    env_file:
+      - .env
+    volumes:
+      - "minio:/data"
+    command: server --console-address ":9001" /data
+  rest:
+    container_name: mmli-backend
+    image: moleculemaker/mmli-backend
+    restart: on-failure
+    depends_on:
+      - postgresql
+      - minio
+    build: .
+    ports: 
+      - "8080:8080"
+    env_file:
+      - .env
+volumes:
+  postgres:
+  minio:
