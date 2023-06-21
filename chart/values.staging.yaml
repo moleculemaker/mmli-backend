@@ -23,6 +23,14 @@ postgresql:
 
 minio:
   enabled: true
+  apiIngress:
+    tls: true
+    hostname: minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      kubernetes.io/tls-acme: "true"
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
   ingress:
     tls: true
     hostname: minio.mmli.fastapi.staging.mmli1.ncsa.illinois.edu
