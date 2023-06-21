@@ -24,7 +24,7 @@ minio:
   enabled: true
   ingress:
     tls: true
-    hostname: mmli-backend-staging-minio.staging.svc.cluster.local:9000
+    hostname: minio.mmli.fastapi.staging.mmli1.ncsa.illinois.edu
     annotations:
       cert-manager.io/cluster-issuer: letsencrypt-production
       kubernetes.io/tls-acme: "true"
