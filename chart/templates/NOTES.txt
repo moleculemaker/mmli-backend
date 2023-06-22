@@ -1,3 +1,12 @@
 Application is now running!
 
 Access http{{- if .Values.ingress.tls }}s{{- end }}://{{ .Values.ingress.hostname }} to access FastAPI
+
+{{- if .Values.minio.ingress.enabled }}
+Access http{{- if .Values.minio.ingress.tls }}s{{- end }}://{{ .Values.minio.ingress.hostname }} to access MinIO
+{{- else }}
+To access MinIO, you can run the following command:
+  kubectl port-forward -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-minio 9001:9001
+
+Then you can navigate to http://localhost:9001 to access a tunnel to your MinIO instance
+{{- end }}
