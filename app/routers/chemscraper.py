@@ -68,14 +68,15 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
     name = molecularFormula = molecularWeight = None
     molecules = []
     id = 0
+    otherInstancesDict = {}
     for row in reader:
         if not row:
             continue
         if row[0] == "D":
-            doc_no, file_path = int(row[1]), row[2]
+            doc_no, file_path = row[1], row[2]
 
         if row[0] == "P":
-            page_no = int(row[1])
+            page_no = row[1]
 
         if row[0] == "SMI":
             SMILE = row[2]
@@ -83,10 +84,15 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
             if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
                 SVG = RDKitService.renderSVGFromSMILE(SMILE)
                 PubChemCID, name, molecularFormula, molecularWeight =  PubChemService.queryMoleculeProperties(SMILE)
-                if PubChemCID != 'Unknown' and PubChemCID != '0':
+                location = " | page: " + page_no
+                if PubChemCID != 'Unavailable' and PubChemCID != '0':
                     chemicalSafety, Description = PubChemService.getAdditionalProperties(PubChemCID)
                 else:
-                    chemicalSafety, Description = [], 'Unknown'
+                    chemicalSafety, Description = [], 'Unavailable'
+                if SMILE in otherInstancesDict:
+                    otherInstancesDict[SMILE].append(page_no)
+                else:
+                    otherInstancesDict[SMILE] = [page_no]
                 molecules.append(
                     Molecule(
                         id=id,
@@ -104,10 +110,17 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
                         molecularFormula = molecularFormula,
                         molecularWeight = molecularWeight,
                         chemicalSafety = chemicalSafety,
-                        Description = Description
+                        Description = Description,
+                        Location = location,
+                        OtherInstances = []
                     )
                 )
                 id += 1
+    for molecule in molecules:
+        pages = otherInstancesDict.get(molecule.SMILE, [])
+        # pages = ', '.join(pages)
+        # otherInstances = " | page(s): " + pages
+        molecule.OtherInstances = pages
     return molecules
 
 @router.get("/{bucket_name}/inputs/{job_id}")
