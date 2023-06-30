@@ -50,28 +50,28 @@ extraDeploy:
   kind: ConfigMap
   metadata:
     name: backups
-    namespace: mmli-backend
+    namespace: staging
     labels:  
       app.kubernetes.io/name: decentci-backups
       app.kubernetes.io/component: config
   data:
     backups: |
       # TODO: Configure backups for MinIO?
-      #- backup-name: decentci-backups-mmli-backend-minio-files
+      #- backup-name: decentci-backups-mmli-backend-staging-minio-files
 
-      - backup-name: decentci-backups-mmli-backend-db
+      - backup-name: decentci-backups-mmli-backend-staging-db
         schedule: "01 7 * * *"
         database:
           type: postgresql
-          host: mmli-backend-postgresql.mmli-backend.svc.cluster.local
+          host: mmli-backend-staging-postgresql.staging.svc.cluster.local
           auth:
             username: mmli
             database: mmli
             passwordKey: postgres-password
             existingSecret: mmli-backend-postgresql
     global: |
-      enabled: true
-      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/mmli-backend
+      enabled: false
+      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/staging/mmli-backend
       backup-nfs-server: taiga-nfs.ncsa.illinois.edu
 
 - apiVersion: bitnami.com/v1alpha1
