@@ -10,10 +10,10 @@ class PubChemService:
 
         response = requests.get(url)
 
-        cid = 'Unknown'
-        molecularFormula = 'Unknown'
-        molecularWeight = 'Unknown'
-        name = 'Unknown'
+        cid = 'Unavailable'
+        molecularFormula = 'Unavailable'
+        molecularWeight = 'Unavailable'
+        name = 'Unavailable'
         if response.status_code == 200:
             data = response.json()
             # Extract properties
@@ -33,7 +33,7 @@ class PubChemService:
         response = requests.get(url)
 
         chemicalSafety = []
-        Description = 'Unknown'
+        Description = 'Unavailable'
         if response.status_code == 200:
             data = response.json()
             # chemicalSafety = 

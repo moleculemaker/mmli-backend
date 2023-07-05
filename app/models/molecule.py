@@ -18,4 +18,6 @@ class Molecule(BaseModel):
     molecularWeight: str
     chemicalSafety: List[str]
     Description: str
+    Location: str
+    OtherInstances: List[str]
 
