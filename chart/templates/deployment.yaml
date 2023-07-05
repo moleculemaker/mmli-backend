@@ -50,6 +50,12 @@ spec:
             value: "9000"
           - name: MINIO_SERVER
             value: "$(MINIO_HOST):$(MINIO_PORT)"
+          - name: MINIO_API_BASE_URL
+{{- if .Values.minio.apiIngress.hostname }}
+            value: {{ .Values.minio.apiIngress.hostname }}
+{{- else }}
+            value: {{ .Values.minio.auth.rootUser }}
+{{- end }}
 
           # MINIO_ACCESS_KEY=your-access-key
           - name: MINIO_ACCESS_KEY 

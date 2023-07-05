@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse, urlunparse
 
 class MinIOService:
-    minio_api_baseURL = "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
+    minio_api_baseURL = os.environ.get("MINIO_API_BASE_URL")
 
     def __init__(self):
         load_dotenv()
@@ -47,11 +47,14 @@ class MinIOService:
             for obj in objects:
                 url = self.client.presigned_get_object(bucket_name, obj.object_name)
                 url = url.split('?', 1)[0]
-                parsed_url = urlparse(url)
-                minio_api_url = urlunparse(
-                    ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
-                )
-                urls.append(minio_api_url)
+                if(os.environ.get("MINIO_SERVER") == "localhost:9000"):
+                    urls.append(url)
+                else:
+                    parsed_url = urlparse(url)
+                    minio_api_url = urlunparse(
+                        ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+                    )
+                    urls.append(minio_api_url)
             return urls
         except S3Error as err:
             print("Error: ", err)
