@@ -4,7 +4,7 @@ ingress:
   annotations: {}
 
 controller:
-  image: moleculemaker/mmli-backend:pr-3
+  image: mmli-backend
 
 # https://artifacthub.io/packages/helm/bitnami/postgresql?modal=values
 postgresql:
