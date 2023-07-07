@@ -12,7 +12,7 @@ ingress:
 
 # TODO: parameterize chemscraper URL
 config:
-  chemscraper_url: chemscraper.staging.svc.cluster.local
+  chemscraper_url: "chemscraper.staging.svc.cluster.local:8000"
 
 postgresql:
   enabled: true

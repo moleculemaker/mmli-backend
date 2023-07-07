@@ -2,6 +2,7 @@ ingress:
   ingressClassName: nginx
 
 config:
+# Change to local chemscraper service URL if deployed in local cluster
   chemscraper_url: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
 
 postgresql:
