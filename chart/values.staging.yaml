@@ -49,7 +49,7 @@ extraDeploy:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: backups
+    name: mmli-backend-staging-backups
     namespace: staging
     labels:  
       app.kubernetes.io/name: decentci-backups

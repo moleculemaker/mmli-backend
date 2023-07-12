@@ -49,7 +49,7 @@ extraDeploy:
 - apiVersion: v1
   kind: ConfigMap
   metadata:
-    name: backups
+    name: mmli-backend-backups
     namespace: alphasynthesis
     labels:  
       app.kubernetes.io/name: decentci-backups
