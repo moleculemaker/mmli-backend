@@ -51,6 +51,7 @@ class MinIOService:
                 minio_api_url = urlunparse(
                     ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
                 )
+                # urls.append(url)
                 urls.append(minio_api_url)
             return urls
         except S3Error as err:
