@@ -17,7 +17,7 @@ from typing import Optional
 router = APIRouter()
 
 @router.post("/{bucket_name}/upload")
-async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = Query(None), service: MinIOService = Depends()):
+async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", service: MinIOService = Depends()):
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
     if first_four_bytes == b'%PDF':
