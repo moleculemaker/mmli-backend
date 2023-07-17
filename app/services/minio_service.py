@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from urllib.parse import urlparse, urlunparse
 
 class MinIOService:
-    minio_api_baseURL = "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
+    minio_api_baseURL = os.environ.get("MINIO_API_BASE_URL")
 
     def __init__(self):
         load_dotenv()

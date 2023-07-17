@@ -50,6 +50,8 @@ spec:
             value: "9000"
           - name: MINIO_SERVER
             value: "$(MINIO_HOST):$(MINIO_PORT)"
+          - name: MINIO_API_BASE_URL
+            value: {{ .Values.minio.apiIngress.hostname }}
 
           # MINIO_ACCESS_KEY=your-access-key
           - name: MINIO_ACCESS_KEY 
@@ -77,6 +79,9 @@ spec:
 
           - name: DATABASE_URL
             value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+
+          - name: CHEMSCRAPER_API_BASE_URL
+            value: {{ .Values.config.chemscraper_url }}
 
           ports:
             - containerPort: 8080

@@ -2,6 +2,10 @@ Application is now running!
 
 Access http{{- if .Values.ingress.tls }}s{{- end }}://{{ .Values.ingress.hostname }} to access FastAPI
 
+{{- if .Values.minio.apiIngress.enabled }}
+Access http{{- if .Values.minio.apiIngress.tls }}s{{- end }}://{{ .Values.minio.apiIngress.hostname }} to access MinIO API
+{{- end }}
+
 {{- if .Values.minio.ingress.enabled }}
 Access http{{- if .Values.minio.ingress.tls }}s{{- end }}://{{ .Values.minio.ingress.hostname }} to access MinIO
 {{- else }}
