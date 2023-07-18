@@ -10,7 +10,6 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
 
-# TODO: parameterize chemscraper URL
 config:
   chemscraper_url: "chemscraper-services.alphasynthesis.svc.cluster.local:8000"
 
