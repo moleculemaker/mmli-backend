@@ -16,15 +16,16 @@ MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
 MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
 
 # For local development with your own running instances (without Docker)
-MINIO_SERVER=localhost:9000
-POSTGRES_SERVER=localhost:5432
+#MINIO_SERVER=localhost:9000
+#POSTGRES_SERVER=localhost:5432
 
 # If your db/minio are running in Docker, then localhost within the container does not resolve to the right service
 # Use "host.docker.internal" as hostname in this case instead
-#MINIO_SERVER=host.docker.internal:9000
-#POSTGRES_SERVER=host.docker.internal:5432
+MINIO_SERVER=host.docker.internal:9000
+POSTGRES_SERVER=host.docker.internal:5432
 
-# If you are using Docker compose for local deployment, then hostname in the connection URL can be left as "postgresql"
+# Alternatively, if you are using Docker compose for local deployment,
+# then hostname in the connection URL can be left as "postgresql" or "minio"
 #POSTGRES_SERVER=postgresql:5432
 #MINIO_SERVER=minio:9000
 
