@@ -156,7 +156,7 @@ async def patch_existing_job(job: JobUpdate, job_type: str, db: AsyncSession = D
 async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_id: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
     result = await db.execute(select(Job).where(Job.type == job_type).where(Job.job_id == job_id).where(Job.run_id == run_id))
-    db_job = result.one()
+    db_job = result.first()
     if not db_job:
         raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job_id} and run_id={run_id}")
 
