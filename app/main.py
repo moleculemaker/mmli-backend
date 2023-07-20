@@ -20,6 +20,7 @@ app.include_router(chemscraper.router)
 
 origins = [
     "http://test.mydomain.com",
+    "http://localhost:4200",
     "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu",
     "https://chemscraper.frontend.mmli1.ncsa.illinois.edu"
     # "http://another.allowed-origin.com", # Add more origins if needed
