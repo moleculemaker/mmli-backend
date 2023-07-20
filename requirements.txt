@@ -1,10 +1,15 @@
 fastapi[all]==0.89.0
 
-dotenv
-minio
-rdkit
-requests
+python-dotenv~=1.0.0
+minio~=7.1.15
+rdkit~=2023.3.2
+requests~=2.31.0
 
 # ORM layer
 sqlmodel==0.0.8
 asyncpg==0.28.0
+alembic==1.11.1
+
+SQLAlchemy~=1.4.49
+pydantic~=1.9.2
+uvicorn~=0.22.0

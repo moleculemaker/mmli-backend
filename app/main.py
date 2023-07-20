@@ -14,11 +14,6 @@ app = FastAPI()
 DEBUG = 't' in str.lower(os.getenv("DEBUG", "true"))
 
 
-@app.on_event("startup")
-async def on_startup():
-    await init_db()
-
-
 app.include_router(files.router)
 app.include_router(job.router)
 app.include_router(chemscraper.router)

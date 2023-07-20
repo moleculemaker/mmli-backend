@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlmodel import SQLModel, Field, Relationship
 
-from models.enums import JobType, JobStatus
+from ..enums import JobType, JobStatus
 
 
 # CREATE TABLE IF NOT EXISTS `job`(
