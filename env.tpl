@@ -2,7 +2,7 @@
 DEBUG="true"
 
 # Set ChemScraper backend API URL
-CHEMSCRAPER_BACKEND_URL=https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
+CHEMSCRAPER_API_BASE_URL=https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
 
 # Set some default values (override below if needed)
 POSTGRES_USER=postgres
