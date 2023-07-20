@@ -7,7 +7,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.enums import JobType, JobStatus
-from models.sqlmodel.db import get_session
+from models.sqlmodel.db import get_session, DATABASE_URL
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 router = APIRouter()
@@ -73,6 +73,7 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
     await db.refresh(db_job)
 
     return db_job
+
 
 @router.get("/{job_type}/jobs", tags=['Jobs'], description="Get a list of all job runs by type")
 async def list_jobs_by_type(job_type: str, db: AsyncSession = Depends(get_session)):

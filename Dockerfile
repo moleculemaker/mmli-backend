@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 # Copy in the source code
 COPY ./app /code/app
+COPY ./migrations /code/migrations
 
 # Set URLS to postgresql / minio (these can be overridden at runtime)
 ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mmli
