@@ -72,6 +72,8 @@ class JobUpdate(SQLModel):
     run_id: str
 
     # Updatable properties
+    time_start: Optional[int] = None
+    time_end: Optional[int] = None
     job_info: Optional[str] = None
     email: Optional[str] = None
     image: Optional[str] = None

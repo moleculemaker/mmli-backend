@@ -15,8 +15,8 @@ DEBUG = 't' in str.lower(os.getenv("DEBUG", "true"))
 
 
 @app.on_event("startup")
-def on_startup():
-    init_db()
+async def on_startup():
+    await init_db()
 
 
 app.include_router(files.router)
