@@ -1,18 +1,19 @@
-import csv
 import uuid
+import io
 from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from services.minio_service import MinIOService
-from services.rdkit_service import RDKitService
-from services.pubchem_service import PubChemService
+
 from services.chemscraper_service import ChemScraperService
 
 from models.molecule import Molecule
 from models.analyzeRequestBody import AnalyzeRequestBody
 from typing import Optional
+
+import pandas as pd
 
 router = APIRouter()
 
@@ -44,7 +45,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
 
 @router.get("/{bucket_name}/result-status/{job_id}")
 def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    result_status = service.check_file_exists(bucket_name, "results/" + job_id + ".tsv")
+    result_status = service.check_file_exists(bucket_name, "results/" + job_id + '/' + job_id + ".csv")
     error_status = service.check_file_exists(bucket_name, "errors/" + job_id + ".txt")
     if result_status:
         # JSONResponse(content={"Result": "Ready"}, status_code=status.HTTP_200_OK)
@@ -58,69 +59,37 @@ def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Dep
 
 @router.get("/{bucket_name}/results/{job_id}",response_model=List[Molecule])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    tsv_content = service.get_file(bucket_name, "results/" + job_id + ".tsv")
-    if tsv_content is None:
+    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+    if csv_content is None:
         raise HTTPException(status_code=404, detail="File not found") 
-    
-    reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
-
-    doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
-    name = molecularFormula = molecularWeight = None
     molecules = []
-    id = 0
-    otherInstancesDict = {}
-    for row in reader:
-        if not row:
-            continue
-        if row[0] == "D":
-            doc_no, file_path = row[1], row[2]
-
-        if row[0] == "P":
-            page_no = row[1]
-
-        if row[0] == "SMI":
-            SMILE = row[2]
-            minX, minY, maxX, maxY = map(int, row[3:7])
-            if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
-                SVG = RDKitService.renderSVGFromSMILE(SMILE)
-                PubChemCID, name, molecularFormula, molecularWeight =  PubChemService.queryMoleculeProperties(SMILE)
-                location = " | page: " + page_no
-                if PubChemCID != 'Unavailable' and PubChemCID != '0':
-                    chemicalSafety, Description = PubChemService.getAdditionalProperties(PubChemCID)
-                else:
-                    chemicalSafety, Description = [], 'Unavailable'
-                if SMILE in otherInstancesDict:
-                    otherInstancesDict[SMILE].append(page_no)
-                else:
-                    otherInstancesDict[SMILE] = [page_no]
-                molecules.append(
-                    Molecule(
-                        id=id,
-                        doc_no=doc_no,
-                        file_path=file_path,
-                        page_no=page_no,
-                        name = name,
-                        SMILE=SMILE, 
-                        structure=SVG, 
-                        minX=minX, 
-                        minY=minY, 
-                        width=maxX-minX, 
-                        height=maxY-minY,
-                        PubChemCID = PubChemCID,
-                        molecularFormula = molecularFormula,
-                        molecularWeight = molecularWeight,
-                        chemicalSafety = chemicalSafety,
-                        Description = Description,
-                        Location = location,
-                        OtherInstances = []
-                    )
-                )
-                id += 1
-    for molecule in molecules:
-        pages = otherInstancesDict.get(molecule.SMILE, [])
-        # pages = ', '.join(pages)
-        # otherInstances = " | page(s): " + pages
-        molecule.OtherInstances = pages
+    df = pd.read_csv(io.BytesIO(csv_content))
+    
+    for index, row in df.iterrows():
+        # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
+        chemicalSafety = str(row['chemicalSafety']).split(', ')
+        OtherInstances = str(row['OtherInstances']).split(', ')
+        
+        # Create a Molecule object and append it to the list
+        molecule = Molecule(id=row['id'],
+                            doc_no=row['doc_no'],
+                            file_path=row['file_path'],
+                            page_no=row['page_no'],
+                            name=row['name'],
+                            SMILE=row['SMILE'],
+                            structure=row['structure'],
+                            minX=row['minX'],
+                            minY=row['minY'],
+                            width=row['width'],
+                            height=row['height'],
+                            PubChemCID=row['PubChemCID'],
+                            molecularFormula=row['molecularFormula'],
+                            molecularWeight=row['molecularWeight'],
+                            chemicalSafety=chemicalSafety,
+                            Description=row['Description'],
+                            Location=row['Location'],
+                            OtherInstances=OtherInstances)
+        molecules.append(molecule)
     return molecules
 
 @router.get("/{bucket_name}/inputs/{job_id}")
