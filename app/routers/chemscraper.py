@@ -3,7 +3,8 @@ import io
 from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+import zipfile
 
 from services.minio_service import MinIOService
 
@@ -11,6 +12,7 @@ from services.chemscraper_service import ChemScraperService
 
 from models.molecule import Molecule
 from models.analyzeRequestBody import AnalyzeRequestBody
+from models.exportRequestBody import ExportRequestBody
 from typing import Optional
 
 import pandas as pd
@@ -39,7 +41,6 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         chemscraperService = ChemScraperService()
         objectPath = f"inputs/{requestBody.jobId}/{filename}"
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service)
-        # chemscraperService.runChemscraperOnDocument('chemscraper', filename, objectPath, requestBody.jobId, service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
 
@@ -105,3 +106,26 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
     if error_content is None:
         raise HTTPException(status_code=404, detail="File not found") 
     return error_content
+
+@router.post("/{bucket_name}/export-results")
+async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
+    # Analyze only one document for NSF demo
+    if requestBody.jobId == "":
+        raise HTTPException(status_code=404, detail="Invalid Job ID")
+    if requestBody.jobId != "":
+        if requestBody.recordFilter == "ALL":
+            objectPathPrefix = "results/" + requestBody.jobId + "/"
+            files_count = 0
+            with zipfile.ZipFile("files.zip", "w") as new_zip:
+                if("ALL" in requestBody.formats or "CSV" in requestBody.formats):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
+                    files_count += 1
+                if("ALL" in requestBody.formats or "CDXML" in requestBody.formats):
+                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+                if(files_count > 0):
+                    return FileResponse('files.zip', media_type='application/zip', filename='files.zip')
+                else:
+                    return "No files requested"
