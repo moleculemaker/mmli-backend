@@ -1,3 +1,4 @@
+import csv
 import uuid
 import io
 from typing import List
@@ -113,19 +114,37 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
     if requestBody.jobId == "":
         raise HTTPException(status_code=404, detail="Invalid Job ID")
     if requestBody.jobId != "":
-        if requestBody.recordFilter == "ALL":
-            objectPathPrefix = "results/" + requestBody.jobId + "/"
-            files_count = 0
-            with zipfile.ZipFile("files.zip", "w") as new_zip:
-                if("ALL" in requestBody.formats or "CSV" in requestBody.formats):
-                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
-                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
-                    files_count += 1
-                if("ALL" in requestBody.formats or "CDXML" in requestBody.formats):
+        objectPathPrefix = "results/" + requestBody.jobId + "/"
+        files_count = 0
+        with zipfile.ZipFile("files.zip", "w") as new_zip:
+            if(requestBody.cdxml):
+                if(requestBody.cdxml_filter == "all_molecules"):
                     cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
-                if(files_count > 0):
-                    return FileResponse('files.zip', media_type='application/zip', filename='files.zip')
-                else:
-                    return "No files requested"
+                elif(requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0):
+                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_all_pages/Page_"+ str(requestBody.cdxml_selected_pages[0]) +"_all.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+            if(requestBody.csv):
+                if(requestBody.csv_filter == "full_table"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
+                    files_count += 1
+                elif(requestBody.csv_filter == "current_view"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    csvfile = io.StringIO(csv_file_data.decode('utf-8'))
+                    reader = csv.DictReader(csvfile)
+                    rows = [row for row in reader]
+                    reordered_rows = [rows[i] for i in requestBody.csv_molecules]
+                    output_csv = io.StringIO()
+                    writer = csv.DictWriter(output_csv, fieldnames=reordered_rows[0].keys())
+                    writer.writeheader()
+                    writer.writerows(reordered_rows)
+                    new_zip.writestr(requestBody.jobId + ".csv", output_csv.getvalue())
+                    files_count += 1
+                            
+        if(files_count > 0):
+            return FileResponse('files.zip', media_type='application/zip', filename='files.zip')
+        else:
+            return "No files requested"
