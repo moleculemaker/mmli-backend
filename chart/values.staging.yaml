@@ -8,7 +8,7 @@ ingress:
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
 
 config:
-  chemscraper_url: "http://chemscraper.staging.svc.cluster.local:8000"
+  chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
 
 postgresql:
   enabled: true
