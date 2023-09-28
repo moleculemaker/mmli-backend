@@ -32,9 +32,9 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.get("/{bucket_name}/result-status/{job_id}", tags=['Files'])
+@router.get("/{bucket_name}/result-status/{job_id}")
 def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    result_status = service.check_file_exists(bucket_name, "results/" + job_id + ".tsv")
+    result_status = service.check_file_exists(bucket_name, "results/" + job_id + '/' + job_id + ".csv")
     error_status = service.check_file_exists(bucket_name, "errors/" + job_id + ".txt")
     if result_status:
         # JSONResponse(content={"Result": "Ready"}, status_code=status.HTTP_200_OK)
@@ -47,75 +47,43 @@ def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Dep
         return "Processing"
 
 
-@router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
+@router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    tsv_content = service.get_file(bucket_name, "results/" + job_id + ".tsv")
-    if tsv_content is None:
+    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+    if csv_content is None:
         raise HTTPException(status_code=404, detail="File not found")
-
-    reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
-
-    doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
-    name = molecularFormula = molecularWeight = None
     molecules = []
-    id = 0
-    otherInstancesDict = {}
-    for row in reader:
-        if not row:
-            continue
-        if row[0] == "D":
-            doc_no, file_path = row[1], row[2]
+    df = pd.read_csv(io.BytesIO(csv_content))
 
-        if row[0] == "P":
-            page_no = row[1]
+    for index, row in df.iterrows():
+        # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
+        chemicalSafety = str(row['chemicalSafety']).split(', ')
+        OtherInstances = str(row['OtherInstances']).split(', ')
 
-        if row[0] == "SMI":
-            SMILE = row[2]
-            minX, minY, maxX, maxY = map(int, row[3:7])
-            if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
-                SVG = RDKitService.renderSVGFromSMILE(SMILE)
-                PubChemCID, name, molecularFormula, molecularWeight = PubChemService.queryMoleculeProperties(SMILE)
-                location = " | page: " + page_no
-                if PubChemCID != 'Unavailable' and PubChemCID != '0':
-                    chemicalSafety, Description = PubChemService.getAdditionalProperties(PubChemCID)
-                else:
-                    chemicalSafety, Description = [], 'Unavailable'
-                if SMILE in otherInstancesDict:
-                    otherInstancesDict[SMILE].append(page_no)
-                else:
-                    otherInstancesDict[SMILE] = [page_no]
-                molecules.append(
-                    Molecule(
-                        id=id,
-                        doc_no=doc_no,
-                        file_path=file_path,
-                        page_no=page_no,
-                        name=name,
-                        SMILE=SMILE,
-                        structure=SVG,
-                        minX=minX,
-                        minY=minY,
-                        width=maxX - minX,
-                        height=maxY - minY,
-                        PubChemCID=PubChemCID,
-                        molecularFormula=molecularFormula,
-                        molecularWeight=molecularWeight,
-                        chemicalSafety=chemicalSafety,
-                        Description=Description,
-                        Location=location,
-                        OtherInstances=[]
-                    )
-                )
-                id += 1
-    for molecule in molecules:
-        pages = otherInstancesDict.get(molecule.SMILE, [])
-        # pages = ', '.join(pages)
-        # otherInstances = " | page(s): " + pages
-        molecule.OtherInstances = pages
+        # Create a Molecule object and append it to the list
+        molecule = Molecule(id=row['id'],
+                            doc_no=row['doc_no'],
+                            file_path=row['file_path'],
+                            page_no=row['page_no'],
+                            name=row['name'],
+                            SMILE=row['SMILE'],
+                            structure=row['structure'],
+                            minX=row['minX'],
+                            minY=row['minY'],
+                            width=row['width'],
+                            height=row['height'],
+                            PubChemCID=row['PubChemCID'],
+                            molecularFormula=row['molecularFormula'],
+                            molecularWeight=row['molecularWeight'],
+                            chemicalSafety=chemicalSafety,
+                            Description=row['Description'],
+                            Location=row['Location'],
+                            OtherInstances=OtherInstances)
+        molecules.append(molecule)
     return molecules
 
 
-@router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
+@router.get("/{bucket_name}/inputs/{job_id}")
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     pdf_urls = service.get_file_urls(bucket_name, "inputs/" + job_id + "/")
     if pdf_urls is None:
@@ -123,9 +91,55 @@ def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depend
     return pdf_urls
 
 
-@router.get("/{bucket_name}/errors/{job_id}", tags=['Files'])
+@router.get("/{bucket_name}/errors/{job_id}")
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     error_content = service.get_file(bucket_name, "errors/" + job_id + ".txt")
     if error_content is None:
         raise HTTPException(status_code=404, detail="File not found")
     return error_content
+
+
+@router.post("/{bucket_name}/export-results")
+async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
+    # Analyze only one document for NSF demo
+    if requestBody.jobId == "":
+        raise HTTPException(status_code=404, detail="Invalid Job ID")
+    if requestBody.jobId != "":
+        objectPathPrefix = "results/" + requestBody.jobId + "/"
+        files_count = 0
+        filename = f'chemscraper_{requestBody.jobId}.zip'
+        with zipfile.ZipFile(filename, "w") as new_zip:
+            if (requestBody.cdxml):
+                if (requestBody.cdxml_filter == "all_molecules"):
+                    cdxml_file_data = service.get_file(bucket_name,
+                                                       objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+                elif (requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0):
+                    cdxml_file_data = service.get_file(bucket_name,
+                                                       objectPathPrefix + "molecules_all_pages/Page_" + str(
+                                                           requestBody.cdxml_selected_pages[0]) + "_all.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+            if (requestBody.csv):
+                if (requestBody.csv_filter == "full_table"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
+                    files_count += 1
+                elif (requestBody.csv_filter == "current_view"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    csvfile = io.StringIO(csv_file_data.decode('utf-8'))
+                    reader = csv.DictReader(csvfile)
+                    rows = [row for row in reader]
+                    reordered_rows = [rows[i] for i in requestBody.csv_molecules]
+                    output_csv = io.StringIO()
+                    writer = csv.DictWriter(output_csv, fieldnames=reordered_rows[0].keys())
+                    writer.writeheader()
+                    writer.writerows(reordered_rows)
+                    new_zip.writestr(requestBody.jobId + ".csv", output_csv.getvalue())
+                    files_count += 1
+
+        if (files_count > 0):
+            return FileResponse(filename, media_type='application/zip', filename=filename)
+        else:
+            raise HTTPException(status_code=400, detail="Bad Request")

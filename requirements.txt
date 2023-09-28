@@ -1,6 +1,7 @@
 fastapi[all]==0.89.0
-uvicorn==0.22.0
 
+uvicorn==0.22.0
+pandas==2.0.3
 python-dotenv~=1.0.0
 minio~=7.1.15
 rdkit~=2023.3.2
