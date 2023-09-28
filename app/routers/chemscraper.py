@@ -145,6 +145,6 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
                     files_count += 1
                             
         if(files_count > 0):
-            return FileResponse('files.zip', media_type='application/zip', filename='files.zip')
+            return FileResponse(filename, media_type='application/zip', filename=filename)
         else:
             raise HTTPException(status_code=400, detail="Bad Request")
