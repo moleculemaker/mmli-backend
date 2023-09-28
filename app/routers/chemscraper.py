@@ -116,7 +116,8 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
     if requestBody.jobId != "":
         objectPathPrefix = "results/" + requestBody.jobId + "/"
         files_count = 0
-        with zipfile.ZipFile("files.zip", "w") as new_zip:
+        filename = f'chemscraper_{requestBody.jobId}.zip'
+        with zipfile.ZipFile(filename, "w") as new_zip:
             if(requestBody.cdxml):
                 if(requestBody.cdxml_filter == "all_molecules"):
                     cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
