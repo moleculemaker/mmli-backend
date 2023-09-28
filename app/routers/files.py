@@ -5,6 +5,8 @@ import uuid
 import zipfile
 from typing import List
 from datetime import datetime
+
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from starlette.responses import FileResponse
