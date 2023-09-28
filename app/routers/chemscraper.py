@@ -1,9 +1,11 @@
+import csv
 import uuid
 import io
 from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+import zipfile
 
 from services.minio_service import MinIOService
 
@@ -11,6 +13,7 @@ from services.chemscraper_service import ChemScraperService
 
 from models.molecule import Molecule
 from models.analyzeRequestBody import AnalyzeRequestBody
+from models.exportRequestBody import ExportRequestBody
 from typing import Optional
 
 import pandas as pd
@@ -39,7 +42,6 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         chemscraperService = ChemScraperService()
         objectPath = f"inputs/{requestBody.jobId}/{filename}"
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service)
-        # chemscraperService.runChemscraperOnDocument('chemscraper', filename, objectPath, requestBody.jobId, service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
 
@@ -105,3 +107,45 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
     if error_content is None:
         raise HTTPException(status_code=404, detail="File not found") 
     return error_content
+
+@router.post("/{bucket_name}/export-results")
+async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
+    # Analyze only one document for NSF demo
+    if requestBody.jobId == "":
+        raise HTTPException(status_code=404, detail="Invalid Job ID")
+    if requestBody.jobId != "":
+        objectPathPrefix = "results/" + requestBody.jobId + "/"
+        files_count = 0
+        filename = f'chemscraper_{requestBody.jobId}.zip'
+        with zipfile.ZipFile(filename, "w") as new_zip:
+            if(requestBody.cdxml):
+                if(requestBody.cdxml_filter == "all_molecules"):
+                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+                elif(requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0):
+                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_all_pages/Page_"+ str(requestBody.cdxml_selected_pages[0]) +"_all.cdxml")
+                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    files_count += 1
+            if(requestBody.csv):
+                if(requestBody.csv_filter == "full_table"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
+                    files_count += 1
+                elif(requestBody.csv_filter == "current_view"):
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    csvfile = io.StringIO(csv_file_data.decode('utf-8'))
+                    reader = csv.DictReader(csvfile)
+                    rows = [row for row in reader]
+                    reordered_rows = [rows[i] for i in requestBody.csv_molecules]
+                    output_csv = io.StringIO()
+                    writer = csv.DictWriter(output_csv, fieldnames=reordered_rows[0].keys())
+                    writer.writeheader()
+                    writer.writerows(reordered_rows)
+                    new_zip.writestr(requestBody.jobId + ".csv", output_csv.getvalue())
+                    files_count += 1
+                            
+        if(files_count > 0):
+            return FileResponse(filename, media_type='application/zip', filename=filename)
+        else:
+            raise HTTPException(status_code=400, detail="Bad Request")

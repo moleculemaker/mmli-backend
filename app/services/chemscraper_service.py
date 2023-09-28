@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import HTTPException
 import requests
 import io
@@ -107,11 +108,17 @@ class ChemScraperService:
             zip_file = zipfile.ZipFile(io.BytesIO(response.content))
             file_list = zip_file.namelist()
             tsv_file_name = next((file for file in file_list if file.endswith('.tsv')), None)
+
+            for filename in file_list:
+                file_info = zip_file.getinfo(filename)
+                if file_info.is_dir():
+                    continue
+                if not filename.endswith('.tsv'):
+                    file_data = zip_file.read(filename)
+                    upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + filename, file_data)
+
             if tsv_file_name is not None:
                 with zip_file.open(tsv_file_name) as tsv_file:
-                    # df = pd.read_csv(tsv_file, sep='\t')
-                    # tsv_buffer = StringIO()
-                    # df.to_csv(tsv_buffer, sep='\t')
                     tsv_data = tsv_file.read()
                     upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + jobId + ".tsv", tsv_data)
                     if upload_result:
