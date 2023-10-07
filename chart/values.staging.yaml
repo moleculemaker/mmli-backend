@@ -1,6 +1,3 @@
-controller:
-  image: moleculemaker/mmli-backend:pr-3
-
 ingress:
   hostname: mmli.fastapi.staging.mmli1.ncsa.illinois.edu
   tls: true
@@ -10,9 +7,8 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
 
-# TODO: parameterize chemscraper URL
 config:
-  chemscraper_url: "chemscraper.staging.svc.cluster.local:8000"
+  chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
 
 postgresql:
   enabled: true
