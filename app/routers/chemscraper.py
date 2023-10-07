@@ -63,7 +63,8 @@ def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Dep
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
     if csv_content is None:
-        raise HTTPException(status_code=404, detail="File not found") 
+        filename = "results/" + job_id + "/" + job_id + ".csv"
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
     molecules = []
     df = pd.read_csv(io.BytesIO(csv_content))
     
@@ -98,14 +99,16 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     pdf_urls = service.get_file_urls(bucket_name, "inputs/" + job_id + "/")
     if pdf_urls is None:
-        raise HTTPException(status_code=404, detail="File not found") 
+        filename = "inputs/" + job_id + "/"
+        raise HTTPException(status_code=404, detail=f"Files {filename} not found")
     return pdf_urls
 
 @router.get("/{bucket_name}/errors/{job_id}")
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     error_content = service.get_file(bucket_name, "errors/" + job_id + ".txt")
     if error_content is None:
-        raise HTTPException(status_code=404, detail="File not found") 
+        filename = "errors/" + job_id + ".txt"
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
 
 @router.post("/{bucket_name}/export-results")
@@ -120,19 +123,31 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
             if(requestBody.cdxml):
                 if(requestBody.cdxml_filter == "all_molecules"):
                     cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
                 elif(requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0):
-                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_all_pages/Page_"+ str(requestBody.cdxml_selected_pages[0]) +"_all.cdxml")
-                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                    cdxml_file_data = service.get_file(bucket_name, objectPathPrefix + "molecules_all_pages/Page_"+ str(requestBody.cdxml_selected_pages[0]) +"_full.cdxml")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + "molecules_all_pages/Page_"+ str(requestBody.cdxml_selected_pages[0]) +"_full.cdxml"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
+                    new_zip.writestr(requestBody.jobId + "_Page_" + str(requestBody.cdxml_selected_pages[0]) + ".cdxml", cdxml_file_data)
                     files_count += 1
             if(requestBody.csv):
                 if(requestBody.csv_filter == "full_table"):
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
                     files_count += 1
                 elif(requestBody.csv_filter == "current_view"):
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     csvfile = io.StringIO(csv_file_data.decode('utf-8'))
                     reader = csv.DictReader(csvfile)
                     rows = [row for row in reader]
