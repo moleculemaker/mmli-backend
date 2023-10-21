@@ -9,8 +9,9 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 # Copy in the source code
 COPY ./app /code/app
 
-# Set URLS to postgresql / minio (these can be overridden at runtime)
-ENV DATABASE_URL=postgresql://postgres:postgres@localhost:5432/mmli
+# Copy in versions of the database schema
+COPY ./migrations /code/migrations
+COPY ./alembic.ini /code/alembic.ini
 
 # Override default command in the container
 WORKDIR /code/app

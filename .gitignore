@@ -162,3 +162,5 @@ cython_debug/
 # Helm chart metadata / secrets
 chart/charts/
 *secret*.yaml
+
+*/sql_app.db
