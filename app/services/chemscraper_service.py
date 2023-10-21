@@ -42,7 +42,11 @@ class ChemScraperService:
                 SMILE = row[2]
                 minX, minY, maxX, maxY = map(int, row[3:7])
                 if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
-                    SVG = RDKitService.renderSVGFromSMILE(SMILE)
+                    svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
+                    SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
+                    if SVG is None:
+                        print("SVG not found, generating using rdkit")
+                        SVG = RDKitService.renderSVGFromSMILE(SMILE)
                     PubChemCID, name, molecularFormula, molecularWeight =  PubChemService.queryMoleculeProperties(SMILE)
                     location = " | page: " + page_no
                     if PubChemCID != 'Unavailable' and PubChemCID != '0':
@@ -102,7 +106,8 @@ class ChemScraperService:
             raise HTTPException(status_code=404, detail="File not found")
         
         data_bytes = io.BytesIO(data)
-        response = requests.post(self.chemscraper_api_baseURL + '/extractPdf', files={'pdf': (filename, data_bytes)})
+        params = {"generate_svg": True}
+        response = requests.post(self.chemscraper_api_baseURL + '/extractPdf', files={'pdf': (filename, data_bytes)}, params=params)
 
         if response.status_code == 200:
             zip_file = zipfile.ZipFile(io.BytesIO(response.content))

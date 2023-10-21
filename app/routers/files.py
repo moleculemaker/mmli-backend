@@ -38,7 +38,7 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.get("/{bucket_name}/result-status/{job_id}")
+@router.get("/{bucket_name}/result-status/{job_id}", tags=['Files'])
 def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     result_status = service.check_file_exists(bucket_name, "results/" + job_id + '/' + job_id + ".csv")
     error_status = service.check_file_exists(bucket_name, "errors/" + job_id + ".txt")
@@ -53,11 +53,12 @@ def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Dep
         return "Processing"
 
 
-@router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule])
+@router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
     if csv_content is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        filename = "results/" + job_id + "/" + job_id + ".csv"
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
     molecules = []
     df = pd.read_csv(io.BytesIO(csv_content))
 
@@ -89,23 +90,25 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
     return molecules
 
 
-@router.get("/{bucket_name}/inputs/{job_id}")
+@router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     pdf_urls = service.get_file_urls(bucket_name, "inputs/" + job_id + "/")
     if pdf_urls is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        filename = "inputs/" + job_id + "/"
+        raise HTTPException(status_code=404, detail=f"Files {filename} not found")
     return pdf_urls
 
 
-@router.get("/{bucket_name}/errors/{job_id}")
+@router.get("/{bucket_name}/errors/{job_id}", tags=['Files'])
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     error_content = service.get_file(bucket_name, "errors/" + job_id + ".txt")
     if error_content is None:
-        raise HTTPException(status_code=404, detail="File not found")
+        filename = "errors/" + job_id + ".txt"
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
 
 
-@router.post("/{bucket_name}/export-results")
+@router.post("/{bucket_name}/export-results", tags=['Files'])
 async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if requestBody.jobId == "":
@@ -115,25 +118,39 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
         files_count = 0
         filename = f'chemscraper_{requestBody.jobId}.zip'
         with zipfile.ZipFile(filename, "w") as new_zip:
-            if (requestBody.cdxml):
-                if (requestBody.cdxml_filter == "all_molecules"):
-                    cdxml_file_data = service.get_file(bucket_name,
-                                                       objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml")
+            if requestBody.cdxml:
+                if requestBody.cdxml_filter == "all_molecules":
+                    object_path = objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml"
+                    cdxml_file_data = service.get_file(bucket_name, object_path)
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
-                elif (requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0):
+                elif requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0:
                     cdxml_file_data = service.get_file(bucket_name,
                                                        objectPathPrefix + "molecules_all_pages/Page_" + str(
-                                                           requestBody.cdxml_selected_pages[0]) + "_all.cdxml")
-                    new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
+                                                           requestBody.cdxml_selected_pages[0]) + "_full.cdxml")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + "molecules_all_pages/Page_" + str(
+                            requestBody.cdxml_selected_pages[0]) + "_full.cdxml"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
+                    new_zip.writestr(requestBody.jobId + "_Page_" + str(requestBody.cdxml_selected_pages[0]) + ".cdxml",
+                                     cdxml_file_data)
                     files_count += 1
-            if (requestBody.csv):
-                if (requestBody.csv_filter == "full_table"):
+            if requestBody.csv:
+                if requestBody.csv_filter == "full_table":
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
                     files_count += 1
-                elif (requestBody.csv_filter == "current_view"):
+                elif requestBody.csv_filter == "current_view":
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    if cdxml_file_data is None:
+                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     csvfile = io.StringIO(csv_file_data.decode('utf-8'))
                     reader = csv.DictReader(csvfile)
                     rows = [row for row in reader]
@@ -145,7 +162,7 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
                     new_zip.writestr(requestBody.jobId + ".csv", output_csv.getvalue())
                     files_count += 1
 
-        if (files_count > 0):
+        if files_count > 0:
             return FileResponse(filename, media_type='application/zip', filename=filename)
         else:
             raise HTTPException(status_code=400, detail="Bad Request")
