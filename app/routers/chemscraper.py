@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, FileResponse
 import zipfile
 
 from services.minio_service import MinIOService
-
+from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
 
 from models.molecule import Molecule
@@ -91,7 +91,8 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
                             chemicalSafety=chemicalSafety,
                             Description=row['Description'],
                             Location=row['Location'],
-                            OtherInstances=OtherInstances)
+                            OtherInstances=OtherInstances,
+                            fingerprint=row['fingerprint'])
         molecules.append(molecule)
     return molecules
 
@@ -164,3 +165,29 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
             return FileResponse(filename, media_type='application/zip', filename=filename)
         else:
             raise HTTPException(status_code=400, detail="Bad Request")
+
+@router.get("/{bucket_name}/similarity-sorted-order/{job_id}")
+def get_similarity_sorted_order(bucket_name: str, job_id: str, smile_string: str, service: MinIOService = Depends()):
+    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+    if csv_content is None:
+        filename = "results/" + job_id + "/" + job_id + ".csv"
+        raise HTTPException(status_code=404, detail=f"File {filename} not found")
+    df = pd.read_csv(io.BytesIO(csv_content))
+    # Check if sort_column exists in DataFrame
+    sort_column = "fingerprint"
+    if sort_column not in df.columns:
+        raise HTTPException(status_code=400, detail=f"Column {sort_column} not found in CSV file")
+    rdkitService = RDKitService()
+    input_fingerprint =  rdkitService.getFingerprint(smile_string)
+    # Calculate Tanimoto similarity for each molecule in the DataFrame
+    similarity_scores = []
+    for index, row in df.iterrows():
+        fingerprint = row['fingerprint']
+        similarity = rdkitService.getTanimotoSimilarity(input_fingerprint, fingerprint)
+        similarity_scores.append(similarity)
+    # Add similarity scores as a new column in the DataFrame
+    df['similarity'] = similarity_scores
+    # Sort DataFrame by sort_column and similarity
+    df_sorted = df.sort_values(by='similarity', ascending=False)
+    # Return the IDs from each row as a list
+    return df_sorted['id'].tolist()

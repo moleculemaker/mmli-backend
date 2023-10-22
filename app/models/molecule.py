@@ -20,4 +20,5 @@ class Molecule(BaseModel):
     Description: str
     Location: str
     OtherInstances: List[str]
+    fingerprint: str
 

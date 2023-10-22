@@ -57,6 +57,7 @@ class ChemScraperService:
                         otherInstancesDict[SMILE].append(page_no)
                     else:
                         otherInstancesDict[SMILE] = [page_no]
+                    fingerprint = RDKitService.getFingerprint(SMILE)
                     molecules.append(
                         Molecule(
                             id=id,
@@ -76,7 +77,8 @@ class ChemScraperService:
                             chemicalSafety = chemicalSafety,
                             Description = Description,
                             Location = location,
-                            OtherInstances = []
+                            OtherInstances = [],
+                            fingerprint = fingerprint
                         )
                     )
                     id += 1
