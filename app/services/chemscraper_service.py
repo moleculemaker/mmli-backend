@@ -5,8 +5,11 @@ import io
 import os
 import csv
 import zipfile
+import time
 import pandas as pd
 from io import StringIO
+from models.sqlmodel.models import Job
+from models.enums import JobStatus
 
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
@@ -18,10 +21,10 @@ from fastapi.responses import JSONResponse
 class ChemScraperService:
     chemscraper_api_baseURL = os.environ.get("CHEMSCRAPER_API_BASE_URL")
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, db) -> None:
+        self.db = db
 
-    def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
+    async def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
         reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
 
         doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
@@ -47,16 +50,11 @@ class ChemScraperService:
                     if SVG is None:
                         print("SVG not found, generating using rdkit")
                         SVG = RDKitService.renderSVGFromSMILE(SMILE)
-                    PubChemCID, name, molecularFormula, molecularWeight =  PubChemService.queryMoleculeProperties(SMILE)
+
                     location = " | page: " + page_no
-                    if PubChemCID != 'Unavailable' and PubChemCID != '0':
-                        chemicalSafety, Description = PubChemService.getAdditionalProperties(PubChemCID)
-                    else:
-                        chemicalSafety, Description = [], 'Unavailable'
-                    if SMILE in otherInstancesDict:
-                        otherInstancesDict[SMILE].append(page_no)
-                    else:
-                        otherInstancesDict[SMILE] = [page_no]
+                    pubChemService = PubChemService(self.db)
+                    PubChemCID, name, molecularFormula, molecularWeight, chemicalSafety, Description =  await pubChemService.queryMoleculeProperties(SMILE)
+                    
                     molecules.append(
                         Molecule(
                             id=id,
@@ -100,9 +98,25 @@ class ChemScraperService:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
 
-    def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
+    async def update_job_phase(self, jobObject, phase: JobStatus):
+        jobObject.phase = phase
+        if phase == JobStatus.PROCESSING:
+            jobObject.time_start = int(time.time())
+        else:
+            jobObject.time_end = int(time.time())
+        self.db.add(jobObject)
+        await self.db.commit()
+
+    async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
+        # Get Job Object
+        db_job = await self.db.get(Job, jobId)
+
+        # Update Job Status to Processing
+        await self.update_job_phase(db_job, JobStatus.PROCESSING)
+
         data = service.get_file(bucket_name, objectPath)
         if data is None:
+            await self.update_job_phase(db_job, JobStatus.ERROR)
             raise HTTPException(status_code=404, detail="File not found")
         
         data_bytes = io.BytesIO(data)
@@ -127,9 +141,11 @@ class ChemScraperService:
                     tsv_data = tsv_file.read()
                     upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + jobId + ".tsv", tsv_data)
                     if upload_result:
-                        self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
+                        await self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
+                        await self.update_job_phase(db_job, JobStatus.COMPLETED)
                         return True
         else:
             error_content = response.text.encode()
             upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
+            await self.update_job_phase(db_job, JobStatus.ERROR)
         return False
