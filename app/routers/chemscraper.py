@@ -10,6 +10,7 @@ import zipfile
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
+from services.hCaptcha_service import HCaptchaService
 
 from models.molecule import Molecule
 from models.analyzeRequestBody import AnalyzeRequestBody
@@ -38,12 +39,16 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
-        filename = requestBody.fileList[0]
-        chemscraperService = ChemScraperService()
-        objectPath = f"inputs/{requestBody.jobId}/{filename}"
-        background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service)
-        content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
-        return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
+        hcaptchaService = HCaptchaService()
+        if(hcaptchaService.verify_captcha(requestBody.captcha_token)):
+            filename = requestBody.fileList[0]
+            chemscraperService = ChemScraperService()
+            objectPath = f"inputs/{requestBody.jobId}/{filename}"
+            background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service)
+            content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+            return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+        else:
+            raise HTTPException(status_code=400, detail="Could not verify CAPTCHA")
 
 @router.get("/{bucket_name}/result-status/{job_id}")
 def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):

@@ -10,6 +10,10 @@ ingress:
 config:
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
 
+hcaptcha:
+  auth:
+    existingSecret: "hcaptcha"
+
 postgresql:
   enabled: true
   hostname: mmli-backend-staging-postgresql.staging.svc.cluster.local

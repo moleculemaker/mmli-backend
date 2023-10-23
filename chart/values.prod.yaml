@@ -13,6 +13,10 @@ ingress:
 config:
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
 
+hcaptcha:
+  auth:
+    existingSecret: "hcaptcha"
+
 postgresql:
   enabled: true
   hostname: mmli-backend-postgresql.alphasynthesis.svc.cluster.local

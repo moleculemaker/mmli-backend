@@ -23,7 +23,7 @@ class ChemScraperService:
 
     def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
         reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
-
+        rdkitService = RDKitService()
         doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
         name = molecularFormula = molecularWeight = None
         molecules = []
@@ -46,7 +46,7 @@ class ChemScraperService:
                     SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
                     if SVG is None:
                         print("SVG not found, generating using rdkit")
-                        SVG = RDKitService.renderSVGFromSMILE(SMILE)
+                        SVG = rdkitService.renderSVGFromSMILE(SMILE)
                     PubChemCID, name, molecularFormula, molecularWeight =  PubChemService.queryMoleculeProperties(SMILE)
                     location = " | page: " + page_no
                     if PubChemCID != 'Unavailable' and PubChemCID != '0':
@@ -57,7 +57,7 @@ class ChemScraperService:
                         otherInstancesDict[SMILE].append(page_no)
                     else:
                         otherInstancesDict[SMILE] = [page_no]
-                    fingerprint = RDKitService.getFingerprint(SMILE)
+                    fingerprint = rdkitService.getFingerprint(SMILE)
                     molecules.append(
                         Molecule(
                             id=id,

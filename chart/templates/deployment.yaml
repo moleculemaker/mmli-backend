@@ -75,8 +75,6 @@ spec:
             value: {{ .Values.minio.auth.rootPassword }}
 {{- end }}
 
-
-
           - name: DATABASE_URL
             value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
 
@@ -86,3 +84,9 @@ spec:
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
+
+          - name: HCAPTCHA_SECRET
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.hcaptcha.auth.existingSecret }}
+                key: secret
