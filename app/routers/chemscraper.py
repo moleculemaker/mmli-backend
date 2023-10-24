@@ -81,5 +81,5 @@ async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncS
                 content = {"jobId": requestBody.job_id, "error_message": "Unable to delete flagged molecule. Database Error Occured.", "error_details": str(e)}
                 return JSONResponse(content=content, status_code=400) 
          
-    content = {"success_message": "Molecule Flag Successful"}
+    content = {"success_message": "Flagged Molecule Delete Successful"}
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
