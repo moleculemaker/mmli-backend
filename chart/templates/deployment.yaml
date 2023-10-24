@@ -90,3 +90,10 @@ spec:
               secretKeyRef:
                 name: {{ .Values.hcaptcha.auth.existingSecret }}
                 key: secret
+
+          - name: EMAIL_SERVER
+            value: "smtp.ncsa.uiuc.edu"
+          - name: EMAIL_FROM_EMAIL
+            value: "devnull+ChemScraper@ncsa.illinois.edu"
+          - name: EMAIL_FROM_NAME
+            value: "no-reply-ChemScraper"
