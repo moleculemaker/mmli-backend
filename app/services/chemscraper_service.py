@@ -55,6 +55,11 @@ class ChemScraperService:
                     pubChemService = PubChemService(self.db)
                     PubChemCID, name, molecularFormula, molecularWeight, chemicalSafety, Description =  await pubChemService.queryMoleculeProperties(SMILE)
                     
+                    if SMILE in otherInstancesDict:
+                        otherInstancesDict[SMILE].append(page_no)
+                    else:
+                        otherInstancesDict[SMILE] = [page_no]
+
                     molecules.append(
                         Molecule(
                             id=id,
