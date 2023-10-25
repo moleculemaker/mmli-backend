@@ -12,9 +12,9 @@ class JobType(str, Enum):
 
 class JobStatus(str, Enum):
     QUEUED = 'queued'
-    PENDING = 'pending'
     PROCESSING = 'processing'
-    READY = 'ready'
+    COMPLETED = 'completed'
+    ERROR = 'error'
 
     def __str__(self) -> str:
         return self.value
