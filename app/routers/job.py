@@ -51,18 +51,15 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         email=job.email,
         job_info=job.job_info,
         job_id=str(uuid.uuid4()) if job.job_id is None else job.job_id,
-        run_id=str(uuid.uuid4()) if job.run_id is None else job.run_id,
+        run_id=job.run_id,
 
         type=job_type,
         command=command,
         image=image,
 
         # Job metadata
-        phase=JobStatus.PENDING,
         deleted=0,
         time_created=int(time.time()),
-        time_start=0,
-        time_end=0,
 
         # Set ser metadata
         user_agent=user_agent,
@@ -113,7 +110,7 @@ async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_
 @router.put("/{job_type}/jobs/{job_id}/{run_id}", response_model=Job, tags=['Jobs'], description="Overwrite all writeable fields of an existing Job")
 async def update_existing_job(job: Job, job_type: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
-    db_job = await db.get(Job, job.id)
+    db_job = await db.get(Job, job.job_id)
     if not db_job:
         raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job.job_id} and run_id={job.run_id}")
 
@@ -134,7 +131,7 @@ async def update_existing_job(job: Job, job_type: str, db: AsyncSession = Depend
 @router.patch("/{job_type}/jobs/{job_id}/{run_id}", response_model=Job, tags=['Jobs'], description="Update one or more fields of an existing Job")
 async def patch_existing_job(job: JobUpdate, job_type: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
-    db_job = await db.get(Job, job.id)
+    db_job = await db.get(Job, job.job_id)
     if not db_job:
         raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job.job_id} and run_id={job.run_id}")
 

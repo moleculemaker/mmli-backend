@@ -1,10 +1,50 @@
 import requests
+from sqlmodel.ext.asyncio.session import AsyncSession
+from models.sqlmodel.db import get_session
+from fastapi import Depends
+from sqlmodel import select
+from models.sqlmodel.models import MoleculeCacheEntry
 
 class PubChemService:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, db) -> None:
+        self.separator = "|"
+        self.db = db
 
-    def queryMoleculeProperties(smile):
+    async def check_molecule_cache(self, smile):
+        result = await self.db.execute(select(MoleculeCacheEntry).where(MoleculeCacheEntry.smile == smile))
+        # result = await self.db.get(MoleculeCacheEntry, smile)
+        molecule_entry = result.scalar()
+        if molecule_entry:
+            # Deserialize Chemical Safety
+            chemical_safety = molecule_entry.chemical_safety.split(self.separator)
+            return molecule_entry.pub_chem_id, molecule_entry.name, molecule_entry.molecular_formula, molecule_entry.molecular_weight, chemical_safety, molecule_entry.description
+        else:
+            raise Exception()
+
+    async def save_molecule_to_cache(self, smile, cid, name, molecularFormula, molecularWeight, chemicalSafety, Description):
+            # Serialize chemical safety array
+            chemicalSafety = self.separator.join(chemicalSafety) 
+
+            molecule_entry = MoleculeCacheEntry(
+                smile = smile,
+                pub_chem_id = cid,
+                name = name,
+                molecular_formula = molecularFormula,
+                molecular_weight = molecularWeight,
+                chemical_safety = chemicalSafety,
+                description = Description
+            )
+
+            self.db.add(molecule_entry)
+            await self.db.commit()
+
+    async def queryMoleculeProperties(self, smile):
+        try:
+            return await self.check_molecule_cache(smile=smile)
+        except:
+            # Get from Pub Chem API
+            pass
+
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/{smile}/property/MolecularFormula,MolecularWeight,IUPACName/JSON"
         # url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/IC1=CC=CC=C1/property/MolecularFormula,MolecularWeight,IUPACName/JSON"
 
@@ -14,6 +54,8 @@ class PubChemService:
         molecularFormula = 'Unavailable'
         molecularWeight = 'Unavailable'
         name = 'Unavailable'
+        chemicalSafety = []
+        Description = 'Unavailable'
         if response.status_code == 200:
             data = response.json()
             # Extract properties
@@ -23,11 +65,19 @@ class PubChemService:
                 molecularFormula = properties['MolecularFormula']
                 molecularWeight = properties['MolecularWeight']
                 name = properties['IUPACName']
+                chemicalSafety, Description = await self.getAdditionalProperties(cid)
         else:
             print(f"Request failed with status code {response.status_code}")
-        return cid, name, molecularFormula, molecularWeight
 
-    def getAdditionalProperties(cid):
+        # Save to Cache
+        try: 
+            await self.save_molecule_to_cache(smile, cid, name, molecularFormula, molecularWeight, chemicalSafety, Description)
+        except:
+            print("Unable to save molecule to molecule cache")
+
+        return cid, name, molecularFormula, molecularWeight, chemicalSafety, Description
+
+    async def getAdditionalProperties(self, cid):
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/{cid}/JSON/"
         # url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug_view/data/compound/11587/JSON/"
         response = requests.get(url)
@@ -36,7 +86,6 @@ class PubChemService:
         Description = 'Unavailable'
         if response.status_code == 200:
             data = response.json()
-            # chemicalSafety = 
             try:
                 sections = data.get('Record').get('Section')
 

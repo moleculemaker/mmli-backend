@@ -2,9 +2,9 @@ from enum import Enum
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, Relationship
+from pydantic import BaseModel
 
 from ..enums import JobType, JobStatus
-
 
 # CREATE TABLE IF NOT EXISTS `job`(
 #     `id` int NOT NULL AUTO_INCREMENT,
@@ -32,25 +32,23 @@ class JobBase(SQLModel):
     job_info: Optional[str] = None
     email: Optional[str] = None
 
-    job_id: Optional[str]
-    run_id: Optional[str]
+    job_id: Optional[str] = Field(default=None, nullable=False, primary_key=True)
+    run_id: Optional[int] = 0
 
 
 # What is stored in the database for each Job
 class Job(JobBase, table=True):
-    id: int = Field(default=None, nullable=False, primary_key=True)
-
     # Job metadata
     #queue_position: int = Field(default=0, nullable=False)
-    phase: JobStatus = Field(default=None, nullable=False)
+    phase: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
     type: JobType = Field(default=None, nullable=False)
-    image: str = Field(default=None, nullable=False)
+    image: str = Field(default=None, nullable=True)
     command: Optional[str] = Field(default=None, nullable=True)
 
     # Job timestamps
-    time_created: int = Field(default=0, nullable=False)
-    time_start: int = Field(default=0, nullable=False)
-    time_end: int = Field(default=0, nullable=False)
+    time_created: int = Field(default=None, nullable=False)
+    time_start: Optional[int] = Field(default=0, nullable=False)
+    time_end: Optional[int] = Field(default=0, nullable=False)
     deleted: int = Field(default=0, nullable=False)
 
     # User metadata
@@ -67,9 +65,8 @@ class JobCreate(JobBase):
 # Anything additional that is passed to the API to create a new Job
 class JobUpdate(SQLModel):
     # Immutable metadata
-    id: int
-    job_id: str
-    run_id: str
+    job_id: str 
+    run_id: int
 
     # Updatable properties
     time_start: Optional[int] = None
@@ -79,3 +76,23 @@ class JobUpdate(SQLModel):
     image: Optional[str] = None
     command: Optional[str] = None
     phase: Optional[JobStatus] = None
+
+class MoleculeCacheEntry(SQLModel, table=True):
+    smile: str = Field(default=None, primary_key=True)
+    pub_chem_id: str = "Unavailable"
+    name: str = "Unavailable"
+    molecular_formula: str = "Unavailable"
+    molecular_weight: str = "Unavailable"
+    chemical_safety: str = "Unavailable"
+    description: str = "Unavailable"
+
+class FlaggedMolecule(SQLModel, table=True):
+    smile: str = Field(default=None, primary_key=True, foreign_key="moleculecacheentry.smile")
+    job_id: str = Field(default=None, primary_key=True, foreign_key="job.job_id")
+    # For future: which doc contains the molecule within the job when multiple docs are allowed
+    doc_id: str = Field(default=None)
+    time_created: Optional[int] = Field(default=None, nullable=False)
+
+class FlaggedMoleculeDelete(BaseModel):
+    smile: str 
+    job_id: str
