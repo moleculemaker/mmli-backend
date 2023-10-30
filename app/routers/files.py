@@ -141,14 +141,14 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
             if requestBody.csv:
                 if requestBody.csv_filter == "full_table":
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
-                    if cdxml_file_data is None:
+                    if csv_file_data is None:
                         filename = objectPathPrefix + requestBody.jobId + ".csv"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
                     files_count += 1
                 elif requestBody.csv_filter == "current_view":
                     csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
-                    if cdxml_file_data is None:
+                    if csv_file_data is None:
                         filename = objectPathPrefix + requestBody.jobId + ".csv"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     csvfile = io.StringIO(csv_file_data.decode('utf-8'))
