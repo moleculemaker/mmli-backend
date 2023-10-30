@@ -2,6 +2,7 @@ from enum import Enum
 from typing import Optional
 
 from sqlmodel import SQLModel, Field, Relationship
+from pydantic import BaseModel
 
 from ..enums import JobType, JobStatus
 
@@ -85,4 +86,13 @@ class MoleculeCacheEntry(SQLModel, table=True):
     chemical_safety: str = "Unavailable"
     description: str = "Unavailable"
 
-    
+class FlaggedMolecule(SQLModel, table=True):
+    smile: str = Field(default=None, primary_key=True, foreign_key="moleculecacheentry.smile")
+    job_id: str = Field(default=None, primary_key=True, foreign_key="job.job_id")
+    # For future: which doc contains the molecule within the job when multiple docs are allowed
+    doc_id: str = Field(default=None)
+    time_created: Optional[int] = Field(default=None, nullable=False)
+
+class FlaggedMoleculeDelete(BaseModel):
+    smile: str 
+    job_id: str

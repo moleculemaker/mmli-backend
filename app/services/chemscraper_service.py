@@ -54,6 +54,7 @@ class ChemScraperService:
                     location = " | page: " + page_no
                     pubChemService = PubChemService(self.db)
                     PubChemCID, name, molecularFormula, molecularWeight, chemicalSafety, Description =  await pubChemService.queryMoleculeProperties(SMILE)
+
                     if SMILE in otherInstancesDict:
                         otherInstancesDict[SMILE].append(page_no)
                     else:
