@@ -8,6 +8,7 @@ from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
 from services.hCaptcha_service import HCaptchaService
+from services.email_service import EmailService
 
 from models.analyzeRequestBody import AnalyzeRequestBody
 from models.sqlmodel.models import FlaggedMolecule, FlaggedMoleculeDelete
@@ -16,12 +17,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job
 from models.enums import JobType
+import pandas as pd
+import io
 
 router = APIRouter()
 
 
 @router.post("/chemscraper/analyze", tags=['ChemScraper'])
-async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
+async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
         hcaptchaService = HCaptchaService()
@@ -49,7 +52,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
             filename = requestBody.fileList[0]
             chemscraperService = ChemScraperService(db=db)
             objectPath = f"inputs/{requestBody.jobId}/{filename}"
-            background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service)
+            background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
             content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
             return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
         else:
@@ -114,4 +117,4 @@ async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncS
                 return JSONResponse(content=content, status_code=400) 
          
     content = {"success_message": "Flagged Molecule Delete Successful"}
-    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)

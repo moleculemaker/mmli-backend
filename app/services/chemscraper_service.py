@@ -14,12 +14,14 @@ from models.enums import JobStatus
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
+from services.email_service import EmailService
 from models.molecule import Molecule
 from fastapi import Depends
 from fastapi.responses import JSONResponse
 
 class ChemScraperService:
     chemscraper_api_baseURL = os.environ.get("CHEMSCRAPER_API_BASE_URL")
+    chemscraper_frontend_baseURL = os.environ.get("CHEMSCRAPER_FRONTEND_URL")
 
     def __init__(self, db) -> None:
         self.db = db
@@ -113,9 +115,9 @@ class ChemScraperService:
         self.db.add(jobObject)
         await self.db.commit()
 
-    async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
+    async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
-        db_job = await self.db.get(Job, jobId)
+        db_job : Job = await self.db.get(Job, jobId)
 
         # Update Job Status to Processing
         await self.update_job_phase(db_job, JobStatus.PROCESSING)
@@ -149,9 +151,19 @@ class ChemScraperService:
                     if upload_result:
                         await self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
                         await self.update_job_phase(db_job, JobStatus.COMPLETED)
+                        if(db_job.email):
+                            try:
+                                email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your CLEAN Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
+                            except Exception as e:
+                                print(e)
                         return True
         else:
             error_content = response.text.encode()
             upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
             await self.update_job_phase(db_job, JobStatus.ERROR)
+            if(db_job.email):
+                try:
+                    email_service.send_email(db_job.email, f'''ChemScraper Job ({db_job.job_id}) failed''', f'''An error occurred in computing the result for your ChemScraper job.''')
+                except Exception as e:
+                    print(e)
         return False

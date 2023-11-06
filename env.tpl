@@ -4,12 +4,15 @@ DEBUG="true"
 # Set ChemScraper backend API URL
 CHEMSCRAPER_API_BASE_URL=https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
 
+# Set ChemScraper backend API URL
+CHEMSCRAPER_FRONTEND_URL="http://test.mydomain.com"
+
 # Set HCaptcha secret
 HCAPTCHA_SECRET=${HCAPTCHA_SECRET}
 
 # Email server config
 EMAIL_SERVER=smtp.ncsa.uiuc.edu
-EMAIL_FROM_EMAIL=devnull+ChemScraper@ncsa.illinois.edu
+EMAIL_FROM_EMAIL=devnull+chemscraper@ncsa.illinois.edu
 EMAIL_FROM_NAME=no-reply-ChemScraper
 
 

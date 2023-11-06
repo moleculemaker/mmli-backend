@@ -37,22 +37,6 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-@router.get("/{bucket_name}/result-status/{job_id}", tags=['Files'])
-def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    result_status = service.check_file_exists(bucket_name, "results/" + job_id + '/' + job_id + ".csv")
-    error_status = service.check_file_exists(bucket_name, "errors/" + job_id + ".txt")
-    if result_status:
-        # JSONResponse(content={"Result": "Ready"}, status_code=status.HTTP_200_OK)
-        return "Ready"
-    elif error_status:
-        # JSONResponse(content={"Result": "Error"}, status_code=status.HTTP_200_OK)
-        return "Error"
-    else:
-        # JSONResponse(content={"Result": "Processing"}, status_code=status.HTTP_200_OK)
-        return "Processing"
-
-
 @router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
