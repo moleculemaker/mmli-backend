@@ -1,5 +1,6 @@
 
 from datetime import datetime
+import os
 from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import time
@@ -21,14 +22,15 @@ import pandas as pd
 import io
 
 router = APIRouter()
-
+enableHCaptcha = os.environ.get("ENABLE_HCAPTCHA")
 
 @router.post("/chemscraper/analyze", tags=['ChemScraper'])
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
         hcaptchaService = HCaptchaService()
-        if(hcaptchaService.verify_captcha(requestBody.captcha_token)):
+        print(enableHCaptcha)
+        if enableHCaptcha == "False" or hcaptchaService.verify_captcha(requestBody.captcha_token):
             # Create a new job and add to the DB
             separator = "|"
             curr_time = time.time()

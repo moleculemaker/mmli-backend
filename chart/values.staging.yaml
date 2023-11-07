@@ -10,6 +10,7 @@ ingress:
 config:
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chesmcraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+  enableHCaptcha: "True"
 
 hcaptcha:
   auth:

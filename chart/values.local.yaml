@@ -4,7 +4,8 @@ ingress:
 config:
 # Change to local chemscraper service URL if deployed in local cluster
   chemscraper_url: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
-  chesmcraper_frontend_url: "http://test.mydomain.com"
+  chesmcraper_frontend_url: "http://localhost:4200"
+  enableHCaptcha: "False"
 
 hcaptcha:
   auth:

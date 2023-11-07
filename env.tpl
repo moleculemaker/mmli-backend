@@ -5,7 +5,10 @@ DEBUG="true"
 CHEMSCRAPER_API_BASE_URL=https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
 
 # Set ChemScraper backend API URL
-CHEMSCRAPER_FRONTEND_URL="http://test.mydomain.com"
+CHEMSCRAPER_FRONTEND_URL=http://localhost:4200
+
+# Enable HCaptcha for production environments and disable for local development
+ENABLE_HCAPTCHA=False
 
 # Set HCaptcha secret
 HCAPTCHA_SECRET=${HCAPTCHA_SECRET}

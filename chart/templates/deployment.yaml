@@ -84,6 +84,9 @@ spec:
           - name: CHEMSCRAPER_FRONTEND_URL
             value: {{ .Values.config.chesmcraper_frontend_url }}
 
+          - name: ENABLE_HCAPTCHA
+            value: {{ .Values.config.enableHCaptcha }}
+
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
