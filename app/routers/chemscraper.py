@@ -30,35 +30,35 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
         hcaptchaService = HCaptchaService()
         print(enableHCaptcha)
-        if hcaptchaService.verify_captcha(requestBody.captcha_token):
-            # Create a new job and add to the DB
-            separator = "|"
-            curr_time = time.time()
-            db_job = Job(
-                email=requestBody.user_email,
-                job_info=separator.join(requestBody.fileList),
-                job_id=requestBody.jobId,
-                # Run ID takes the default value since the app doesn't support multiple runs right now
-                type=JobType.CHEMSCRAPER,
-                user_agent='',
-                time_created=int(curr_time)
-            )
+        hcaptchaService.verify_captcha(requestBody.captcha_token)
+        # Create a new job and add to the DB
+        separator = "|"
+        curr_time = time.time()
+        db_job = Job(
+            email=requestBody.user_email,
+            job_info=separator.join(requestBody.fileList),
+            job_id=requestBody.jobId,
+            # Run ID takes the default value since the app doesn't support multiple runs right now
+            type=JobType.CHEMSCRAPER,
+            user_agent='',
+            time_created=int(curr_time)
+        )
 
-            try: 
-                db.add(db_job)
-                await db.commit()
-            except Exception as e:
-                content = {"jobId": requestBody.jobId, "error_message": "Database Error Occured.", "error_details": str(e)}
-                return JSONResponse(content=content, status_code=400) 
+        try: 
+            db.add(db_job)
+            await db.commit()
+        except Exception as e:
+            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occured.", "error_details": str(e)}
+            return JSONResponse(content=content, status_code=400) 
 
-            filename = requestBody.fileList[0]
-            chemscraperService = ChemScraperService(db=db)
-            objectPath = f"inputs/{requestBody.jobId}/{filename}"
-            background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
-            content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
-            return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
-        else:
-            raise HTTPException(status_code=400, detail="Could not verify CAPTCHA")
+        filename = requestBody.fileList[0]
+        chemscraperService = ChemScraperService(db=db)
+        objectPath = f"inputs/{requestBody.jobId}/{filename}"
+        background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
+        content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+        return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+        # else:
+        #     raise HTTPException(status_code=400, detail="Could not verify CAPTCHA")
 
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")
 def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOService = Depends()):

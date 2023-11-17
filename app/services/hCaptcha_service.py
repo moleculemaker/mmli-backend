@@ -16,6 +16,7 @@ class HCaptchaService:
                                         })
             try:
                 assert response.status_code in [200, 204]
+                print(result)
                 result = response.json()
                 if result['success']:
                     return True
