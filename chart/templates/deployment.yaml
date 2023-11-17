@@ -76,7 +76,7 @@ spec:
 {{- end }}
 
           - name: SQLALCHEMY_DATABASE_URL
-            value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+            value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
 
           - name: CHEMSCRAPER_API_BASE_URL
             value: {{ .Values.config.chemscraper_url }}
@@ -85,7 +85,7 @@ spec:
             value: {{ .Values.config.chesmcraper_frontend_url }}
 
           - name: ENABLE_HCAPTCHA
-            value: {{ .Values.config.enableHCaptcha }}
+            value: {{ .Values.config.enableHCaptcha | quote }}
 
           ports:
             - containerPort: 8080
