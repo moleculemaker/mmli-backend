@@ -1,4 +1,11 @@
+# General ingress for all endpoints (except /chemscraper/analyze)
 ingress:
+  hostname: mmli.fastapi.localhost
+  tls: false
+  annotations: {}
+
+# Custom ingress configuration for only /chemscraper/analyze endpoint
+analyzeIngress:
   hostname: mmli.fastapi.localhost
   tls: false
   annotations: {}

@@ -10,6 +10,15 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
 
+analyzeIngress:
+  hostname: mmli.fastapi.mmli1.ncsa.illinois.edu
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd,alphasynthesis-chemscraper-analyze-ip-ratelimit@kubernetescrd
+
 config:
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
 
@@ -47,6 +56,16 @@ minio:
     existingSecret: "mmli-backend-minio"
 
 extraDeploy:
+# IP ratelimiting for prod JobMgr
+- apiVersion: traefik.containo.us/v1alpha1
+  kind: Middleware
+  metadata:
+    name: chemscraper-analyze-ip-ratelimit
+  spec:
+    rateLimit:
+      average: 20
+      period: 500s
+
 # Enable DecentCI backups
 - apiVersion: v1
   kind: ConfigMap
