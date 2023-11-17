@@ -30,7 +30,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
         hcaptchaService = HCaptchaService()
         print(enableHCaptcha)
-        if enableHCaptcha == "False" or hcaptchaService.verify_captcha(requestBody.captcha_token):
+        if hcaptchaService.verify_captcha(requestBody.captcha_token):
             # Create a new job and add to the DB
             separator = "|"
             curr_time = time.time()
