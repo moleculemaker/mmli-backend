@@ -45,5 +45,11 @@ class EmailService:
             "subject": email_subject,
             "message": message_body,
         }
-        email = SingleEmailHeader(recipients, email_params, template=template_file)
-        email.sendmail()
+        try:
+            email = SingleEmailHeader(recipients, email_params, template=template_file)
+        except Exception as e:
+            print("Error creating header:" + e)
+        try:
+            email.sendmail()
+        except Exception as e:
+            print("Error sending email:" + e)
