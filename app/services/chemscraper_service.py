@@ -27,43 +27,11 @@ class ChemScraperService:
     async def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
         reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
         rdkitService = RDKitService()
-        doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
-        name = molecularFormula = molecularWeight = None
+        doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = None
         molecules = []
         id = 0
         otherInstancesDict = {}
         SMILE_LIST = []
-
-        # Collect all SMILES here first 
-        for row in reader:
-            if not row:
-                continue
-
-            if row[0] == "SMI":
-                SMILE = row[2]
-                SMILE_LIST.append(SMILE)
-        
-        # Get data for all molecules
-        pubChemService = PubChemService(self.db)
-
-        # Only for debugging
-        # TODO: Remove after Pub Chem Batching tested in PROD
-        print('=== Printing Smile List ====')
-        print(SMILE_LIST)
-        print('=== End Printing Smile List ====')
-
-        molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
-
-        # Only for debugging
-        # TODO: Remove after Pub Chem Batching tested in PROD
-        print('======== Printing All Molecule Data =======')
-        data_idx = 0
-        while data_idx < len(molecules_data):
-            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
-            data_idx += 5
-        print('======== End Printing All Molecule Data ======')
-
-        molecules_data_idx = 0
 
         for row in reader:
             if not row:
@@ -78,6 +46,8 @@ class ChemScraperService:
                 SMILE = row[2]
                 minX, minY, maxX, maxY = map(int, row[3:7])
                 if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
+                    # Only molecules having all these fields available are processed
+                    SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
                     if SVG is None:
@@ -97,31 +67,52 @@ class ChemScraperService:
                             doc_no=doc_no,
                             file_path=file_path,
                             page_no=page_no,
-                            name = molecules_data[molecules_data_idx + 4],
                             SMILE=SMILE, 
                             structure=SVG, 
                             minX=minX, 
                             minY=minY, 
                             width=maxX-minX, 
                             height=maxY-minY,
-                            PubChemCID = molecules_data[molecules_data_idx + 1],
-                            molecularFormula =  molecules_data[molecules_data_idx + 2],
-                            molecularWeight = molecules_data[molecules_data_idx + 3],
-                            chemicalSafety = chemicalSafety,
-                            Description = Description,
                             Location = location,
                             OtherInstances = [],
                             fingerprint = fingerprint
                         )
                     )
                     id += 1
-                    # Every 5 vals represent one molecule
-                    molecules_data_idx += 5
 
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('=== Printing Smile List ====')
+        print(SMILE_LIST)
+        print('=== End Printing Smile List ====')
+
+        # Get data for all molecules
+        pubChemService = PubChemService(self.db)
+        molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('======== Printing All Molecule Data =======')
+        data_idx = 0
+        while data_idx < len(molecules_data):
+            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
+            data_idx += 5
+        print('======== End Printing All Molecule Data ======')
+
+        # To iterate Molecule Data Array - molecules_data
+        molecules_data_idx = 0
+
+        # Setting Pubchem results directly to CSV
         data = [m.dict() for m in molecules]
         for d in data:
             d['chemicalSafety'] = ', '.join(d['chemicalSafety'])
-            d['OtherInstances'] = ', '.join(d['OtherInstances'])
+            d['OtherInstances'] = ', '.join(otherInstancesDict.get(d['SMILE'], []))
+            d['PubChemCID'] = molecules_data[molecules_data_idx + 1]
+            d['molecularFormula'] = molecules_data[molecules_data_idx + 2]
+            d['molecularWeight'] = molecules_data[molecules_data_idx + 3]
+            d['name'] = molecules_data[molecules_data_idx + 4]
+            molecules_data_idx += 5
+
         df = pd.DataFrame(data)
         csv_buffer = StringIO()
         df.to_csv(csv_buffer)
