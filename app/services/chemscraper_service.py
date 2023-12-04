@@ -34,6 +34,39 @@ class ChemScraperService:
         molecules = []
         id = 0
         otherInstancesDict = {}
+        SMILE_LIST = []
+
+        # Collect all SMILES here first 
+        for row in reader:
+            if not row:
+                continue
+
+            if row[0] == "SMI":
+                SMILE = row[2]
+                SMILE_LIST.append(SMILE)
+        
+        # Get data for all molecules
+        pubChemService = PubChemService(self.db)
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('=== Printing Smile List ====')
+        print(SMILE_LIST)
+        print('=== End Printing Smile List ====')
+
+        molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('======== Printing All Molecule Data =======')
+        data_idx = 0
+        while data_idx < len(molecules_data):
+            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
+            data_idx += 5
+        print('======== End Printing All Molecule Data ======')
+
+        molecules_data_idx = 0
+
         for row in reader:
             if not row:
                 continue
@@ -54,8 +87,6 @@ class ChemScraperService:
                         SVG = RDKitService.renderSVGFromSMILE(SMILE)
 
                     location = " | page: " + page_no
-                    pubChemService = PubChemService(self.db)
-                    PubChemCID, name, molecularFormula, molecularWeight, chemicalSafety, Description =  await pubChemService.queryMoleculeProperties(SMILE)
 
                     if SMILE in otherInstancesDict:
                         otherInstancesDict[SMILE].append(page_no)
@@ -68,16 +99,16 @@ class ChemScraperService:
                             doc_no=doc_no,
                             file_path=file_path,
                             page_no=page_no,
-                            name = name,
+                            name = molecules_data[molecules_data_idx + 4],
                             SMILE=SMILE, 
                             structure=SVG, 
                             minX=minX, 
                             minY=minY, 
                             width=maxX-minX, 
                             height=maxY-minY,
-                            PubChemCID = PubChemCID,
-                            molecularFormula = molecularFormula,
-                            molecularWeight = molecularWeight,
+                            PubChemCID = molecules_data[molecules_data_idx + 1],
+                            molecularFormula =  molecules_data[molecules_data_idx + 2],
+                            molecularWeight = molecules_data[molecules_data_idx + 3],
                             chemicalSafety = chemicalSafety,
                             Description = Description,
                             Location = location,
@@ -86,11 +117,8 @@ class ChemScraperService:
                         )
                     )
                     id += 1
-        for molecule in molecules:
-            pages = otherInstancesDict.get(molecule.SMILE, [])
-            # pages = ', '.join(pages)
-            # otherInstances = " | page(s): " + pages
-            molecule.OtherInstances = pages
+                    # Every 5 vals represent one molecule
+                    molecules_data_idx += 5
 
         data = [m.dict() for m in molecules]
         for d in data:
