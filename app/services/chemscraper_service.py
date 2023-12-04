@@ -45,10 +45,24 @@ class ChemScraperService:
         
         # Get data for all molecules
         pubChemService = PubChemService(self.db)
-        print('=== printing smile list ====', SMILE_LIST, '====')
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('=== Printing Smile List ====')
+        print(SMILE_LIST)
+        print('=== End Printing Smile List ====')
 
         molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
-        print('======== Printing all molecule data =======', molecules_data, '=========')
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('======== Printing All Molecule Data =======')
+        data_idx = 0
+        while data_idx < len(molecules_data):
+            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
+            data_idx += 5
+        print('======== End Printing All Molecule Data ======')
+
         molecules_data_idx = 0
 
         for row in reader:

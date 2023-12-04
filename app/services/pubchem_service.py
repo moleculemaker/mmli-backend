@@ -117,7 +117,7 @@ class PubChemService:
 
     async def parseCidsAndGetData(self, cidFileContent, smile_list):
         # cidFileContent = str(cidFileContent)
-        print('=== CID File Content === ', cidFileContent, '===')
+        # print('=== CID File Content === ', cidFileContent, '===')
         molecules = cidFileContent.split('\n')
         # Remove last entry which is just a blank
         molecules.pop()
@@ -130,6 +130,7 @@ class PubChemService:
 
         pub_chem_url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/MolecularFormula,MolecularWeight,IUPACName/JSON'.format(cids=",".join(cids_list))
 
+        # Request to get data for all molecules
         response = requests.get(pub_chem_url)
 
         vals = []
@@ -142,27 +143,25 @@ class PubChemService:
                 if smile_cid_dict[smile] == '':
                     # CID Not Available for SMILE
                     vals.append(smile)
-                    vals.append('NA')
-                    vals.append('NA')
-                    vals.append('NA')
-                    vals.append('NA')
+                    vals.append('Unavailable')
+                    vals.append('Unavailable')
+                    vals.append('Unavailable')
+                    vals.append('Unavailable')
                 else:
                     vals.append(smile)
                     json_element = properties[json_counter]
                     vals.append(str(json_element["CID"]))
-                    vals.append(json_element.get("MolecularFormula", "NA"))
-                    vals.append(json_element.get("MolecularWeight", "NA"))
-                    vals.append(json_element.get("IUPACName", "NA"))
+                    vals.append(json_element.get("MolecularFormula", "Unavailable"))
+                    vals.append(json_element.get("MolecularWeight", "Unavailable"))
+                    vals.append(json_element.get("IUPACName", "Unavailable"))
                     json_counter+=1
             return vals
         else:
             pass
 
-
-
     async def getDataForAllMolecules(self, smile_list):
             # Parse the XML data
-            start_cid_job_xml = '''
+            smile_to_cid_request_xml = '''
             <PCT-Data>
                 <PCT-Data_input>
                     <PCT-InputData>
@@ -207,24 +206,19 @@ class PubChemService:
             </PCT-Data>
             '''
 
-            req_root = ET.fromstring(start_cid_job_xml)
+            smile_to_cid_request_root = ET.fromstring(smile_to_cid_request_xml)
             for smile in smile_list:
-                new_element = ET.Element("PCT-QueryUids_smiles_E")
-                new_element.text = smile
-                req_root.find(".//PCT-QueryUids_smiles").append(new_element)
-
-            # Convert the modified XML tree back to a string
-            new_xml_data = '<?xml version="1.0"?>\n<!DOCTYPE PCT-Data PUBLIC "-//NCBI//NCBI PCTools/EN" "NCBI_PCTools.dtd">\n' + ET.tostring(req_root).decode()
-
-            # Print or save the modified XML data
-            # print(new_xml_data)
+                appending_smile = ET.Element("PCT-QueryUids_smiles_E")
+                appending_smile.text = smile
+                smile_to_cid_request_root.find(".//PCT-QueryUids_smiles").append(appending_smile)
 
             pubchem_url = 'https://pubchem.ncbi.nlm.nih.gov/pug/pug.cgi'
             headers = {'Content-Type': 'application/xml'}
-            response = requests.post(pubchem_url, data=new_xml_data, headers=headers)
-            if response.status_code == 200:
-                response_root = ET.fromstring(response.text)
-                waiting_reqid = response_root.find(".//PCT-Waiting_reqid").text
+            # Request to start SMILE to CID job
+            smile_to_cid_response = requests.post(pubchem_url, data=ET.tostring(smile_to_cid_request_root).decode(), headers=headers)
+            if smile_to_cid_response.status_code == 200:
+                smile_to_cid_response_root = ET.fromstring(smile_to_cid_response.text)
+                waiting_reqid = smile_to_cid_response_root.find(".//PCT-Waiting_reqid").text
 
                 # Creating new XML for job status fetching
                 job_status_root = ET.fromstring(job_status_xml)
@@ -234,21 +228,25 @@ class PubChemService:
                 request_element.insert(0, new_reqid)
 
                 # Convert the modified XML tree back to a string
-                get_job_status_xml = ET.tostring(job_status_root).decode()
+                job_status_request_xml = ET.tostring(job_status_root).decode()
 
                 while True:
                     # Short wait to let the job finish
-                    time.sleep(5)
+                    JOB_STATUS_POLLING_PERIOD = 3
+                    time.sleep(JOB_STATUS_POLLING_PERIOD)
 
-                    job_response = requests.post(pubchem_url, data=get_job_status_xml, headers=headers)
-                    job_response_root = ET.fromstring(job_response.text)
+                    # Request to check the status of the Smile to CID job
+                    job_status_response = requests.post(pubchem_url, data=job_status_request_xml, headers=headers)
+                    job_status_response_root = ET.fromstring(job_status_response.text)
 
-                    status_value = job_response_root.find(".//PCT-Status").attrib['value']
+                    status_value = job_status_response_root.find(".//PCT-Status").attrib['value']
 
                     if status_value == "success":
-                        download_url = job_response_root.find(".//PCT-Download-URL_url").text
+                        download_url = job_status_response_root.find(".//PCT-Download-URL_url").text
                         download_url = download_url.replace('ftp', 'https')
                         print(download_url)
+
+                        # Request to get the file with Smile to CID conversion
                         cid_file_response = requests.get(download_url)
 
                         if cid_file_response.status_code == 200:
