@@ -114,13 +114,11 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
                     files_count += 1
                 elif requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0:
                     cdxml_file_data = service.get_file(bucket_name,
-                                                       objectPathPrefix + "molecules_all_pages/Page_" + str(
-                                                           requestBody.cdxml_selected_pages[0]) + ".cdxml")
+                                                       objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_all_pages/Page_" + str(
-                            requestBody.cdxml_selected_pages[0]) + ".cdxml"
+                        filename = objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
-                    new_zip.writestr(requestBody.jobId + "_Page_" + str(requestBody.cdxml_selected_pages[0]) + ".cdxml",
+                    new_zip.writestr(requestBody.jobId + "_Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml",
                                      cdxml_file_data)
                     files_count += 1
             if requestBody.csv:
