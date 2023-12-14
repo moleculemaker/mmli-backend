@@ -254,4 +254,4 @@ class PubChemService:
                         else:
                             pass
             else:
-                pass
+                print(f"SOAP Request failed with status code {smile_to_cid_response.status_code}")
