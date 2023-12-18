@@ -122,7 +122,10 @@ class PubChemService:
                 # Convert the modified XML tree back to a string
                 job_status_request_xml = ET.tostring(job_status_root).decode()
 
-                while True:
+                MAX_RETRY = 20
+                iteration_count = 0
+
+                while iteration_count < MAX_RETRY:
                     # Short wait to let the job finish
                     JOB_STATUS_POLLING_PERIOD = 3
                     time.sleep(JOB_STATUS_POLLING_PERIOD)
@@ -145,5 +148,6 @@ class PubChemService:
                             return await self.parseCidsAndGetData(cid_file_response.text, smile_list)
                         else:
                             pass
+                    iteration_count += 1
             else:
                 print(f"SOAP Request failed with status code {smile_to_cid_response.status_code}")
