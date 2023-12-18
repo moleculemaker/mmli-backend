@@ -46,4 +46,8 @@ class EmailService:
             "message": message_body,
         }
         email = SingleEmailHeader(recipients, email_params, template=template_file)
-        email.sendmail()
+        try:
+            email.sendmail()
+        except Exception as e:
+            print("Error in sending job status email: ")
+            print(e)
