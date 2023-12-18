@@ -22,7 +22,6 @@ import pandas as pd
 import io
 
 router = APIRouter()
-enableHCaptcha = os.environ.get("ENABLE_HCAPTCHA")
 
 @router.post("/chemscraper/analyze", tags=['ChemScraper'])
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):

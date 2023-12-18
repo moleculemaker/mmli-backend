@@ -84,18 +84,9 @@ spec:
           - name: CHEMSCRAPER_FRONTEND_URL
             value: {{ .Values.config.chesmcraper_frontend_url }}
 
-          - name: ENABLE_HCAPTCHA
-            value: {{ .Values.config.enableHCaptcha | quote }}
-
           ports:
             - containerPort: 8080
           imagePullPolicy: Always
-
-          - name: HCAPTCHA_SECRET
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.hcaptcha.auth.existingSecret }}
-                key: secret
 
           - name: EMAIL_SERVER
             value: "smtp.ncsa.uiuc.edu"
