@@ -89,7 +89,7 @@ class ChemScraperService:
         print('=== End Printing Smile List ====')
 
         # Get data for all molecules
-        pubChemService = PubChemService(self.db)
+        pubChemService = PubChemService()
         molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
 
         # Only for debugging
