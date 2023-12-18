@@ -77,17 +77,8 @@ class JobUpdate(SQLModel):
     command: Optional[str] = None
     phase: Optional[JobStatus] = None
 
-class MoleculeCacheEntry(SQLModel, table=True):
-    smile: str = Field(default=None, primary_key=True)
-    pub_chem_id: str = "Unavailable"
-    name: str = "Unavailable"
-    molecular_formula: str = "Unavailable"
-    molecular_weight: str = "Unavailable"
-    chemical_safety: str = "Unavailable"
-    description: str = "Unavailable"
-
 class FlaggedMolecule(SQLModel, table=True):
-    smile: str = Field(default=None, primary_key=True, foreign_key="moleculecacheentry.smile")
+    smile: str = Field(default=None, primary_key=True)
     job_id: str = Field(default=None, primary_key=True, foreign_key="job.job_id")
     # For future: which doc contains the molecule within the job when multiple docs are allowed
     doc_id: str = Field(default=None)

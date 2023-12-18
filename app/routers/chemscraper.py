@@ -8,7 +8,6 @@ import time
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
-from services.hCaptcha_service import HCaptchaService
 from services.email_service import EmailService
 
 from models.analyzeRequestBody import AnalyzeRequestBody
@@ -27,9 +26,6 @@ router = APIRouter()
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
-        # hcaptchaService = HCaptchaService()
-        # print(enableHCaptcha)
-        # if hcaptchaService.verify_captcha(requestBody.captcha_token):
         # Create a new job and add to the DB
         separator = "|"
         curr_time = time.time()
@@ -56,8 +52,6 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
-        # else:
-        #     raise HTTPException(status_code=400, detail="Could not verify CAPTCHA")
 
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")
 def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOService = Depends()):
