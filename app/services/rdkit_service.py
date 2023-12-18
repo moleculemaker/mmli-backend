@@ -22,6 +22,8 @@ class RDKitService:
 
     def getFingerprint(self, smileString):
         mol = Chem.MolFromSmiles(smileString)
+        if mol is None:
+            raise ValueError(f"Could not create molecule from SMILES: {smileString}")
         fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024)
         return fp.ToBitString()
 

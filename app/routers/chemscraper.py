@@ -66,7 +66,11 @@ def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOSe
     if sort_column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column {sort_column} not found in CSV file")
     rdkitService = RDKitService()
-    input_fingerprint =  rdkitService.getFingerprint(smile_string)
+    try:
+        input_fingerprint =  rdkitService.getFingerprint(smile_string)
+    except Exception as e:
+        content = {"smile_string": smile_string, "error_message": "Could not generate fingerprint", "error_details": str(e)}
+        return JSONResponse(content=content, status_code=400)
     # Calculate Tanimoto similarity for each molecule in the DataFrame
     similarity_scores = []
     for index, row in df.iterrows():

@@ -62,7 +62,11 @@ class ChemScraperService:
                         otherInstancesDict[SMILE].append(page_no)
                     else:
                         otherInstancesDict[SMILE] = [page_no]
-                    fingerprint = rdkitService.getFingerprint(SMILE)
+                    try:
+                        fingerprint = rdkitService.getFingerprint(SMILE)
+                    except Exception as e:
+                        print("Could not generate fingerprint for" + SMILE)
+                        fingerprint = ""
                     molecules.append(
                         Molecule(
                             id=id,
