@@ -65,7 +65,7 @@ class ChemScraperService:
                     try:
                         fingerprint = rdkitService.getFingerprint(SMILE)
                     except Exception as e:
-                        print("Could not generate fingerprint for" + SMILE)
+                        print("Could not generate fingerprint for: " + SMILE)
                         fingerprint = ""
                     molecules.append(
                         Molecule(
