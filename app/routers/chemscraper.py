@@ -75,7 +75,10 @@ def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOSe
     similarity_scores = []
     for index, row in df.iterrows():
         fingerprint = row['fingerprint']
-        similarity = rdkitService.getTanimotoSimilarity(input_fingerprint, fingerprint)
+        if fingerprint == "0" or input_fingerprint == "0":
+            similarity = 0.0
+        else:
+             similarity = rdkitService.getTanimotoSimilarity(input_fingerprint, fingerprint)
         similarity_scores.append(similarity)
     # Add similarity scores as a new column in the DataFrame
     df['similarity'] = similarity_scores

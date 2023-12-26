@@ -66,7 +66,7 @@ class ChemScraperService:
                         fingerprint = rdkitService.getFingerprint(SMILE)
                     except Exception as e:
                         print("Could not generate fingerprint for: " + SMILE)
-                        fingerprint = ""
+                        fingerprint = "0"
                     molecules.append(
                         Molecule(
                             id=id,
@@ -176,7 +176,7 @@ class ChemScraperService:
                         await self.update_job_phase(db_job, JobStatus.COMPLETED)
                         if(db_job.email):
                             try:
-                                email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your CLEAN Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
+                                email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your ChemScraper Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
                             except Exception as e:
                                 print(e)
                         return True
