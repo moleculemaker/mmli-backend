@@ -12,7 +12,7 @@ ingress:
 
 config:
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
-  chesmcraper_frontend_url: "https://chemscraper.frontend.mmli1.ncsa.illinois.edu"
+  chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
 
 postgresql:
   enabled: true
