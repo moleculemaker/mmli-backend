@@ -75,14 +75,21 @@ spec:
             value: {{ .Values.minio.auth.rootPassword }}
 {{- end }}
 
-
-
-          - name: DATABASE_URL
-            value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+          - name: SQLALCHEMY_DATABASE_URL
+            value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
 
           - name: CHEMSCRAPER_API_BASE_URL
             value: {{ .Values.config.chemscraper_url }}
 
+          - name: CHEMSCRAPER_FRONTEND_URL
+            value: {{ .Values.config.chemscraper_frontend_url }}
+          - name: EMAIL_SERVER
+            value: "smtp.ncsa.uiuc.edu"
+          - name: EMAIL_FROM_EMAIL
+            value: "devnull+chemscraper@ncsa.illinois.edu"
+          - name: EMAIL_FROM_NAME
+            value: "no-reply-ChemScraper"
+            
           ports:
             - containerPort: 8080
           imagePullPolicy: Always

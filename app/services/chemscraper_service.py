@@ -14,24 +14,27 @@ from models.enums import JobStatus
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
+from services.email_service import EmailService
 from models.molecule import Molecule
 from fastapi import Depends
 from fastapi.responses import JSONResponse
 
 class ChemScraperService:
     chemscraper_api_baseURL = os.environ.get("CHEMSCRAPER_API_BASE_URL")
+    chemscraper_frontend_baseURL = os.environ.get("CHEMSCRAPER_FRONTEND_URL")
 
     def __init__(self, db) -> None:
         self.db = db
 
     async def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
         reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
-
-        doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = PubChemCID = chemicalSafety = Description = None
-        name = molecularFormula = molecularWeight = None
+        rdkitService = RDKitService()
+        doc_no = file_path = page_no = SMILE = minX = minY = maxX = maxY = SVG = None
         molecules = []
         id = 0
         otherInstancesDict = {}
+        SMILE_LIST = []
+
         for row in reader:
             if not row:
                 continue
@@ -45,6 +48,8 @@ class ChemScraperService:
                 SMILE = row[2]
                 minX, minY, maxX, maxY = map(int, row[3:7])
                 if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
+                    # Only molecules having all these fields available are processed
+                    SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
                     if SVG is None:
@@ -52,47 +57,68 @@ class ChemScraperService:
                         SVG = RDKitService.renderSVGFromSMILE(SMILE)
 
                     location = " | page: " + page_no
-                    pubChemService = PubChemService(self.db)
-                    PubChemCID, name, molecularFormula, molecularWeight, chemicalSafety, Description =  await pubChemService.queryMoleculeProperties(SMILE)
-                    
+
                     if SMILE in otherInstancesDict:
                         otherInstancesDict[SMILE].append(page_no)
                     else:
                         otherInstancesDict[SMILE] = [page_no]
-
+                    try:
+                        fingerprint = rdkitService.getFingerprint(SMILE)
+                    except Exception as e:
+                        print("Could not generate fingerprint for: " + SMILE)
+                        fingerprint = "0"
                     molecules.append(
                         Molecule(
                             id=id,
                             doc_no=doc_no,
                             file_path=file_path,
                             page_no=page_no,
-                            name = name,
                             SMILE=SMILE, 
                             structure=SVG, 
                             minX=minX, 
                             minY=minY, 
                             width=maxX-minX, 
                             height=maxY-minY,
-                            PubChemCID = PubChemCID,
-                            molecularFormula = molecularFormula,
-                            molecularWeight = molecularWeight,
-                            chemicalSafety = chemicalSafety,
-                            Description = Description,
                             Location = location,
-                            OtherInstances = []
+                            OtherInstances = [],
+                            fingerprint = fingerprint
                         )
                     )
                     id += 1
-        for molecule in molecules:
-            pages = otherInstancesDict.get(molecule.SMILE, [])
-            # pages = ', '.join(pages)
-            # otherInstances = " | page(s): " + pages
-            molecule.OtherInstances = pages
 
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('=== Printing Smile List ====')
+        print(SMILE_LIST)
+        print('=== End Printing Smile List ====')
+
+        # Get data for all molecules
+        pubChemService = PubChemService()
+        molecules_data = await pubChemService.getDataForAllMolecules(SMILE_LIST)
+
+        # Only for debugging
+        # TODO: Remove after Pub Chem Batching tested in PROD
+        print('======== Printing All Molecule Data =======')
+        data_idx = 0
+        while data_idx < len(molecules_data):
+            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
+            data_idx += 5
+        print('======== End Printing All Molecule Data ======')
+
+        # To iterate Molecule Data Array - molecules_data
+        molecules_data_idx = 0
+
+        # Setting Pubchem results directly to CSV
         data = [m.dict() for m in molecules]
         for d in data:
             d['chemicalSafety'] = ', '.join(d['chemicalSafety'])
-            d['OtherInstances'] = ', '.join(d['OtherInstances'])
+            d['OtherInstances'] = ', '.join(otherInstancesDict.get(d['SMILE'], []))
+            d['PubChemCID'] = molecules_data[molecules_data_idx + 1]
+            d['molecularFormula'] = molecules_data[molecules_data_idx + 2]
+            d['molecularWeight'] = molecules_data[molecules_data_idx + 3]
+            d['name'] = molecules_data[molecules_data_idx + 4]
+            molecules_data_idx += 5
+
         df = pd.DataFrame(data)
         csv_buffer = StringIO()
         df.to_csv(csv_buffer)
@@ -112,9 +138,9 @@ class ChemScraperService:
         self.db.add(jobObject)
         await self.db.commit()
 
-    async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService):
+    async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
-        db_job = await self.db.get(Job, jobId)
+        db_job : Job = await self.db.get(Job, jobId)
 
         # Update Job Status to Processing
         await self.update_job_phase(db_job, JobStatus.PROCESSING)
@@ -148,9 +174,19 @@ class ChemScraperService:
                     if upload_result:
                         await self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
                         await self.update_job_phase(db_job, JobStatus.COMPLETED)
+                        if(db_job.email):
+                            try:
+                                email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your ChemScraper Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
+                            except Exception as e:
+                                print(e)
                         return True
         else:
             error_content = response.text.encode()
             upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
             await self.update_job_phase(db_job, JobStatus.ERROR)
+            if(db_job.email):
+                try:
+                    email_service.send_email(db_job.email, f'''ChemScraper Job ({db_job.job_id}) failed''', f'''An error occurred in computing the result for your ChemScraper job.''')
+                except Exception as e:
+                    print(e)
         return False

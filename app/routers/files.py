@@ -37,22 +37,6 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-@router.get("/{bucket_name}/result-status/{job_id}", tags=['Files'])
-def get_result_status(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    result_status = service.check_file_exists(bucket_name, "results/" + job_id + '/' + job_id + ".csv")
-    error_status = service.check_file_exists(bucket_name, "errors/" + job_id + ".txt")
-    if result_status:
-        # JSONResponse(content={"Result": "Ready"}, status_code=status.HTTP_200_OK)
-        return "Ready"
-    elif error_status:
-        # JSONResponse(content={"Result": "Error"}, status_code=status.HTTP_200_OK)
-        return "Error"
-    else:
-        # JSONResponse(content={"Result": "Processing"}, status_code=status.HTTP_200_OK)
-        return "Processing"
-
-
 @router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
 def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
@@ -85,7 +69,8 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
                             chemicalSafety=chemicalSafety,
                             Description=row['Description'],
                             Location=row['Location'],
-                            OtherInstances=OtherInstances)
+                            OtherInstances=OtherInstances,
+                            fingerprint=row['fingerprint'])
         molecules.append(molecule)
     return molecules
 
@@ -120,22 +105,20 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
         with zipfile.ZipFile(filename, "w") as new_zip:
             if requestBody.cdxml:
                 if requestBody.cdxml_filter == "all_molecules":
-                    object_path = objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml"
+                    object_path = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
                     cdxml_file_data = service.get_file(bucket_name, object_path)
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_full_cdxml/molecules_allpages.cdxml"
+                        filename = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
                 elif requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0:
                     cdxml_file_data = service.get_file(bucket_name,
-                                                       objectPathPrefix + "molecules_all_pages/Page_" + str(
-                                                           requestBody.cdxml_selected_pages[0]) + "_full.cdxml")
+                                                       objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_all_pages/Page_" + str(
-                            requestBody.cdxml_selected_pages[0]) + "_full.cdxml"
+                        filename = objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
-                    new_zip.writestr(requestBody.jobId + "_Page_" + str(requestBody.cdxml_selected_pages[0]) + ".cdxml",
+                    new_zip.writestr(requestBody.jobId + "_Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml",
                                      cdxml_file_data)
                     files_count += 1
             if requestBody.csv:

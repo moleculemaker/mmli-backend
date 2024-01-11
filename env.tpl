@@ -4,6 +4,15 @@ DEBUG="true"
 # Set ChemScraper backend API URL
 CHEMSCRAPER_API_BASE_URL=https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
 
+# Set ChemScraper backend API URL
+CHEMSCRAPER_FRONTEND_URL=http://localhost:4200
+
+# Email server config
+EMAIL_SERVER=smtp.ncsa.uiuc.edu
+EMAIL_FROM_EMAIL=devnull+chemscraper@ncsa.illinois.edu
+EMAIL_FROM_NAME=no-reply-ChemScraper
+
+
 # Set some default values (override below if needed)
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
