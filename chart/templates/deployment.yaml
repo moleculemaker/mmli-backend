@@ -82,15 +82,14 @@ spec:
             value: {{ .Values.config.chemscraper_url }}
 
           - name: CHEMSCRAPER_FRONTEND_URL
-            value: {{ .Values.config.chesmcraper_frontend_url }}
-
-          ports:
-            - containerPort: 8080
-          imagePullPolicy: Always
-
+            value: {{ .Values.config.chemscraper_frontend_url }}
           - name: EMAIL_SERVER
             value: "smtp.ncsa.uiuc.edu"
           - name: EMAIL_FROM_EMAIL
             value: "devnull+chemscraper@ncsa.illinois.edu"
           - name: EMAIL_FROM_NAME
             value: "no-reply-ChemScraper"
+            
+          ports:
+            - containerPort: 8080
+          imagePullPolicy: Always
