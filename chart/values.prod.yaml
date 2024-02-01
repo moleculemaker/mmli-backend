@@ -63,8 +63,8 @@ extraDeploy:
     name: chemscraper-analyze-ip-ratelimit
   spec:
     rateLimit:
-      average: 20
-      period: 500s
+      average: 1
+      period: 120s
 
 # Enable DecentCI backups
 - apiVersion: v1
