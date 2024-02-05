@@ -7,6 +7,15 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd
 
+analyzeIngress:
+  hostname: mmli.fastapi.staging.mmli1.ncsa.illinois.edu
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd,staging-chemscraper-analyze-ip-ratelimit@kubernetescrd
+
 config:
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
@@ -45,6 +54,16 @@ minio:
     existingSecret: "mmli-backend-minio"
 
 extraDeploy:
+# IP ratelimiting for staging JobMgr
+- apiVersion: traefik.containo.us/v1alpha1
+  kind: Middleware
+  metadata:
+    name: chemscraper-analyze-ip-ratelimit
+  spec:
+    rateLimit:
+      average: 1
+      period: 120s
+
 # Enable DecentCI backups
 - apiVersion: v1
   kind: ConfigMap

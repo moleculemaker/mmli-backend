@@ -28,3 +28,34 @@ spec:
               number: 8080
         path: /
         pathType: ImplementationSpecific
+---
+# Enables the pods in a deployment to be accessible from outside the cluster
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mmli-fastapi-chemscraper-analyze
+{{- with .Values.analyzeIngress.annotations }}
+  annotations:
+  {{ toYaml . | nindent 4 }}
+{{- end }}
+spec:
+{{- if .Values.analyzeIngress.tls }}
+  tls:
+  - hosts:
+    - {{ .Values.analyzeIngress.hostname }}
+    secretName: {{ .Values.analyzeIngress.hostname }}-tls
+{{- end }}
+{{- if .Values.analyzeIngress.ingressClassName }}
+  ingressClassName: {{ .Values.analyzeIngress.ingressClassName }}
+{{- end }}
+  rules:
+  - host: {{ .Values.analyzeIngress.hostname | required "required: analyzeIngress.hostname (e.g. mmli.fastapi.localhost)" }}
+    http:
+      paths:
+      - backend:
+          service:
+            name: {{ .Release.Name }}
+            port:
+              number: 8080
+        path: /chemscraper/analyze
+        pathType: ImplementationSpecific
