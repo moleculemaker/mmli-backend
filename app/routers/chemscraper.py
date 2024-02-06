@@ -109,8 +109,13 @@ async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends
 
 @router.delete("/chemscraper/flag", tags=['ChemScraper'])
 async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncSession = Depends(get_session)):
-    flagged_molecule = db.get(FlaggedMolecule, (requestBody.smile, requestBody.job_id))
-    try: 
+    results = await db.execute(select(FlaggedMolecule).where(
+        FlaggedMolecule.smile == requestBody.smile
+        and FlaggedMolecule.job_id == requestBody.job_id))
+
+    flagged_molecule = results.scalars().first()
+
+    try:
         if flagged_molecule:
             await db.delete(flagged_molecule)
             await db.commit()

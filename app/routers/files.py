@@ -60,10 +60,12 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     df = pd.read_csv(io.BytesIO(csv_content))
 
     for index, row in df.iterrows():
+        smile = row['SMILE']
         doc_id = row['doc_no']
 
         flagged_molecules = await db.execute(select(FlaggedMolecule).where(
-            FlaggedMolecule.job_id == job_id
+            FlaggedMolecule.smile == smile
+            and FlaggedMolecule.job_id == job_id
             and FlaggedMolecule.doc_id == doc_id))
 
         # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
