@@ -43,9 +43,9 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
 
 
 # Returns True is smile is flagged
-def is_smile_flagged(smile, flagged_molecules):
+def is_row_flagged(job_id, row, flagged_molecules):
     for mol in flagged_molecules.scalars().all():
-        if smile == mol.smile:
+        if row['SMILE'] == mol.smile:
             return True
     return False
 
@@ -59,9 +59,13 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     molecules = []
     df = pd.read_csv(io.BytesIO(csv_content))
 
-    flagged_molecules = await db.execute(select(FlaggedMolecule))
-
     for index, row in df.iterrows():
+        doc_id = row['doc_no']
+
+        flagged_molecules = await db.execute(select(FlaggedMolecule).where(
+            FlaggedMolecule.job_id == job_id
+            and FlaggedMolecule.doc_id == doc_id))
+
         # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
         chemicalSafety = str(row['chemicalSafety']).split(', ')
         OtherInstances = str(row['OtherInstances']).split(', ')
@@ -72,7 +76,7 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
                             file_path=row['file_path'],
                             page_no=row['page_no'],
                             name=row['name'],
-                            flagged=is_smile_flagged(row['SMILE'], flagged_molecules),
+                            flagged=is_row_flagged(job_id, row['SMILE'], flagged_molecules),
                             SMILE=row['SMILE'],
                             structure=row['structure'],
                             minX=row['minX'],
