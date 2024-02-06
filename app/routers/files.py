@@ -9,9 +9,13 @@ from datetime import datetime
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.responses import FileResponse
 
 from models.exportRequestBody import ExportRequestBody
+from models.sqlmodel.db import get_session
+from models.sqlmodel.models import FlaggedMolecule
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
@@ -37,14 +41,25 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# Returns True is smile is flagged
+def is_smile_flagged(smile, flagged_molecules):
+    for mol in flagged_molecules.scalars().all():
+        if smile == mol.smile:
+            return True
+    return False
+
+
 @router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
-def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()):
+async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
     if csv_content is None:
         filename = "results/" + job_id + "/" + job_id + ".csv"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     molecules = []
     df = pd.read_csv(io.BytesIO(csv_content))
+
+    flagged_molecules = await db.execute(select(FlaggedMolecule))
 
     for index, row in df.iterrows():
         # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
@@ -57,6 +72,7 @@ def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends()
                             file_path=row['file_path'],
                             page_no=row['page_no'],
                             name=row['name'],
+                            flagged=is_smile_flagged(row['SMILE'], flagged_molecules),
                             SMILE=row['SMILE'],
                             structure=row['structure'],
                             minX=row['minX'],
