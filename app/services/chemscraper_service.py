@@ -70,6 +70,7 @@ class ChemScraperService:
                     molecules.append(
                         Molecule(
                             id=id,
+                            flagged=False,
                             doc_no=doc_no,
                             file_path=file_path,
                             page_no=page_no,
