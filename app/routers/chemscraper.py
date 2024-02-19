@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import time
 
+from sqlmodel import select
+
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
@@ -107,10 +109,15 @@ async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends
 
 @router.delete("/chemscraper/flag", tags=['ChemScraper'])
 async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncSession = Depends(get_session)):
-    flagged_molecule = db.get(FlaggedMolecule, (requestBody.smile, requestBody.job_id))
-    try: 
+    results = await db.execute(select(FlaggedMolecule).where(
+        FlaggedMolecule.smile == requestBody.smile
+        and FlaggedMolecule.job_id == requestBody.job_id))
+
+    flagged_molecule = results.scalars().first()
+
+    try:
         if flagged_molecule:
-            db.delete(flagged_molecule)
+            await db.delete(flagged_molecule)
             await db.commit()
         else:
             raise Exception("Flagged Molecule with Job ID and SMILE representation Not Found.")
