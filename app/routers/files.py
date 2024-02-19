@@ -75,6 +75,7 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         # Create a Molecule object and append it to the list
         molecule = Molecule(id=row['id'],
                             doc_no=row['doc_no'],
+                            atom_count=row['atom_count'],
                             file_path=row['file_path'],
                             page_no=row['page_no'],
                             name=row['name'],
