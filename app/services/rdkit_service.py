@@ -6,6 +6,12 @@ class RDKitService:
     def __init__(self) -> None:
         pass
 
+    def getAtomCount(self, smileString):
+        mol = Chem.MolFromSmiles(smileString)
+        if mol is None:
+            raise ValueError(f"Could not create molecule from SMILES: {smileString}")
+        return len(mol.GetAtoms())
+
     def renderSVGFromSMILE(self, smileString):
         try:
             m = Chem.MolFromSmiles(smileString)

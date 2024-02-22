@@ -1,9 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import List
 
+
 class Molecule(BaseModel):
     id: int
     flagged: bool
+    atom_count: int
     doc_no: str
     file_path: str
     page_no: str
