@@ -52,6 +52,7 @@ def is_row_flagged(job_id, row, flagged_molecules):
 
 @router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
+    rdkitService = RDKitService()
     csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
     if csv_content is None:
         filename = "results/" + job_id + "/" + job_id + ".csv"
@@ -75,7 +76,7 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         # Create a Molecule object and append it to the list
         molecule = Molecule(id=row['id'],
                             doc_no=row['doc_no'],
-                            atom_count=row['atom_count'],
+                            atom_count=row['atom_count'] if 'atom_count' in row else rdkitService.getAtomCount(smile),
                             file_path=row['file_path'],
                             page_no=row['page_no'],
                             name=row['name'],
