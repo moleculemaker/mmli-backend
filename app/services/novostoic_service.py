@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 from models.sqlmodel.models import Job
@@ -21,16 +22,17 @@ class NovostoicService:
         self.db.add(jobObject)
         await self.db.commit()
 
-    async def runOptstoic(self, bucket_name: str, primary_precursor: str, target_molecule: str, job_id: str, service: MinIOService, email_service: EmailService):
+    async def runOptstoic(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
+        job_id = payload["job_id"]
         db_job = await self.db.get(Job, job_id)
 
         await self.update_job_phase(db_job, JobStatus.PROCESSING)
 
         #TODO: use optstoic image
-        await time.sleep(3)
+        await asyncio.sleep(3)
 
-        sample_response = "pong"
-        upload_result = service.upload_file(bucket_name, f"results/{job_id}/results.txt", sample_response)
+        sample_response = "message\npong"
+        upload_result = service.upload_file(bucket_name, f"results/{job_id}/{job_id}.csv", bytes(sample_response, 'utf-8'))
 
         if upload_result:
             await self.update_job_phase(db_job, JobStatus.COMPLETED)
@@ -57,3 +59,15 @@ class NovostoicService:
                     print(e)
             
         return False
+
+    async def runNovostoic(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
+        #TODO: use novostoic image
+        return self.runOptstoic(bucket_name, payload, service, email_service) 
+    
+    async def runEnzRank(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
+        #TODO: use enzRank image
+        return self.runOptstoic(bucket_name, payload, service, email_service) 
+    
+    async def runDgPredictor(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
+        #TODO: use dGPredictor image
+        return self.runOptstoic(bucket_name, payload, service, email_service) 

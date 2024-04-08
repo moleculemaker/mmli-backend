@@ -8,15 +8,17 @@ from services.minio_service import MinIOService
 from services.email_service import EmailService
 from services.novostoic_service import NovostoicService
 
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from models.novostoicRequestBodies import OptstoicRequestBody
+
+from models.novostoicRequestBodies import DgPredictorRequestBody, EnzRankRequestBody, NovostoicRequestBody, OptstoicRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType
 
 
 router = APIRouter()
 
-@router.post("/novostoic/optstoic/run", tags=['Novostoic'])
+@router.post("/novostoic_optstoic/run", tags=['Novostoic'])
 async def start_optstoic(
     requestBody: OptstoicRequestBody, 
     background_tasks: BackgroundTasks, 
@@ -24,37 +26,133 @@ async def start_optstoic(
     db: AsyncSession = Depends(get_session), 
     email_service: EmailService = Depends()
 ):
-    if len(requestBody.primary_precursor) > 0 \
-        and len(requestBody.target_molecule) > 0 \
-        and requestBody.jobId != "":
-        # Create a new job and add to the DB
-        curr_time = time.time()
-        db_job = Job(
-            email=requestBody.user_email,
-            job_info=requestBody.primary_precursor + "|" + requestBody.target_molecule,
-            job_id=requestBody.jobId,
-            # Run ID takes the default value since the app doesn't support multiple runs right now
-            type=JobType.NOVOSTOIC_OPTSTOIC,
-            user_agent='',
-            time_created=int(curr_time)
-        )
-
-        try:
-            db.add(db_job)
-            await db.commit()
-        except Exception as e:
-            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occured.", "error_details": str(e)}
-            return JSONResponse(content=content, status_code=400)
+    #ASSUMPTION: a job of novostoic/optstoic has been created in the db already
+    if requestBody.jobId == "":
+        content = {"jobId": requestBody.jobId, "error_message": "Job ID not provided."}
+        return JSONResponse(content=content, status_code=400)
     
-        novostoicService = NovostoicService(db=db)
-        background_tasks.add_task(
-            novostoicService.runOptstoic, 
-            'novostoic',
-            requestBody.primary_precursor, 
-            requestBody.target_molecule, 
-            requestBody.jobId, 
-            service, 
-            email_service
-        )
-        content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
-        return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+    existing_job = await db.execute(select(Job).where(Job.job_id == requestBody.jobId))
+    if not existing_job.first():
+        content = {"jobId": requestBody.jobId, "error_message": "Job not found."}
+        return JSONResponse(content=content, status_code=404)
+
+    #TODO: add validation for the input
+    payload = {
+        "job_id": requestBody.jobId,
+    }
+
+    novostoicService = NovostoicService(db=db)
+    background_tasks.add_task(
+        novostoicService.runOptstoic, 
+        JobType.NOVOSTOIC_OPTSTOIC,
+        payload,
+        service, 
+        email_service
+    )
+    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/novostoic_novostoic/run", tags=['Novostoic'])
+async def start_novostoic(
+    requestBody: NovostoicRequestBody, 
+    background_tasks: BackgroundTasks, 
+    service: MinIOService = Depends(), 
+    db: AsyncSession = Depends(get_session), 
+    email_service: EmailService = Depends()
+):
+    #ASSUMPTION: a job of novostoic/optstoic has been created in the db already
+    if requestBody.jobId == "":
+        content = {"jobId": requestBody.jobId, "error_message": "Job ID not provided."}
+        return JSONResponse(content=content, status_code=400)
+    
+    existing_job = await db.execute(select(Job).where(Job.job_id == requestBody.jobId))
+    if not existing_job.first():
+        content = {"jobId": requestBody.jobId, "error_message": "Job not found."}
+        return JSONResponse(content=content, status_code=404)
+
+    #TODO: add validation for the input
+    payload = {
+        "job_id": requestBody.jobId,
+    }
+
+    novostoicService = NovostoicService(db=db)
+    background_tasks.add_task(
+        novostoicService.runOptstoic, 
+        JobType.NOVOSTOIC_OPTSTOIC,
+        payload,
+        service, 
+        email_service
+    )
+    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/novostoic_enzrank/run", tags=['Novostoic'])
+async def start_enzrank(
+    requestBody: EnzRankRequestBody, 
+    background_tasks: BackgroundTasks, 
+    service: MinIOService = Depends(), 
+    db: AsyncSession = Depends(get_session), 
+    email_service: EmailService = Depends()
+):
+    #ASSUMPTION: a job of novostoic/optstoic has been created in the db already
+    if requestBody.jobId == "":
+        content = {"jobId": requestBody.jobId, "error_message": "Job ID not provided."}
+        return JSONResponse(content=content, status_code=400)
+    
+    existing_job = await db.execute(select(Job).where(Job.job_id == requestBody.jobId))
+    if not existing_job.first():
+        content = {"jobId": requestBody.jobId, "error_message": "Job not found."}
+        return JSONResponse(content=content, status_code=404)
+
+    #TODO: add validation for the input
+    payload = {
+        "job_id": requestBody.jobId,
+    }
+
+    novostoicService = NovostoicService(db=db)
+    background_tasks.add_task(
+        novostoicService.runEnzRank, 
+        JobType.NOVOSTOIC_ENZRANK,
+        payload,
+        service, 
+        email_service
+    )
+    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.post("/novostoic_dgpredictor/run", tags=['Novostoic'])
+async def start_dgpredictor(
+    requestBody: DgPredictorRequestBody, 
+    background_tasks: BackgroundTasks, 
+    service: MinIOService = Depends(), 
+    db: AsyncSession = Depends(get_session), 
+    email_service: EmailService = Depends()
+):
+    #ASSUMPTION: a job of novostoic/optstoic has been created in the db already
+    if requestBody.jobId == "":
+        content = {"jobId": requestBody.jobId, "error_message": "Job ID not provided."}
+        return JSONResponse(content=content, status_code=400)
+    
+    existing_job = await db.execute(select(Job).where(Job.job_id == requestBody.jobId))
+    if not existing_job.first():
+        content = {"jobId": requestBody.jobId, "error_message": "Job not found."}
+        return JSONResponse(content=content, status_code=404)
+
+    #TODO: add validation for the input
+    payload = {
+        "job_id": requestBody.jobId,
+    }
+
+    novostoicService = NovostoicService(db=db)
+    background_tasks.add_task(
+        novostoicService.runDgPredictor, 
+        JobType.NOVOSTOIC_DGPREDICTOR,
+        payload,
+        service, 
+        email_service
+    )
+    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
