@@ -7,6 +7,7 @@ from typing import List
 from datetime import datetime
 
 import pandas as pd
+from app.models.enums import JobType
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from sqlmodel import select
@@ -19,6 +20,7 @@ from models.sqlmodel.models import FlaggedMolecule
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
+from services.chemscraper_service import resultPostProcess as chemscraperResultPostProcess
 
 from models.molecule import Molecule
 from typing import Optional
@@ -42,61 +44,11 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# Returns True is smile is flagged
-def is_row_flagged(job_id, row, flagged_molecules):
-    for mol in flagged_molecules.scalars().all():
-        if row['SMILE'] == mol.smile:
-            return True
-    return False
-
-
 @router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
-    rdkitService = RDKitService()
-    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
-    if csv_content is None:
-        filename = "results/" + job_id + "/" + job_id + ".csv"
-        raise HTTPException(status_code=404, detail=f"File {filename} not found")
-    molecules = []
-    df = pd.read_csv(io.BytesIO(csv_content))
-
-    for index, row in df.iterrows():
-        smile = row['SMILE']
-        doc_id = row['doc_no']
-
-        flagged_molecules = await db.execute(select(FlaggedMolecule).where(
-            FlaggedMolecule.smile == smile
-            and FlaggedMolecule.job_id == job_id
-            and FlaggedMolecule.doc_id == doc_id))
-
-        # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
-        chemicalSafety = str(row['chemicalSafety']).split(', ')
-        OtherInstances = str(row['OtherInstances']).split(', ')
-
-        # Create a Molecule object and append it to the list
-        molecule = Molecule(id=row['id'],
-                            doc_no=row['doc_no'],
-                            atom_count=row['atom_count'] if 'atom_count' in row else rdkitService.getAtomCount(smile),
-                            file_path=row['file_path'],
-                            page_no=row['page_no'],
-                            name=row['name'],
-                            flagged=is_row_flagged(job_id, row, flagged_molecules),
-                            SMILE=row['SMILE'],
-                            structure=row['structure'],
-                            minX=row['minX'],
-                            minY=row['minY'],
-                            width=row['width'],
-                            height=row['height'],
-                            PubChemCID=row['PubChemCID'],
-                            molecularFormula=row['molecularFormula'],
-                            molecularWeight=row['molecularWeight'],
-                            chemicalSafety=chemicalSafety,
-                            Description=row['Description'],
-                            Location=row['Location'],
-                            OtherInstances=OtherInstances,
-                            fingerprint=row['fingerprint'])
-        molecules.append(molecule)
-    return molecules
+    if bucket_name == JobType.CHEMSCRAPER:
+        return await chemscraperResultPostProcess(bucket_name, job_id, service, db)
+    pass
 
 
 @router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
