@@ -5,6 +5,7 @@ class JobType(str, Enum):
     CLEAN = 'clean'
     CHEMSCRAPER = 'chemscraper'
     MOLLI = 'molli'
+    SOMN = 'somn'
 
     def __str__(self) -> str:
         return self.value

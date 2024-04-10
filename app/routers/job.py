@@ -37,6 +37,11 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         # runs in Kubernetes
         image = 'moleculemaker/clean-image-amd64'
         command = ''  # insert reference to input file
+    elif job_type == JobType.SOMN:
+        print("Creating SOMN job")
+        # runs in Kubernetes
+        image = ''
+        command = ''
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
