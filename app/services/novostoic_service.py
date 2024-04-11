@@ -1,6 +1,9 @@
 import asyncio
 import os
 import time
+
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from models.sqlmodel.models import Job
 from models.enums import JobStatus
 
@@ -31,7 +34,7 @@ class NovostoicService:
         #TODO: use optstoic image
         await asyncio.sleep(3)
 
-        sample_response = "message\npong"
+        sample_response = f"{bucket_name}:pong"
         upload_result = service.upload_file(bucket_name, f"results/{job_id}/{job_id}.csv", bytes(sample_response, 'utf-8'))
 
         if upload_result:
@@ -71,3 +74,19 @@ class NovostoicService:
     async def runDgPredictor(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
         #TODO: use dGPredictor image
         return self.runOptstoic(bucket_name, payload, service, email_service) 
+    
+    @staticmethod
+    async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        return service.get_file(bucket_name, f"results/{job_id}/{job_id}.csv")
+    
+    @staticmethod
+    async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+    
+    @staticmethod
+    async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+    
+    @staticmethod
+    async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
