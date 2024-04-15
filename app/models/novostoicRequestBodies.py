@@ -42,6 +42,7 @@ class DgPredictorRequestBody(BaseModel):
     jobId: str
     user_email: str
 
+    ph: float
     ionic_strength: float
     reactions: List[Union[ReactionSmiles, ReactionKeggId]]
 

@@ -65,15 +65,15 @@ class NovostoicService:
 
     async def runNovostoic(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
         #TODO: use novostoic image
-        return self.runOptstoic(bucket_name, payload, service, email_service) 
+        return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     async def runEnzRank(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
         #TODO: use enzRank image
-        return self.runOptstoic(bucket_name, payload, service, email_service) 
+        return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     async def runDgPredictor(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
         #TODO: use dGPredictor image
-        return self.runOptstoic(bucket_name, payload, service, email_service) 
+        return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     @staticmethod
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
@@ -81,12 +81,12 @@ class NovostoicService:
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)

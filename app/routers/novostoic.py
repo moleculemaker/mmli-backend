@@ -11,14 +11,14 @@ from services.novostoic_service import NovostoicService
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models.novostoicRequestBodies import DgPredictorRequestBody, EnzRankRequestBody, NovostoicRequestBody, OptstoicRequestBody
+from models.novostoicRequestBodies import DgPredictorRequestBody, NovostoicRequestBody, EnzRankRequestBody, OptstoicRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType
 
 
 router = APIRouter()
 
-@router.post("/novostoic_optstoic/run", tags=['Novostoic'])
+@router.post(f"/{JobType.NOVOSTOIC_OPTSTOIC}/run", tags=['Novostoic'])
 async def start_optstoic(
     requestBody: OptstoicRequestBody, 
     background_tasks: BackgroundTasks, 
@@ -53,7 +53,7 @@ async def start_optstoic(
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
-@router.post("/novostoic_novostoic/run", tags=['Novostoic'])
+@router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
 async def start_novostoic(
     requestBody: NovostoicRequestBody, 
     background_tasks: BackgroundTasks, 
@@ -78,8 +78,8 @@ async def start_novostoic(
 
     novostoicService = NovostoicService(db=db)
     background_tasks.add_task(
-        novostoicService.runOptstoic, 
-        JobType.NOVOSTOIC_OPTSTOIC,
+        novostoicService.runNovostoic, 
+        JobType.NOVOSTOIC_NOVOSTOIC,
         payload,
         service, 
         email_service
@@ -88,7 +88,7 @@ async def start_novostoic(
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
-@router.post("/novostoic_enzrank/run", tags=['Novostoic'])
+@router.post(f"/{JobType.NOVOSTOIC_ENZRANK}/run", tags=['Novostoic'])
 async def start_enzrank(
     requestBody: EnzRankRequestBody, 
     background_tasks: BackgroundTasks, 
@@ -123,7 +123,7 @@ async def start_enzrank(
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
-@router.post("/novostoic_dgpredictor/run", tags=['Novostoic'])
+@router.post(f"/{JobType.NOVOSTOIC_DGPREDICTOR}/run", tags=['Novostoic'])
 async def start_dgpredictor(
     requestBody: DgPredictorRequestBody, 
     background_tasks: BackgroundTasks, 
