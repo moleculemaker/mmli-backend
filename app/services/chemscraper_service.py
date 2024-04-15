@@ -203,6 +203,7 @@ class ChemScraperService:
                     print(e)
         return False
 
+    @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         rdkitService = RDKitService()
         csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")

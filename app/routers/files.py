@@ -20,7 +20,7 @@ from models.sqlmodel.models import FlaggedMolecule
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
-from services.chemscraper_service import resultPostProcess as chemscraperResultPostProcess
+from services.chemscraper_service import ChemScraperService
 
 from models.molecule import Molecule
 from typing import Optional
@@ -44,10 +44,10 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.get("/{bucket_name}/results/{job_id}", response_model=List[Molecule], tags=['Files'])
+@router.get("/{bucket_name}/results/{job_id}", tags=['Files'])
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
     if bucket_name == JobType.CHEMSCRAPER:
-        return await chemscraperResultPostProcess(bucket_name, job_id, service, db)
+        return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
     pass
 
 
