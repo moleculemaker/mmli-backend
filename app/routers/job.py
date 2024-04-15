@@ -6,37 +6,46 @@ from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models.enums import JobType, JobStatus
-from models.sqlmodel.db import get_session, DATABASE_URL
+from config import get_logger, app_config
+from models.enums import JobType, JobStatus, JobTypes
+from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
+from services import kubejob_service
+
 router = APIRouter()
+
+log = get_logger(__name__)
 
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
 async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
-    existing_jobs = await db.execute(select(Job).where(Job.job_id == job.job_id).where(Job.run_id == job.run_id))
+    existing_jobs = await db.execute(select(Job).where(Job.job_id == job.job_id))
     if existing_jobs.first():
-        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job.job_id + " and run_id=" + job.run_id)
+        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job.job_id)
 
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type == JobType.CHEMSCRAPER:
-        print("Creating CHEMSCRAPER job")
+        log.debug("Creating CHEMSCRAPER job")
         # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.MOLLI:
-        print("Creating MOLLI job")
-        # runs in Kubernetes
-        image = 'moleculemaker/molli:ncsa-workflow'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.CLEAN:
-        print("Creating CLEAN job")
-        # runs in Kubernetes
-        image = 'moleculemaker/clean-image-amd64'
-        command = ''  # insert reference to input file
+        response = {
+            'command': '',
+            'image': ''
+        }
+    elif job_type in JobTypes:
+        # Use job_type to determine command
+        if job_type == 'defaults':
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == 'clean':
+            # TODO: support command/input for CLEAN
+        elif job_type == 'molli':
+            # TODO: support command/input for MOLLI
+
+        # Run a Kubernetes Job with the given image + command
+        log.debug("Creating Kubernetes job: " + job_type)
+        response = kubejob_service.create_job(job_type, command)
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
@@ -54,8 +63,8 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         run_id=job.run_id,
 
         type=job_type,
-        command=command,
-        image=image,
+        command=response['command'],
+        image=response['image'],
 
         # Job metadata
         deleted=0,

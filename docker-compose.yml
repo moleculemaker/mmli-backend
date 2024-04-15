@@ -2,7 +2,7 @@ version: "3.8"
 services:
   postgresql:
     container_name: mmli-backend-postgresql
-    image: postgres
+    image: postgres:15
     restart: always
     ports: 
       - "5432:5432"
@@ -36,6 +36,7 @@ services:
       - .env
     volumes:
       - ./app:/code/app
+      - /Users/lambert8/.kube/config:/opt/kubeconfig
 
 volumes:
   postgres:

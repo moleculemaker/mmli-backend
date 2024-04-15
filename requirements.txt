@@ -6,6 +6,7 @@ python-dotenv~=1.0.0
 minio~=7.1.15
 rdkit~=2023.3.2
 requests~=2.31.0
+kubernetes~=27.2.0
 
 # ORM layer
 sqlmodel==0.0.8

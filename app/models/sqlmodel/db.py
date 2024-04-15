@@ -6,13 +6,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
 
 from sqlalchemy.orm import sessionmaker
 
+from config import app_config
 
-# SQLALCHEMY_DATABASE_URL = "postgresql://user:password@postgresserver/db"
 # By default, use SQLite (for local development)
 load_dotenv()
-DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", "sqlite:///./sql_app.db")
 
-engine = AsyncEngine(create_engine(DATABASE_URL, echo=True, future=True))
+# app_secrets['db']['url'] = "postgresql://user:password@postgresserver/db"
+engine = AsyncEngine(create_engine(app_config['db']['url'], echo=True, future=True))
 
 async def init_db():
     async with engine.begin() as conn:
