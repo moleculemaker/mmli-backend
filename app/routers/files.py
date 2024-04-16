@@ -7,7 +7,6 @@ from typing import List
 from datetime import datetime
 
 import pandas as pd
-from app.models.enums import JobType
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from sqlmodel import select
@@ -17,6 +16,9 @@ from starlette.responses import FileResponse
 from models.exportRequestBody import ExportRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import FlaggedMolecule
+from models.enums import JobType
+
+from services.somn_service import SomnService
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.pubchem_service import PubChemService
@@ -48,6 +50,8 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
     if bucket_name == JobType.CHEMSCRAPER:
         return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
+    elif bucket_name == JobType.SOMN:
+        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
     pass
 
 
