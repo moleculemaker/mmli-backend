@@ -196,25 +196,17 @@ class ChemScraperService:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
 
-    async def update_job_phase(self, jobObject, phase: JobStatus):
-        jobObject.phase = phase
-        if phase == JobStatus.PROCESSING:
-            jobObject.time_start = int(time.time())
-        else:
-            jobObject.time_end = int(time.time())
-        self.db.add(jobObject)
-        await self.db.commit()
 
     async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
         db_job : Job = await self.db.get(Job, jobId)
 
         # Update Job Status to Processing
-        await self.update_job_phase(db_job, JobStatus.PROCESSING)
+        await self.db.update_job_phase(db_job, JobStatus.PROCESSING)
 
         data = service.get_file(bucket_name, objectPath)
         if data is None:
-            await self.update_job_phase(db_job, JobStatus.ERROR)
+            await self.db.update_job_phase(db_job, JobStatus.ERROR)
             raise HTTPException(status_code=404, detail="File not found")
         
         data_bytes = io.BytesIO(data)
@@ -240,7 +232,7 @@ class ChemScraperService:
                     upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + jobId + ".tsv", tsv_data)
                     if upload_result:
                         await self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
-                        await self.update_job_phase(db_job, JobStatus.COMPLETED)
+                        await self.db.update_job_phase(db_job, JobStatus.COMPLETED)
                         if(db_job.email):
                             try:
                                 email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your ChemScraper Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
@@ -250,7 +242,7 @@ class ChemScraperService:
         else:
             error_content = response.text.encode()
             upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
-            await self.update_job_phase(db_job, JobStatus.ERROR)
+            await self.db.update_job_phase(db_job, JobStatus.ERROR)
             if(db_job.email):
                 try:
                     email_service.send_email(db_job.email, f'''ChemScraper Job ({db_job.job_id}) failed''', f'''An error occurred in computing the result for your ChemScraper job.''')

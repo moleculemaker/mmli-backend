@@ -15,10 +15,15 @@ import time
 import threading
 
 from requests import HTTPError
+from sqlmodel import Session
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 import config
 from config import app_config
+from models.enums import JobStatus
 from models.sqlmodel import db
+from models.sqlmodel.db import get_session, engine
+from models.sqlmodel.models import Job
 
 #from dbconnector import DbConnector
 
@@ -29,10 +34,9 @@ try:
     kubeconfig.load_incluster_config()
     log.info('Successfully loaded in-cluster config!')
 except Exception as e1:
-    log.error('In-cluster config failed: ', e1)
-    config_file_path = app_config['kubernetes_jobs']['defaults']['kubeconfig']
-    log.info('Falling back to provided kubeconfig path: ', config_file_path)
     try:
+        config_file_path = app_config['kubernetes_jobs']['defaults']['kubeconfig']
+        log.info('In-cluster config failed: Falling back to provided kubeconfig path: ' + config_file_path)
         kubeconfig.load_kube_config(config_file=config_file_path)
     except Exception as e2:
         log.fatal('Failed to get any cluster config: ', e2)
@@ -61,6 +65,15 @@ api_v1 = client.CoreV1Api()
 #        if not count:
 #            w.stop()
 
+async def get_db() -> AsyncSession:
+    async with get_session() as db:
+        try:
+            yield db
+        except:
+            # if we fail somehow rollback the connection
+            log.warn("We somehow failed in a DB operation and auto-rollbacking...")
+            await db.rollback()
+            raise
 
 class KubeEventWatcher:
 
@@ -69,7 +82,7 @@ class KubeEventWatcher:
         #self.logger.setLevel('DEBUG')
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
         # Get global instance of the job handler database interface
-        self.db = db.get_session()
+        self.db = db.create_db_engine()
 
         self.stream = None
         self.logger.info('Starting KubeWatcher')
@@ -77,8 +90,6 @@ class KubeEventWatcher:
         self.logger.info('Started KubeWatcher')
 
     def run(self):
-        kubeconfig.load_incluster_config()
-
         # Ignore kube-system namespace
         # TODO: Parameterize this?
         ignored_namespaces = ['kube-system']
@@ -157,7 +168,7 @@ class KubeEventWatcher:
                     self.logger.debug(f'Event: job_id={job_id}   type={type}   status={status}')
                     new_phase = None
                     if conditions is None:
-                        new_phase = 'executing'
+                        new_phase = 'processing'
                     elif len(conditions) > 0 and conditions[0].type == 'Complete':
                         new_phase = 'completed'
                     elif status.failed > 0:
@@ -169,11 +180,10 @@ class KubeEventWatcher:
                     # Write status update back to database
                     if new_phase is not None:
                         self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
-                        self.db.update_job(
-                            job_id=job_id,
-                            phase=new_phase,
-                        )
-                        self.logger.info('Updated job phase: %s -> %s' % (job_id, new_phase))
+
+                        with Session(engine) as session:
+                            db.update_job_phase(session, job_id, JobStatus(new_phase))
+                            self.logger.info('Updated job phase: %s -> %s' % (job_id, new_phase))
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
