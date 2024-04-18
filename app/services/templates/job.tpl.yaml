@@ -1,0 +1,110 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ name }}
+  namespace: {{ namespace }}
+spec:
+  completions: {{ replicas }}
+  parallelism: {{ replicas }}
+  backoffLimit: {{ backoffLimit }}
+  activeDeadlineSeconds: {{ activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        type: "uws-job"
+        jobId: "{{ jobId }}"
+        runId: "{{ runId }}"
+        ownerId: "{{ ownerId }}"
+    spec:
+      {%- if image.pull_secrets %}
+      imagePullSecrets:
+        {% for sec in image.pull_secrets %}
+        - name: "{{ sec }}"
+        {% endfor %}
+      {%- endif %}
+      restartPolicy: Never
+      # {%- if securityContext %}
+      # securityContext:
+      #   runAsUser: {{ securityContext['runAsUser'] }}
+      #   runAsGroup: {{ securityContext['runAsGroup'] }}
+      #   # fsGroup: {{ securityContext['fsGroup'] }}
+      # {%- endif %}
+      volumes:
+        # - name: server-config
+        #   configMap:
+        #     name: {{ releaseName }}-config
+        # Volume to host job data
+        - name: "job-output"
+          persistentVolumeClaim:
+            claimName: "{{ workingVolume.claimName }}"
+      initContainers:
+      - name: init
+        image: ubuntu:22.04
+        imagePullPolicy: IfNotPresent
+        # securityContext:
+        #   runAsUser: 0
+        volumeMounts:
+        - name: "job-output"
+          mountPath: "/uws"
+          subPath: "{{ workingVolume.subPath }}"
+        env:
+        - name: "JOB_OUTPUT_DIR"
+          value: "{{ job_output_dir }}"
+        command:
+        - /bin/bash
+        - -c
+        # - sleep 1000d
+        - >
+          mkdir -p "${JOB_OUTPUT_DIR}"
+        #   chown {{ securityContext['runAsUser'] }}:{{ securityContext['runAsGroup'] }} "${JOB_OUTPUT_DIR}"
+      containers:
+      - name: job
+        image: {{ image.repository }}
+        imagePullPolicy: {{ image.pull_policy }}
+        resources:
+          limits:
+            cpu: "{{ resources.limits.cpu }}"
+            memory: "{{ resources.limits.memory }}"
+          requests:
+            cpu: "{{ resources.requests.cpu }}"
+            memory: "{{ resources.requests.memory }}"
+        command:
+        - 'bash'
+        - '-c'
+        - >
+          {{ command }} &&
+          touch "${JOB_OUTPUT_DIR}/finished"
+        env:
+          {%- if clone_dir %}
+          # The "JOB_SOURCE_DIR" provides the job script with the path to the location
+          # of the cloned git repo (optional).
+          - name: "JOB_SOURCE_DIR"
+            value: "{{ clone_dir }}"
+          - name: "SRC_GIT_URL"
+            value: "{{ url }}"
+          - name: "GIT_COMMIT_REF"
+            value: "{{ commit_ref }}"
+          {%- endif %}
+          # The "JOB_OUTPUT_DIR" provides the job script with the path to the output
+          # directory where the job results are expected to be stored.
+          - name: "JOB_OUTPUT_DIR"
+            value: "{{ job_output_dir }}"
+          # The "JOB_ID" provides the job script with the UUID associated with the job.
+          - name: "JOB_ID"
+            value: "{{ jobId }}"
+          # Custom environment variables are defined here if provided in the job creation request
+          {% for env in environment %}
+          - name: "{{ env.name }}"
+            value: "{{ env.value }}"
+          {% endfor %}
+        volumeMounts:
+          - name: "job-output"
+            mountPath: "/uws"
+            subPath: "{{ workingVolume.subPath }}"
+        {%- for volume in volumes %}
+          - name: {{ volume.name }}
+            mountPath: "{{ volume.mountPath }}"
+            subPath: "{{ volume.subPath }}"
+            readOnly: {{ volume.readOnly }}
+        {%- endfor %}

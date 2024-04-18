@@ -1,19 +1,22 @@
 import io
-import os
+import logging
+
 from minio import Minio
 from minio.error import S3Error
-from dotenv import load_dotenv
 from urllib.parse import urlparse, urlunparse
 
+from config import app_config
+
+log = logging.getLogger(__name__)
+
 class MinIOService:
-    minio_api_baseURL = os.environ.get("MINIO_API_BASE_URL")
+    minio_api_baseURL = app_config['minio']['apiBaseUrl']
 
     def __init__(self):
-        load_dotenv()
         self.client = Minio(
-            os.environ.get("MINIO_SERVER"),
-            access_key=os.environ.get("MINIO_ACCESS_KEY"),
-            secret_key=os.environ.get("MINIO_SECRET_KEY"),
+            app_config['minio']['server'],
+            access_key=app_config['minio']['accessKey'],
+            secret_key=app_config['minio']['secretKey'],
             secure=False
         )
 
@@ -56,6 +59,18 @@ class MinIOService:
             return urls
         except S3Error as err:
             print("Error: ", err)
+
+    def ensure_bucket_exists(self, bucket_name):
+        if self.client.bucket_exists(bucket_name):
+            log.debug(f"{bucket_name} already exists. Using existing bucket: {bucket_name}")
+            return True
+        else:
+            log.debug(f"{bucket_name} does not exist. Creating new bucket: {bucket_name}")
+            try:
+                self.client.make_bucket(bucket_name=bucket_name)
+                return True
+            except:
+                return False
 
     def check_file_exists(self, bucket_name, object_name):
         try:

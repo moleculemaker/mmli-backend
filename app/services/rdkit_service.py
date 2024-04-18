@@ -17,7 +17,7 @@ class RDKitService:
             m = Chem.MolFromSmiles(smileString)
             d = Draw.rdMolDraw2D.MolDraw2DSVG(120, 120)
             if m is None:
-                raise Exception("An Error ocurred creating the molecule structure")
+                raise Exception("An Error occurred creating the molecule structure")
             d.DrawMolecule(m)
             d.FinishDrawing()
             p = d.GetDrawingText()

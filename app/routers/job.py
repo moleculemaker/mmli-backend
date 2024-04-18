@@ -1,62 +1,81 @@
+import base64
+import re
 import time
 import uuid
+from typing import List
 
-from fastapi import Depends, HTTPException, APIRouter
+from fastapi import Depends, HTTPException, APIRouter, File, UploadFile
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette.requests import Request
 
-from models.enums import JobType, JobStatus
-from models.sqlmodel.db import get_session, DATABASE_URL
+from config import get_logger, app_config
+from models.enums import JobType, JobStatus, JobTypes
+from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
+
+from services import kubejob_service, clean_service, molli_service
 
 router = APIRouter()
 
+log = get_logger(__name__)
+
+
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
-async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(get_session)):
+async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = File(...), db: AsyncSession = Depends(get_session)):
+    job_id = str(uuid.uuid4()) if job.job_id is None else job.job_id
+
     # Check if this job_id already exists
-    existing_jobs = await db.execute(select(Job).where(Job.job_id == job.job_id).where(Job.run_id == job.run_id))
+    existing_jobs = await db.execute(select(Job).where(Job.job_id == job_id))
     if existing_jobs.first():
-        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job.job_id + " and run_id=" + job.run_id)
+        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job_id)
 
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type == JobType.CHEMSCRAPER:
-        print("Creating CHEMSCRAPER job")
+        log.debug("Creating CHEMSCRAPER job")
         # runs as a background_task
+        command = 'N/A'
+        image_name = 'N/A'
+    elif job_type in JobTypes:
+        log.debug(f"Creating Kubernetes job: {job_type}")
+        # runs in Kubernetes, read Docker image name from config
+        image_name = app_config['kubernetes_jobs'][job_type]['image']
+
+        # Command + environment are set differently for each job (see below)
         command = ''
-        image = ''
-    elif job_type == JobType.MOLLI:
-        print("Creating MOLLI job")
-        # runs in Kubernetes
-        image = 'moleculemaker/molli:ncsa-workflow'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.CLEAN:
-        print("Creating CLEAN job")
-        # runs in Kubernetes
-        image = 'moleculemaker/clean-image-amd64'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-        print("Creating novostoic-optstoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
-        print("Creating novostoic-novostoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_ENZRANK:
-        print("Creating novostoic-enzrank job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-        print("Creating novostoic-dgpredictor job")
-        # runs as a background_task
-        command = ''
-        image = ''
+        environment = []
+
+        if job_type == JobType.DEFAULT:
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.SOMN:
+            project_id = '44eb8d94effa11eea46f18c04d0a4970'
+            model_set = 'apr-2024'
+            new_predictions_name = 'asdf'
+
+            # TODO: Build up example_request.csv from user input
+            input_file_path = f'somn_scratch/{project_id}/scratch/example_request.csv'
+
+            command = None
+            #command = f"ls -al && whoami && somn predict {project_id} {model_set} {new_predictions_name}"
+
+        # TODO: support NOVOSTOIC/CLEAN/MOLLI job types
+        elif job_type == JobType.CLEAN or job_type == JobType.MOLLI or 'novostoic' in job_type:
+            raise HTTPException(status_code=501, detail=f'{job_type} not yet implemented')
+
+        elif job_type == JobType.CLEAN:
+            # TODO: Build up input.FASTA from user input
+            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job.job_info)
+        elif job_type == JobType.MOLLI:
+            # TODO: Map/pass/mount CORES/SUBS files into the container
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            environment = molli_service.build_molli_job_environment(job_id=job_id, files=files)
+
+        # Run a Kubernetes Job with the given image + command + environment
+        log.debug("Creating Kubernetes job: " + job_type)
+        kubejob_service.create_job(job_type=job_type, job_id=job_id, image_name=image_name, command=command, environment=environment)
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
@@ -70,12 +89,12 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         # User input
         email=job.email,
         job_info=job.job_info,
-        job_id=str(uuid.uuid4()) if job.job_id is None else job.job_id,
+        job_id=job_id,
         run_id=job.run_id,
 
         type=job_type,
         command=command,
-        image=image,
+        image=image_name,
 
         # Job metadata
         deleted=0,

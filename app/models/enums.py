@@ -9,6 +9,13 @@ class JobType(str, Enum):
     NOVOSTOIC_NOVOSTOIC = 'novostoic-novostoic'
     NOVOSTOIC_ENZRANK = 'novostoic-enzrank'
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
+    SOMN = 'somn'
+    DEFAULT = 'defaults'
+
+    @staticmethod
+    def values():
+        # provide a meaningful named getter
+        return JobType._value2member_map_
 
     def __str__(self) -> str:
         return self.value
@@ -22,3 +29,6 @@ class JobStatus(str, Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+JobTypes = [str(job_type) for job_type in JobType]
