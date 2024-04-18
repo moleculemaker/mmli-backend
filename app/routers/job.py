@@ -37,6 +37,26 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         # runs in Kubernetes
         image = 'moleculemaker/clean-image-amd64'
         command = ''  # insert reference to input file
+    elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+        print("Creating novostoic-optstoic job")
+        # runs as a background_task
+        command = ''
+        image = ''
+    elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
+        print("Creating novostoic-novostoic job")
+        # runs as a background_task
+        command = ''
+        image = ''
+    elif job_type == JobType.NOVOSTOIC_ENZRANK:
+        print("Creating novostoic-enzrank job")
+        # runs as a background_task
+        command = ''
+        image = ''
+    elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+        print("Creating novostoic-dgpredictor job")
+        # runs as a background_task
+        command = ''
+        image = ''
     elif job_type == JobType.SOMN:
         print("Creating SOMN job")
         # runs in Kubernetes
@@ -166,5 +186,3 @@ async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, r
     await db.commit()
 
     return db_job.Job
-
-

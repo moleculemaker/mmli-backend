@@ -3,7 +3,7 @@ import os
 import uvicorn
 from fastapi import FastAPI
 
-from routers import chemscraper, job, files, somn
+from routers import chemscraper, job, files, somn, novostoic
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.sqlmodel.models import Job
@@ -17,6 +17,7 @@ DEBUG = 't' in str.lower(os.getenv("DEBUG", "true"))
 app.include_router(files.router)
 app.include_router(job.router)
 app.include_router(chemscraper.router)
+app.include_router(novostoic.router)
 app.include_router(somn.router)
 
 origins = [

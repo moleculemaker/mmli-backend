@@ -31,6 +31,61 @@ class ChemScraperService:
     def __init__(self, db) -> None:
         self.db = db
 
+    @staticmethod
+    async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        rdkitService = RDKitService()
+        csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+        if csv_content is None:
+            filename = "results/" + job_id + "/" + job_id + ".csv"
+            raise HTTPException(status_code=404, detail=f"File {filename} not found")
+        molecules = []
+        df = pd.read_csv(io.BytesIO(csv_content))
+
+        # Returns True is smile is flagged
+        def is_row_flagged(job_id, row, flagged_molecules):
+            for mol in flagged_molecules.scalars().all():
+                if row['SMILE'] == mol.smile:
+                    return True
+            return False
+
+        for index, row in df.iterrows():
+            smile = row['SMILE']
+            doc_id = row['doc_no']
+
+            flagged_molecules = await db.execute(select(FlaggedMolecule).where(
+                FlaggedMolecule.smile == smile
+                and FlaggedMolecule.job_id == job_id
+                and FlaggedMolecule.doc_id == doc_id))
+
+            # Convert the 'chemicalSafety' and 'OtherInstances' strings back into lists
+            chemicalSafety = str(row['chemicalSafety']).split(', ')
+            OtherInstances = str(row['OtherInstances']).split(', ')
+
+            # Create a Molecule object and append it to the list
+            molecule = Molecule(id=row['id'],
+                                doc_no=row['doc_no'],
+                                atom_count=row['atom_count'] if 'atom_count' in row else rdkitService.getAtomCount(smile),
+                                file_path=row['file_path'],
+                                page_no=row['page_no'],
+                                name=row['name'],
+                                flagged=is_row_flagged(job_id, row, flagged_molecules),
+                                SMILE=row['SMILE'],
+                                structure=row['structure'],
+                                minX=row['minX'],
+                                minY=row['minY'],
+                                width=row['width'],
+                                height=row['height'],
+                                PubChemCID=row['PubChemCID'],
+                                molecularFormula=row['molecularFormula'],
+                                molecularWeight=row['molecularWeight'],
+                                chemicalSafety=chemicalSafety,
+                                Description=row['Description'],
+                                Location=row['Location'],
+                                OtherInstances=OtherInstances,
+                                fingerprint=row['fingerprint'])
+            molecules.append(molecule)
+        return molecules
+
     async def fetchExternalDataAndStoreResults(self, bucket_name: str, jobId: str, tsv_content: bytes,  service: MinIOService):
         reader = csv.reader(tsv_content.decode().splitlines(), delimiter='\t')
         rdkitService = RDKitService()
