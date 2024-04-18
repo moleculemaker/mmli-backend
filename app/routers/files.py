@@ -5,6 +5,7 @@ import uuid
 import zipfile
 from datetime import datetime
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -13,9 +14,16 @@ from starlette.responses import FileResponse
 from models.enums import JobType
 from models.exportRequestBody import ExportRequestBody
 from models.sqlmodel.db import get_session
-from services.minio_service import MinIOService
-from services.chemscraper_service import ChemScraperService
+
+from models.sqlmodel.models import FlaggedMolecule
+from models.enums import JobType
+
 from services.novostoic_service import NovostoicService
+from services.somn_service import SomnService
+from services.minio_service import MinIOService
+from services.rdkit_service import RDKitService
+from services.pubchem_service import PubChemService
+from services.chemscraper_service import ChemScraperService
 
 from typing import Optional
 
@@ -65,6 +73,9 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
         print("Getting novostoic-dgpredictor job result")
         return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.SOMN:
+        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)

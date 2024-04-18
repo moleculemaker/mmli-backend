@@ -8,7 +8,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from config import app_config
-from routers import chemscraper, job, files, novostoic
+from routers import chemscraper, job, files, novostoic, somn
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.sqlmodel.models import Job
@@ -22,6 +22,7 @@ app.include_router(files.router)
 app.include_router(job.router)
 app.include_router(chemscraper.router)
 app.include_router(novostoic.router)
+app.include_router(somn.router)
 
 origins = [
     "http://test.mydomain.com",

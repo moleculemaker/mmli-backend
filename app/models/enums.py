@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class JobType(str, Enum):
     CLEAN = 'clean'
     CHEMSCRAPER = 'chemscraper'
@@ -10,11 +11,6 @@ class JobType(str, Enum):
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
     SOMN = 'somn'
     DEFAULT = 'defaults'
-
-    @staticmethod
-    def values():
-        # provide a meaningful named getter
-        return JobType._value2member_map_
 
     def __str__(self) -> str:
         return self.value
