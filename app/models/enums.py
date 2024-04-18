@@ -9,6 +9,7 @@ class JobType(str, Enum):
     NOVOSTOIC_NOVOSTOIC = 'novostoic-novostoic'
     NOVOSTOIC_ENZRANK = 'novostoic-enzrank'
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
+    SOMN = 'somn'
 
     def __str__(self) -> str:
         return self.value

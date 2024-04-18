@@ -57,6 +57,11 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
         # runs as a background_task
         command = ''
         image = ''
+    elif job_type == JobType.SOMN:
+        print("Creating SOMN job")
+        # runs in Kubernetes
+        image = ''
+        command = ''
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
