@@ -359,6 +359,8 @@ def create_job(job_type, image_name=None, command=None, job_id=None, run_id=None
             'status': config.STATUS_ERROR,
         }
 
+    image_name = app_config['kubernetes_jobs'][job_type]['image']
+
     try:
         pullSecrets = app_config['kubernetes_jobs'][job_type]['imagePullSecrets']
         log.debug(f"Using image pullSecrets={pullSecrets}")

@@ -8,7 +8,6 @@ from fastapi import Depends, HTTPException, APIRouter, File, UploadFile
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from starlette.requests import Request
 
 from config import get_logger, app_config
 from models.enums import JobType, JobStatus, JobTypes
@@ -20,7 +19,6 @@ from services import kubejob_service, clean_service, molli_service
 router = APIRouter()
 
 log = get_logger(__name__)
-
 
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
@@ -76,6 +74,7 @@ async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = Fi
         # Run a Kubernetes Job with the given image + command + environment
         log.debug("Creating Kubernetes job: " + job_type)
         kubejob_service.create_job(job_type=job_type, job_id=job_id, image_name=image_name, command=command, environment=environment)
+
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 

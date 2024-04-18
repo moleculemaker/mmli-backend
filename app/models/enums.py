@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class JobType(str, Enum):
     CLEAN = 'clean'
     CHEMSCRAPER = 'chemscraper'
