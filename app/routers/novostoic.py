@@ -3,6 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, BackgroundTasks, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import or_
 
 from services.minio_service import MinIOService
 from services.email_service import EmailService
@@ -13,7 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.novostoicRequestBodies import DgPredictorRequestBody, NovostoicRequestBody, EnzRankRequestBody, OptstoicRequestBody
 from models.sqlmodel.db import get_session
-from models.sqlmodel.models import Job, JobType
+from models.sqlmodel.models import Job, JobType, ChemicalIdentifier
 
 
 router = APIRouter()
@@ -52,6 +53,21 @@ async def start_optstoic(
     content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
+@router.get(f"/chemical/auto-complete", tags=['Novostoic'])
+async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get_session)):
+    existing_chemicals = await db.execute(
+        select(ChemicalIdentifier)
+        .filter(or_(
+            ChemicalIdentifier.name.like(f"%{search}%"),
+            ChemicalIdentifier.smiles.like(f"%{search}%"),
+            ChemicalIdentifier.inchi.like(f"%{search}%"),
+            ChemicalIdentifier.inchi_key.like(f"%{search}%"),
+            ChemicalIdentifier.metanetx_id.like(f"%{search}%"),
+            ChemicalIdentifier.kegg_id.like(f"%{search}%")
+        )
+        ).limit(20)
+    )
+    return existing_chemicals.all()
 
 @router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
 async def start_novostoic(
