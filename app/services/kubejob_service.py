@@ -347,7 +347,7 @@ def delete_job(job_id: str) -> None:
     #     raise
 
 
-def create_job(job_type, command=None, job_id=None, run_id=None, owner_id=None, replicas=1, environment=[]):
+def create_job(job_type, image_name=None, command=None, job_id=None, run_id=None, owner_id=None, replicas=1, environment=[]):
     # TODO: run test/echo job when job_type == 'default'?
     if job_type not in app_config['kubernetes_jobs']:
         log.error(f'Cannot find config for job_type={job_type}')
@@ -358,8 +358,6 @@ def create_job(job_type, command=None, job_id=None, run_id=None, owner_id=None, 
             'image': None,
             'status': config.STATUS_ERROR,
         }
-
-    image_name = app_config['kubernetes_jobs'][job_type]['image']
 
     try:
         pullSecrets = app_config['kubernetes_jobs'][job_type]['imagePullSecrets']

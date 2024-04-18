@@ -37,13 +37,14 @@ kubernetes_jobs:
   # Config for running MOLLI job
   molli:
     image: "moleculemaker/molli:ncsa-workflow"
+    command: "/molli/entrypoint.sh"
     imagePullPolicy: "Always"
     imagePullSecrets:
       - regcred
 
   # Config for running SOMN job
   somn:
-    image: "TBD"
+    image: "bodom0015/somn"
     imagePullPolicy: "Always"
 
   # Config for running NovoStoic job (subjob: OptStoic)

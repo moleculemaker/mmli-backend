@@ -69,12 +69,14 @@ spec:
           requests:
             cpu: "{{ resources.requests.cpu }}"
             memory: "{{ resources.requests.memory }}"
+        {%- if command %}
         command:
         - 'bash'
         - '-c'
         - >
           {{ command }} &&
           touch "${JOB_OUTPUT_DIR}/finished"
+        {%- endif %}
         env:
           {%- if clone_dir %}
           # The "JOB_SOURCE_DIR" provides the job script with the path to the location
