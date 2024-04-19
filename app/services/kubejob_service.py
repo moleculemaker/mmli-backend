@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import sys
 
@@ -15,15 +16,15 @@ import time
 import threading
 
 from requests import HTTPError
-from sqlmodel import Session
+from sqlmodel import Session, SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 import config
 from config import app_config
 from models.enums import JobStatus
-from models.sqlmodel import db
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
+import sqlalchemy as db
 
 #from dbconnector import DbConnector
 
@@ -82,7 +83,12 @@ class KubeEventWatcher:
         #self.logger.setLevel('DEBUG')
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
         # Get global instance of the job handler database interface
-        self.db = db.create_db_engine()
+
+        self.engine = db.create_engine(app_config['db']['url'].replace('+asyncpg', ''))
+        self.connection = engine.connect()
+        #self.connection.run_sync(SQLModel.metadata.create_all)
+        self.metadata = db.MetaData()
+        self.jobs = []
 
         self.stream = None
         self.logger.info('Starting KubeWatcher')
@@ -181,10 +187,14 @@ class KubeEventWatcher:
                     if new_phase is not None:
                         self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
 
-                        with Session(engine) as session:
-                            db.update_job_phase(session, job_id, JobStatus(new_phase))
-                            self.logger.info('Updated job phase: %s -> %s' % (job_id, new_phase))
+                        # create session and add objects
+                        with Session(self.engine) as session:
+                            updated_job = session.get(Job, job_id)
+                            updated_job.phase = new_phase
 
+                            session.add(updated_job)
+                            session.commit()
+                            session.flush()
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
                 if k8s_event_stream:

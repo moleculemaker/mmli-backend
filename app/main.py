@@ -29,14 +29,14 @@ watcher = KubeEventWatcher()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    log = get_logger('main:LifecycleEvents')
-    log.info("Starting up...")
-    log.info("Running alembic upgrade head...")
+    logger = get_logger('main:LifecycleEvents')
+    logger.info("Starting up...")
+    logger.info("Running alembic upgrade head...")
     run_migrations()
-    log.info("Starting KubeWatcher...")
+    logger.info("Starting KubeWatcher...")
     watcher.run()
     yield
-    log.info("Shutting down...")
+    logger.info("Shutting down...")
     watcher.close()
 
 

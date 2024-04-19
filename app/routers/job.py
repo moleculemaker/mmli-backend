@@ -23,7 +23,7 @@ log = get_logger(__name__)
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
 async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = File(...), db: AsyncSession = Depends(get_session)):
-    job_id = str(uuid.uuid4()) if job.job_id is None else job.job_id
+    job_id = str(kubejob_service.generate_uuid()) if job.job_id is None else job.job_id
 
     # Check if this job_id already exists
     existing_jobs = await db.execute(select(Job).where(Job.job_id == job_id))
