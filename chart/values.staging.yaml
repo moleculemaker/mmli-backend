@@ -19,8 +19,8 @@ analyzeIngress:
 config:
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
-  novostoic_frontend_url: "https://novostoic.backend.staging.mmli1.ncsa.illinois.edu"
-  somn_frontend_url: "https://somn.backend.staging.mmli1.ncsa.illinois.edu"
+  novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu"
+  somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
