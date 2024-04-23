@@ -16,7 +16,8 @@ from minio import Minio
 from requests import HTTPError
 from sqlmodel import Session
 
-from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER
+from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER, MINIO_ACCESS_KEY, \
+    MINIO_SECRET_KEY
 from models.enums import JobStatus, JobType
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
@@ -63,9 +64,9 @@ api_v1 = client.CoreV1Api()
 
 def download_remote_directory_from_minio(remote_path: str, bucket_name: str, target_directory: str = ''):
     minio = Minio(
-        app_config['minio']['server'],
-        access_key=app_config['minio']['accessKey'],
-        secret_key=app_config['minio']['secretKey'],
+        MINIO_SERVER,
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
         secure=False
     )
 

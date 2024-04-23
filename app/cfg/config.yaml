@@ -45,7 +45,7 @@ kubernetes_jobs:
 
   # Config for running MOLLI job
   molli:
-    image: "moleculemaker/molli:ncsa-workflow"
+    image: "ghcr.io/moleculemaker/molli:ncsa-workflow"
     command: "/molli/entrypoint.sh"
     imagePullPolicy: "Always"
     imagePullSecrets:
@@ -91,15 +91,7 @@ kubernetes_jobs:
       mountPath: "/uws"
       subPath: "uws"
     ## Central data volumes to be mounted in job containers
-    volumes:
-      - name: 'shared-storage'
-        mountPath: '/app/data/inputs'
-        subPath: 'input'
-        claimName: 'mmli-clean-job-weights'
-      - name: 'shared-storage'
-        mountPath: '/app/results/inputs'
-        subPath: 'output'
-        claimName: 'mmli-clean-job-weights'
+    volumes: []
 
     ## Abort jobs after 3 days regardless of their behavior
     activeDeadlineSeconds: 259200

@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.responses import FileResponse
 
+from config import get_logger
 from models.exportRequestBody import ExportRequestBody
 from models.sqlmodel.db import get_session
 
@@ -25,12 +26,13 @@ from typing import Optional
 
 router = APIRouter()
 
+log = get_logger(__name__)
 
 @router.post("/{bucket_name}/upload", tags=['Files'])
 async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", minio: MinIOService = Depends()):
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
-    if first_four_bytes == b'%PDF':
+    if bucket_name != 'chemscraper' or first_four_bytes == b'%PDF':
         if job_id == "":
             job_id = str(uuid.uuid4()).replace('-', '')
 
@@ -39,6 +41,8 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
         if upload_result:
             content = {"jobID": job_id, "uploaded_at": datetime.now().isoformat()}
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
+
+    log.error(f'Failed to upload file: {file.filename}')
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

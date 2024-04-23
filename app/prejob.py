@@ -6,11 +6,12 @@ from services.kubejob_service import download_remote_directory_from_minio
 
 bucket_name = os.getenv('JOB_TYPE')
 job_id = os.getenv('JOB_ID')
-job_output_dir = os.getenv('JOB_OUTPUT_DIR')
 
-target_directory = os.sep.join(job_output_dir.split(os.sep)[0:-2])
+job_input_dir = os.getenv('JOB_INPUT_DIR')
+target_directory = os.sep.join(job_input_dir.split(os.sep)[0:-2])
 
-remote_path = os.getenv('JOB_INPUT_DIR')
+remote_path = os.path.join(job_id, 'in')
+
 
 log = get_logger(__name__)
 

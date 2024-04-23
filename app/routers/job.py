@@ -6,11 +6,14 @@ import uuid
 from typing import List
 
 from fastapi import Depends, HTTPException, APIRouter, UploadFile
+from fastapi.openapi.models import Response
 from fastapi.params import Path, Body, File
 from pydantic.fields import Annotated, Optional
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette import status
+from starlette.responses import JSONResponse
 
 from config import get_logger, app_config
 from models.enums import JobType, JobStatus, JobTypes
@@ -37,9 +40,11 @@ async def create_job(
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
     # Check if this job_id already exists
-    existing_jobs = await db.execute(select(Job).where(Job.job_id == job_id))
-    if existing_jobs.first():
-        raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+    statement = select(Job).where(Job.job_id == job_id)
+    existing_jobs = await db.exec(statement)
+    db_job: Job = existing_jobs.first()
+    #if db_job:
+    #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
     # Validate Job type
     # TODO: Set command+image based on job_type
@@ -76,11 +81,11 @@ async def create_job(
             raise HTTPException(status_code=501, detail=f'{job_type} not yet implemented')
 
         elif job_type == JobType.CLEAN:
-            # TODO: Build up input.FASTA from user input
+            # Build up input.FASTA from user input
             job_config = json.loads(job_info.replace('\"', '"'))
             command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_config)
         elif job_type == JobType.MOLLI:
-            # TODO: Map/pass/mount CORES/SUBS files into the container
+            # Pass path to CORES/SUBS files into the container
             command = app_config['kubernetes_jobs'][job_type]['command']
             job_config = json.loads(job_info.replace('\"', '"'))
             environment = molli_service.build_molli_job_environment(job_id=job_id, job_info=job_config)
@@ -100,31 +105,44 @@ async def create_job(
 
     # TODO: Validation
     # TODO: Set internal metadata / fields
-    # Create a new DB job from user input
-    db_job = Job(
-        # User input
-        email=email,
-        job_info=job_info,
-        job_id=job_id,
-        run_id=run_id,
+    if not db_job:
+        # Create a new DB job from user input
+        db_job: Job = Job(
+            # User input
+            email=email,
+            job_info=job_info,
+            job_id=job_id,
+            run_id=run_id,
 
-        type=job_type,
-        command=command,
-        image=image_name,
+            type=job_type,
+            command=command,
+            image=image_name,
 
-        # Job metadata
-        deleted=0,
-        time_created=int(time.time()),
+            # Job metadata
+            deleted=0,
+            time_created=int(time.time()),
 
-        # Set ser metadata
-        user_agent=user_agent,
-    )
+            # Set ser metadata
+            user_agent=user_agent,
+        )
 
-    db.add(db_job)
-    await db.commit()
-    await db.refresh(db_job)
+        db.add(db_job)
+        await db.commit()
+        await db.refresh(db_job)
 
-    return db_job
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content={
+            'job_id': str(db_job.job_id),
+            'run_id': str(db_job.run_id),
+            'email': str(db_job.email),
+            'job_info': str(db_job.job_info),
+        })
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'job_id': str(db_job.job_id),
+        'run_id': str(db_job.run_id),
+        'email': str(db_job.email),
+        'job_info': str(db_job.job_info),
+    })
 
 
 @router.get("/{job_type}/jobs", tags=['Jobs'], description="Get a list of all job runs by type")

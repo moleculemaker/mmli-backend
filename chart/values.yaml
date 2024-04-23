@@ -108,7 +108,7 @@ config:
 
     # Config for running MOLLI job
     molli:
-      image: "moleculemaker/molli:ncsa-workflow"
+      image: "ghcr.io/moleculemaker/molli:ncsa-workflow"
       command: "/molli/entrypoint.sh"
       imagePullPolicy: "Always"
       imagePullSecrets:
@@ -116,8 +116,8 @@ config:
       volumes:
         # TODO: Refactor volumes in MOLLI
         - name: 'shared-storage'
-          mountPath: '/app/data/inputs'
-          subPath: 'input'
+          mountPath: '/uws/jobs/clean/JOB_ID/in'
+          subPath: 'uws/jobs/clean/JOB_ID/in'
           claimName: 'mmli-clean-job-weights'
         - name: 'shared-storage'
           mountPath: '/app/results/inputs'

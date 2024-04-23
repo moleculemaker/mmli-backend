@@ -74,7 +74,7 @@ spec:
         - -c
         # - sleep 1000d
         - >
-          mkdir -p "${JOB_OUTPUT_DIR}" && mkdir -p "${JOB_OUTPUT_DIR/out/in}" && ./prejob.py && pwd && ls -al /uws && ls -al /uws/jobs && ls -al /uws/jobs/${JOB_TYPE} && ls -al /uws/jobs/${JOB_TYPE}/${JOB_ID} && ls -al ${JOB_OUTPUT_DIR/out/in}
+          mkdir -p "${JOB_INPUT_DIR}" && mkdir -p "${JOB_OUTPUT_DIR}" && ./prejob.py && pwd && ls -al ${JOB_INPUT_DIR}
         #   chown {{ securityContext['runAsUser'] }}:{{ securityContext['runAsGroup'] }} "${JOB_OUTPUT_DIR}"
 
       - name: job
@@ -92,9 +92,10 @@ spec:
         - 'bash'
         - '-c'
         - >
+          ls -al ${JOB_INPUT_DIR} &&
           {{ command }} &&
-          touch "${JOB_OUTPUT_DIR}/finished" &&
-          ls -al ${JOB_OUTPUT_DIR}
+          ls -al ${JOB_OUTPUT_DIR} &&
+          touch "${JOB_OUTPUT_DIR}/finished"
         {%- endif %}
         env:
           {%- if clone_dir %}
@@ -132,7 +133,7 @@ spec:
             subPath: "{{ workingVolume.subPath }}"
         {%- for volume in volumes %}
           - name: {{ volume.name }}
-            mountPath: "{{ volume.mountPath }}"
+            mountPath: "{{ volume.mountPath | replace('JOB_ID',jobId) }}"
             subPath: "{{ volume.subPath | replace('JOB_ID',jobId) }}"
             readOnly: {{ volume.readOnly }}
         {%- endfor %}
