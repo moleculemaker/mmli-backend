@@ -55,7 +55,6 @@ async def create_job(
 
         # Command + environment are set differently for each job (see below)
         command = ''
-<<<<<<< HEAD
         environment = []
 
         if job_type == JobType.DEFAULT:
@@ -93,44 +92,6 @@ async def create_job(
         except Exception as ex:
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
-=======
-        image = ''
-    elif job_type == JobType.MOLLI:
-        print("Creating MOLLI job")
-        # runs in Kubernetes
-        image = 'moleculemaker/molli:ncsa-workflow'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.CLEAN:
-        print("Creating CLEAN job")
-        # runs in Kubernetes
-        image = 'moleculemaker/clean-image-amd64'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-        print("Creating novostoic-optstoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
-        print("Creating novostoic-novostoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_ENZRANK:
-        print("Creating novostoic-enzrank job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-        print("Creating novostoic-dgpredictor job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.SOMN:
-        print("Creating SOMN job")
-        # runs in Kubernetes
-        image = ''
-        command = ''
->>>>>>> af894036e20179a3e1b1caa198fcdc18e05e986d
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
