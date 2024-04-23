@@ -77,12 +77,12 @@ async def create_job(
 
         elif job_type == JobType.CLEAN:
             # TODO: Build up input.FASTA from user input
-            job_config = json.loads(job_info)
+            job_config = json.loads(job_info.replace('\"', '"'))
             command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_config)
         elif job_type == JobType.MOLLI:
             # TODO: Map/pass/mount CORES/SUBS files into the container
             command = app_config['kubernetes_jobs'][job_type]['command']
-            job_config = json.loads(job_info)
+            job_config = json.loads(job_info.replace('\"', '"'))
             environment = molli_service.build_molli_job_environment(job_id=job_id, job_info=job_config)
 
         # Run a Kubernetes Job with the given image + command + environment

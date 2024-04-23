@@ -17,7 +17,7 @@ from requests import HTTPError
 from sqlmodel import Session
 
 from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER
-from models.enums import JobStatus
+from models.enums import JobStatus, JobType
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
@@ -462,6 +462,9 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
         all_volumes = []
         for volume in app_config['kubernetes_jobs']['defaults']['volumes']:
             all_volumes.append(volume)
+        if job_type != JobType.DEFAULT:
+            for volume in app_config['kubernetes_jobs'][job_type]['volumes']:
+                all_volumes.append(volume)
 
         jobCompleteApiUrl = f'''{app_config['server']['protocol']}://{os.path.join(
             app_config['server']['hostName'],

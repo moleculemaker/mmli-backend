@@ -133,7 +133,7 @@ spec:
         {%- for volume in volumes %}
           - name: {{ volume.name }}
             mountPath: "{{ volume.mountPath }}"
-            subPath: "{{ volume.subPath }}"
+            subPath: "{{ volume.subPath | replace('JOB_ID',jobId) }}"
             readOnly: {{ volume.readOnly }}
         {%- endfor %}
       containers:

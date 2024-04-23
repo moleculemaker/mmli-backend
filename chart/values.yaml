@@ -94,7 +94,7 @@ config:
         # TODO: Refactor volumes in CLEAN
         - name: 'shared-storage'
           mountPath: '/app/data/inputs'
-          subPath: 'input'
+          subPath: 'uws/jobs/clean/JOB_ID/in'
           claimName: 'mmli-clean-job-weights'
         - name: 'shared-storage'
           mountPath: '/app/results/inputs'
@@ -154,15 +154,7 @@ config:
         mountPath: "/uws"
         subPath: "uws"
       ## Central data volumes to be mounted in job containers
-      volumes:
-        - name: 'shared-storage'
-          mountPath: '/app/data/inputs'
-          subPath: 'input'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/app/results/inputs'
-          subPath: 'output'
-          claimName: 'mmli-clean-job-weights'
+      volumes: []
 
       ## Abort jobs after 3 days regardless of their behavior
       activeDeadlineSeconds: 259200

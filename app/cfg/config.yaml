@@ -31,7 +31,7 @@ kubernetes_jobs:
       # TODO: Refactor volumes in CLEAN
       - name: 'shared-storage'
         mountPath: '/app/data/inputs'
-        subPath: 'input'
+        subPath: 'uws/jobs/clean/JOB_ID/in'
         claimName: 'mmli-clean-job-weights'
       - name: 'shared-storage'
         mountPath: '/app/results/inputs'
