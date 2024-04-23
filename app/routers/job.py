@@ -75,13 +75,13 @@ async def create_job(
             command = None
             #command = f"ls -al && whoami && somn predict {project_id} {model_set} {new_predictions_name}"
 
-        # TODO: support NOVOSTOIC/CLEAN/MOLLI job types
-        elif job_type == JobType.CLEAN or job_type == JobType.MOLLI or 'novostoic' in job_type:
+        # TODO: support NOVOSTOIC job types
+        elif 'novostoic' in job_type:
             raise HTTPException(status_code=501, detail=f'{job_type} not yet implemented')
 
         elif job_type == JobType.CLEAN:
             # TODO: Build up input.FASTA from user input
-            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job.job_info)
+            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_info)
         elif job_type == JobType.MOLLI:
             # TODO: Map/pass/mount CORES/SUBS files into the container
             command = app_config['kubernetes_jobs'][job_type]['command']
