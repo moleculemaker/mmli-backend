@@ -29,16 +29,12 @@ async def create_job(
         job_id: Optional[str] = Body(default=None),
         run_id: Optional[str] = Body(default=None),
         email: Optional[str] = Body(default=None),
-        job_info: Optional[str] = Body(default=None),
+        job_info: Optional[str] = Body(default="{}"),
         job_type: str = Path(),
-        files: List[UploadFile] = File(...),
         db: AsyncSession = Depends(get_session)
 ):
-    log.debug(f"1 - Creating Kubernetes job[{job_type}]: " + str(job_id))
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
-
-    log.debug(f"2 - Creating Kubernetes job[{job_type}] for files= " + str(files))
 
     # Check if this job_id already exists
     existing_jobs = await db.execute(select(Job).where(Job.job_id == job_id))
@@ -81,11 +77,13 @@ async def create_job(
 
         elif job_type == JobType.CLEAN:
             # TODO: Build up input.FASTA from user input
-            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_info)
+            job_config = json.loads(job_info)
+            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_config)
         elif job_type == JobType.MOLLI:
             # TODO: Map/pass/mount CORES/SUBS files into the container
             command = app_config['kubernetes_jobs'][job_type]['command']
-            environment = molli_service.build_molli_job_environment(job_id=job_id, files=files)
+            job_config = json.loads(job_info)
+            environment = molli_service.build_molli_job_environment(job_id=job_id, job_info=job_config)
 
         # Run a Kubernetes Job with the given image + command + environment
         try:
