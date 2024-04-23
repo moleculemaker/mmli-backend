@@ -12,8 +12,9 @@ spec:
   template:
     metadata:
       labels:
-        type: "uws-job"
+        type: "mmli-job"
         jobId: "{{ jobId }}"
+        jobType: "{{ jobType }}"
         runId: "{{ runId }}"
         ownerId: "{{ ownerId }}"
     spec:
@@ -31,34 +32,51 @@ spec:
       #   # fsGroup: {{ securityContext['fsGroup'] }}
       # {%- endif %}
       volumes:
-        # - name: server-config
-        #   configMap:
-        #     name: {{ releaseName }}-config
+        - name: server-config
+          configMap:
+            name: "{{ releaseName }}-config"
+        - name: server-secret
+          secret:
+            secretName: "{{ releaseName }}-secrets"
         # Volume to host job data
-        - name: "job-output"
+        - name: "shared-storage"
           persistentVolumeClaim:
             claimName: "{{ workingVolume.claimName }}"
       initContainers:
       - name: init
-        image: ubuntu:22.04
-        imagePullPolicy: IfNotPresent
+        image: moleculemaker/mmli-backend:kubejob
+        imagePullPolicy: Always
         # securityContext:
         #   runAsUser: 0
         volumeMounts:
-        - name: "job-output"
+        - name: "shared-storage"
           mountPath: "/uws"
-          subPath: "{{ workingVolume.subPath }}"
+          subPath: "uws"
+        - name: server-config
+          mountPath: /code/app/cfg/config.yaml
+          subPath: config.yaml
+        - name: server-secret
+          mountPath: /code/app/cfg/secret.yaml
+          subPath: secret.yaml
         env:
+        - name: "JOB_ID"
+          value: "{{ jobId }}"
+        - name: "JOB_TYPE"
+          value: "{{ jobType }}"
         - name: "JOB_OUTPUT_DIR"
           value: "{{ job_output_dir }}"
+        - name: "JOB_INPUT_DIR"
+          value: "{{ job_input_dir }}"
+        - name: MINIO_SERVER
+          value: "{{ minio_server }}"
         command:
         - /bin/bash
         - -c
         # - sleep 1000d
         - >
-          mkdir -p "${JOB_OUTPUT_DIR}"
+          mkdir -p "${JOB_OUTPUT_DIR}" && mkdir -p "${JOB_OUTPUT_DIR/out/in}" && ./prejob.py && pwd && ls -al /uws && ls -al /uws/jobs && ls -al /uws/jobs/${JOB_TYPE} && ls -al /uws/jobs/${JOB_TYPE}/${JOB_ID} && ls -al ${JOB_OUTPUT_DIR/out/in}
         #   chown {{ securityContext['runAsUser'] }}:{{ securityContext['runAsGroup'] }} "${JOB_OUTPUT_DIR}"
-      containers:
+
       - name: job
         image: {{ image.repository }}
         imagePullPolicy: {{ image.pull_policy }}
@@ -75,7 +93,8 @@ spec:
         - '-c'
         - >
           {{ command }} &&
-          touch "${JOB_OUTPUT_DIR}/finished"
+          touch "${JOB_OUTPUT_DIR}/finished" &&
+          ls -al ${JOB_OUTPUT_DIR}
         {%- endif %}
         env:
           {%- if clone_dir %}
@@ -92,16 +111,23 @@ spec:
           # directory where the job results are expected to be stored.
           - name: "JOB_OUTPUT_DIR"
             value: "{{ job_output_dir }}"
+          # The "JOB_INPUT_DIR" provides the job script with the path to the input
+          # directory where the job input files are expected to be stored.
+          - name: "JOB_INPUT_DIR"
+            value: "{{ job_input_dir }}"
           # The "JOB_ID" provides the job script with the UUID associated with the job.
           - name: "JOB_ID"
             value: "{{ jobId }}"
+          # The "JOB_TYPE" provides the string type for this job (e.g. chemscraper, somn, defaults, molli, clean, etc)
+          - name: "JOB_TYPE"
+            value: "{{ jobType }}"
           # Custom environment variables are defined here if provided in the job creation request
           {% for env in environment %}
           - name: "{{ env.name }}"
             value: "{{ env.value }}"
           {% endfor %}
         volumeMounts:
-          - name: "job-output"
+          - name: "shared-storage"
             mountPath: "/uws"
             subPath: "{{ workingVolume.subPath }}"
         {%- for volume in volumes %}
@@ -110,3 +136,31 @@ spec:
             subPath: "{{ volume.subPath }}"
             readOnly: {{ volume.readOnly }}
         {%- endfor %}
+      containers:
+      - name: post-job
+        image: "moleculemaker/mmli-backend:kubejob"
+        imagePullPolicy: Always
+        command:
+        - 'bash'
+        - '-c'
+        - >
+          ./postjob.py
+        env:
+          - name: "JOB_ID"
+            value: "{{ jobId }}"
+          - name: "JOB_TYPE"
+            value: "{{ jobType }}"
+          - name: "JOB_OUTPUT_DIR"
+            value: "{{ job_output_dir }}"
+          - name: MINIO_SERVER
+            value: "{{ minio_server }}"
+        volumeMounts:
+          - name: "shared-storage"
+            mountPath: "/uws"
+            subPath: "{{ workingVolume.subPath }}"
+          - name: server-config
+            mountPath: /code/app/cfg/config.yaml
+            subPath: config.yaml
+          - name: server-secret
+            mountPath: /code/app/cfg/secret.yaml
+            subPath: secret.yaml

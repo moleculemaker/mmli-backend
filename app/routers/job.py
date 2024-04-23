@@ -1,10 +1,13 @@
 import base64
+import json
 import re
 import time
 import uuid
 from typing import List
 
-from fastapi import Depends, HTTPException, APIRouter, File, UploadFile
+from fastapi import Depends, HTTPException, APIRouter, UploadFile
+from fastapi.params import Path, Body, File
+from pydantic.fields import Annotated, Optional
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -22,13 +25,25 @@ log = get_logger(__name__)
 
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
-async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = File(...), db: AsyncSession = Depends(get_session)):
-    job_id = str(kubejob_service.generate_uuid()) if job.job_id is None else job.job_id
+async def create_job(
+        job_id: Optional[str] = Body(default=None),
+        run_id: Optional[str] = Body(default=None),
+        email: Optional[str] = Body(default=None),
+        job_info: Optional[str] = Body(default=None),
+        job_type: str = Path(),
+        files: List[UploadFile] = File(...),
+        db: AsyncSession = Depends(get_session)
+):
+    log.debug(f"1 - Creating Kubernetes job[{job_type}]: " + str(job_id))
+    job_id = job_id if job_id else str(kubejob_service.generate_uuid())
+    #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
+
+    log.debug(f"2 - Creating Kubernetes job[{job_type}] for files= " + str(files))
 
     # Check if this job_id already exists
     existing_jobs = await db.execute(select(Job).where(Job.job_id == job_id))
     if existing_jobs.first():
-        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job_id)
+        raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
     # Validate Job type
     # TODO: Set command+image based on job_type
@@ -48,6 +63,7 @@ async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = Fi
 
         if job_type == JobType.DEFAULT:
             command = app_config['kubernetes_jobs'][job_type]['command']
+            #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
         elif job_type == JobType.SOMN:
             project_id = '44eb8d94effa11eea46f18c04d0a4970'
             model_set = 'apr-2024'
@@ -72,8 +88,11 @@ async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = Fi
             environment = molli_service.build_molli_job_environment(job_id=job_id, files=files)
 
         # Run a Kubernetes Job with the given image + command + environment
-        log.debug("Creating Kubernetes job: " + job_type)
-        kubejob_service.create_job(job_type=job_type, job_id=job_id, image_name=image_name, command=command, environment=environment)
+        try:
+            log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+            kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+        except Exception as ex:
+            raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
@@ -86,10 +105,10 @@ async def create_job(job: JobCreate, job_type: str, files: List[UploadFile] = Fi
     # Create a new DB job from user input
     db_job = Job(
         # User input
-        email=job.email,
-        job_info=job.job_info,
+        email=email,
+        job_info=job_info,
         job_id=job_id,
-        run_id=job.run_id,
+        run_id=run_id,
 
         type=job_type,
         command=command,

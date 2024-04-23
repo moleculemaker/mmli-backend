@@ -50,7 +50,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
 
         filename = requestBody.fileList[0]
         chemscraperService = ChemScraperService(db=db)
-        objectPath = f"inputs/{requestBody.jobId}/{filename}"
+        objectPath = f"{requestBody.jobId}/in/{filename}"
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)

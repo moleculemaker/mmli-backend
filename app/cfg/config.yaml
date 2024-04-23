@@ -28,7 +28,16 @@ kubernetes_jobs:
     image: "moleculemaker/clean-image-amd64:latest"
     imagePullPolicy: "Always"
     volumes:
-      - name: 'job-output'
+      # TODO: Refactor volumes in CLEAN
+      - name: 'shared-storage'
+        mountPath: '/app/data/inputs'
+        subPath: 'input'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/app/results/inputs'
+        subPath: 'output'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
         mountPath: '/root/.cache/torch/hub/checkpoints'
         subPath: 'weights'
         claimName: 'mmli-clean-job-weights'
@@ -41,6 +50,20 @@ kubernetes_jobs:
     imagePullPolicy: "Always"
     imagePullSecrets:
       - regcred
+    volumes:
+      # TODO: Refactor volumes in MOLLI
+      - name: 'shared-storage'
+        mountPath: '/app/data/inputs'
+        subPath: 'input'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/app/results/inputs'
+        subPath: 'output'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/root/.cache/torch/hub/checkpoints'
+        subPath: 'weights'
+        claimName: 'mmli-clean-job-weights'
 
   # Config for running SOMN job
   somn:
@@ -60,7 +83,7 @@ kubernetes_jobs:
 
     # Example job image name + command combo
     image: 'perl:5.34.0'
-    command: "perl -Mbignum=bpi -wle 'print bpi(2000)'"
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
 
     ## Server working directory to store generated job data
     workingVolume:
@@ -69,11 +92,11 @@ kubernetes_jobs:
       subPath: "uws"
     ## Central data volumes to be mounted in job containers
     volumes:
-      - name: 'job-output'
+      - name: 'shared-storage'
         mountPath: '/app/data/inputs'
         subPath: 'input'
         claimName: 'mmli-clean-job-weights'
-      - name: 'job-output'
+      - name: 'shared-storage'
         mountPath: '/app/results/inputs'
         subPath: 'output'
         claimName: 'mmli-clean-job-weights'

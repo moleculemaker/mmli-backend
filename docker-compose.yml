@@ -23,7 +23,7 @@ services:
     command: server --console-address ":9001" /data
   rest:
     container_name: mmli-backend
-    image: moleculemaker/mmli-backend
+    image: moleculemaker/mmli-backend:kubejob
     restart: on-failure
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
     depends_on:
@@ -37,6 +37,7 @@ services:
       - .env
     volumes:
       - ./app:/code/app
+      - ./migrations:/code/migrations
       - /Users/lambert8/.kube/config:/opt/kubeconfig
 
 volumes:

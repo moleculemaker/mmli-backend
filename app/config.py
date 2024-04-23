@@ -32,18 +32,18 @@ with open(CONFIG_FILEPATH, "r") as server_yaml_file:
         secrets_file = yaml.load(secret_yaml_file, Loader=yaml.FullLoader)
 
         # app_config is a merged dictionary contains both config_file and secrets_file
-        app_config['minio']['accessKey'] = secrets_file['minio']['accessKey']
-        app_config['minio']['secretKey'] = secrets_file['minio']['secretKey']
-        app_config['auth']['hcaptcha_secret'] = secrets_file['auth']['hcaptcha_secret']
+        app_config['minio']['accessKey'] = secrets_file['minio_accessKey']
+        app_config['minio']['secretKey'] = secrets_file['minio_secretKey']
+        app_config['auth']['hcaptcha_secret'] = secrets_file['auth_hcaptcha_secret']
 
         app_config['db'] = {}
-        app_config['db']['url'] = secrets_file['db']['url']
+        app_config['db']['url'] = secrets_file['database_url']
 
 # Configure logging
 logging.basicConfig(format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
 
 log = get_logger(__name__)
-log.debug('Server configuration: ', app_config)
+log.info('Server configuration: ', app_config)
 
 # Override app_config with some individual environment variables
 # TODO: Is this needed??
@@ -55,6 +55,7 @@ SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", app_config['db'][
 MINIO_SERVER = os.getenv("MINIO_SERVER", app_config['minio']['server'])
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", app_config['minio']['accessKey'])
 MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", app_config['minio']['secretKey'])
+RELEASE_NAME = os.getenv('RELEASE_NAME', 'dummy')
 
 CHEMSCRAPER_API_BASE_URL = os.getenv('CHEMSCRAPER_API_BASE_URL', app_config['external']['chemscraper']['apiBaseUrl'])
 

@@ -40,7 +40,7 @@ Migrations are handled using [Alembic](https://alembic.sqlalchemy.org/en/latest/
 
 You can use Alembic to automatically generate a script that will migrate the database to a new schema version.
 
-See the [migrations](app/migrations/README.md) README for more info
+See the [migrations](migrations/README.md) README for more info
 
 
 ### Initialization

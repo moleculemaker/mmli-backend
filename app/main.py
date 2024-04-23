@@ -1,10 +1,9 @@
+#!/bin/env python3
+import asyncio
 import logging
 from contextlib import asynccontextmanager
-from alembic.config import Config
-from alembic import command
 
 
-import uvicorn
 from fastapi import FastAPI
 
 from config import app_config, get_logger
@@ -19,24 +18,19 @@ from models.sqlmodel.db import init_db
 log = get_logger(__name__)
 
 
-def run_migrations():
-    alembic_cfg = Config("../alembic.ini")
-    command.upgrade(alembic_cfg, "head")
-
-
 watcher = KubeEventWatcher()
+#asyncio.run(init_db())
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger = get_logger('main:LifecycleEvents')
-    logger.info("Starting up...")
-    logger.info("Running alembic upgrade head...")
-    run_migrations()
-    logger.info("Starting KubeWatcher...")
+async def lifespan(app_: FastAPI):
+    global watcher
+    global log
+    log.info("Starting up...")
+    log.info("Starting KubeWatcher...")
     watcher.run()
     yield
-    logger.info("Shutting down...")
+    log.info("Shutting down...")
     watcher.close()
 
 
@@ -67,3 +61,5 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+

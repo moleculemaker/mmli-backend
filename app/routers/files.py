@@ -36,10 +36,10 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     file.file.seek(0)
     if first_four_bytes == b'%PDF':
         if job_id == "":
-            job_id = str(uuid.uuid4())
+            job_id = str(uuid.uuid4()).replace('-', '')
 
         file_content = await file.read()
-        upload_result = minio.upload_file(bucket_name, "inputs/" + job_id + '/' + file.filename, file_content)
+        upload_result = minio.upload_file(bucket_name, job_id + '/in/' + file.filename, file_content)
         if upload_result:
             content = {"jobID": job_id, "uploaded_at": datetime.now().isoformat()}
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
