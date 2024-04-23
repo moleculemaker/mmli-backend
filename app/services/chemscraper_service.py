@@ -248,7 +248,6 @@ class ChemScraperService:
                     email_service.send_email(db_job.email, f'''ChemScraper Job ({db_job.job_id}) failed''', f'''An error occurred in computing the result for your ChemScraper job.''')
                 except Exception as e:
                     print(e)
-
         return False
 
     @staticmethod
