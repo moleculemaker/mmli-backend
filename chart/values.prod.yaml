@@ -20,8 +20,10 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd,alphasynthesis-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
 config:
-  chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
-  chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  external:
+    chemscraper:
+      apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
+      frontendBaseUrl: "https://chemscraper.platform.moleculemaker.org"
 
 postgresql:
   enabled: true

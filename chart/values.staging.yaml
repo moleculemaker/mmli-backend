@@ -17,8 +17,10 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd,staging-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
 config:
-  chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
-  chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+  external:
+    chemscraper:
+      apiBaseUrl: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
+      frontendBaseUrl: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
