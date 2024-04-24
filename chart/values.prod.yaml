@@ -22,6 +22,8 @@ analyzeIngress:
 config:
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
+  somn_frontend_url: "https://somn.platform.moleculemaker.org"
 
 postgresql:
   enabled: true
