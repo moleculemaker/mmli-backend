@@ -79,8 +79,7 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
             ChemicalIdentifier.inchi_key.like(f"{search}%"),
             ChemicalIdentifier.metanetx_id.like(f"{search}%"),
             ChemicalIdentifier.kegg_id.like(f"{search}%")
-        )
-        ).limit(20)
+        ))
     )
 
     return [
