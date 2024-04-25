@@ -1,6 +1,6 @@
 import time
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, BackgroundTasks, status
 from fastapi.responses import JSONResponse
@@ -11,7 +11,7 @@ from services.minio_service import MinIOService
 from services.email_service import EmailService
 from services.novostoic_service import NovostoicService
 
-from sqlmodel import select
+from sqlmodel import select, func
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.novostoicRequestBodies import DgPredictorRequestBody, NovostoicRequestBody, EnzRankRequestBody, OptstoicRequestBody
@@ -92,6 +92,38 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
             "kegg_id": chemical[5]
         } for chemical in existing_chemicals.all()
     ]
+
+@router.get(f"/chemical/validate", tags=['Novostoic'], response_model=Union[ChemicalAutoCompleteResponse, None])
+async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)):
+    existing_chemicals = (await db.execute(
+        select(ChemicalIdentifier.name, 
+               ChemicalIdentifier.smiles, 
+               ChemicalIdentifier.inchi, 
+               ChemicalIdentifier.inchi_key, 
+               ChemicalIdentifier.metanetx_id, 
+               ChemicalIdentifier.kegg_id
+        ).filter(or_(
+            ChemicalIdentifier.name == search,
+            ChemicalIdentifier.smiles == search,
+            ChemicalIdentifier.inchi == search,
+            ChemicalIdentifier.inchi_key == search,
+            ChemicalIdentifier.metanetx_id == search,
+            ChemicalIdentifier.kegg_id == search)
+        )
+    )).all()
+
+    if not len(existing_chemicals):
+        return 
+    
+    chemical = existing_chemicals[0]
+    return {
+        "name": chemical[0],
+        "smiles": chemical[1],
+        "inchi": chemical[2],
+        "inchi_key": chemical[3],
+        "metanetx_id": chemical[4],
+        "kegg_id": chemical[5]
+    }
 
 @router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
 async def start_novostoic(
