@@ -25,6 +25,13 @@ config:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
       frontendBaseUrl: "https://chemscraper.platform.moleculemaker.org"
 
+  # Change to local chemscraper service URL if deployed in local cluster
+  # TODO: fit this into new config structure
+  chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
+  chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
+  somn_frontend_url: "https://somn.platform.moleculemaker.org"
+
 postgresql:
   enabled: true
   hostname: mmli-backend-postgresql.alphasynthesis.svc.cluster.local

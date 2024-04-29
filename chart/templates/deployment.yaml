@@ -143,6 +143,11 @@ spec:
             value: "devnull+chemscraper@ncsa.illinois.edu"
           - name: EMAIL_FROM_NAME
             value: "no-reply-ChemScraper"
+
+          - name: NOVOSTOIC_FRONTEND_URL
+            value: {{ .Values.config.novostoic_frontend_url }}
+          - name: SOMN_FRONTEND_URL
+            value: {{ .Values.config.somn_frontend_url }}
             
           ports:
             - containerPort: 8080

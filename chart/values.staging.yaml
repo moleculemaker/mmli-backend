@@ -22,6 +22,13 @@ config:
       apiBaseUrl: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
       frontendBaseUrl: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
 
+  # Change to local chemscraper service URL if deployed in local cluster
+  # TODO: fit this into new config structure
+  chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
+  chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+  novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu"
+  somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
+
 postgresql:
   enabled: true
   hostname: mmli-backend-staging-postgresql.staging.svc.cluster.local
