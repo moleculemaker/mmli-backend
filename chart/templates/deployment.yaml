@@ -17,9 +17,11 @@ spec:
     spec:
       serviceAccountName: {{ .Release.Name }}-foreman
       volumes:
+{{- if .Values.config.existingSecret }}
         - name: server-secrets
           secret:
             secretName: {{ .Values.config.existingSecret }}
+{{- end }}
         - name: server-config
           configMap:
             name: {{ .Release.Name }}-config
@@ -66,9 +68,11 @@ spec:
             - name: server-config
               mountPath: /code/app/cfg/config.yaml
               subPath: config.yaml
+{{- if .Values.config.existingSecret }}
             - name: server-secrets
               mountPath: /code/app/cfg/secret.yaml
               subPath: secret.yaml
+{{- end }}
             - name: shared-storage
               mountPath: {{ .Values.sharedStorage.mountPath }}
               subPath: {{ .Values.sharedStorage.subPath }}
