@@ -55,10 +55,10 @@ SERVER_LOGLEVEL = os.getenv('LOGLEVEL', app_config['server']['loglevel'])
 DEBUG = SERVER_LOGLEVEL.lower() == 'debug'
 log.setLevel(SERVER_LOGLEVEL)
 
-SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", app_config['db']['url'])
+SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", app_config['db']['url'] if 'db' in app_config and 'url' in app_config['db'] else '')
 MINIO_SERVER = os.getenv("MINIO_SERVER", app_config['minio']['server'])
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", app_config['minio']['accessKey'])
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", app_config['minio']['secretKey'])
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", app_config['minio']['accessKey'] if 'minio' in app_config and 'accessKey' in app_config['minio'] else '')
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", app_config['minio']['secretKey'] if 'minio' in app_config and 'secretKey' in app_config['minio'] else '')
 RELEASE_NAME = os.getenv('RELEASE_NAME', 'dummy')
 
 CHEMSCRAPER_API_BASE_URL = os.getenv('CHEMSCRAPER_API_BASE_URL', app_config['external']['chemscraper']['apiBaseUrl'])
