@@ -63,7 +63,10 @@ async def start_optstoic(
     content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
-@router.get(f"/chemical/auto-complete", tags=['Novostoic'], response_model=list[ChemicalAutoCompleteResponse])
+@router.get(f"/chemical/auto-complete", 
+            tags=['Novostoic'], 
+            response_model=list[ChemicalAutoCompleteResponse], 
+            description="Returns a list of chemicals that match the search string limited to 20 results.")
 async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get_session)):
     existing_chemicals = await db.execute(
         select(ChemicalIdentifier.name, 
@@ -79,7 +82,7 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
             ChemicalIdentifier.inchi_key.like(f"{search}%"),
             ChemicalIdentifier.metanetx_id.like(f"{search}%"),
             ChemicalIdentifier.kegg_id.like(f"{search}%")
-        ))
+        )).limit(20)
     )
 
     return [
