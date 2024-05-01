@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
 
 from sqlalchemy.orm import sessionmaker
 
-from config import app_config, get_logger
+from config import get_logger, SQLALCHEMY_DATABASE_URL
 from models.enums import JobStatus
 from models.sqlmodel.models import Job
 
@@ -17,7 +17,7 @@ load_dotenv()
 
 # app_secrets['db']['url'] = "postgresql://user:password@postgresserver/db"
 def create_db_engine():
-    return AsyncEngine(create_engine(app_config['db']['url'], echo=True, future=True))
+    return AsyncEngine(create_engine(SQLALCHEMY_DATABASE_URL, echo=True, future=True))
 
 
 engine = create_db_engine()
