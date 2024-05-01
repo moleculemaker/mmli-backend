@@ -21,6 +21,7 @@ controller:
 
 postgresql:
   enabled: true
+  autoschema: true
 #  global:
 #    storageClass: hostpath
   auth:

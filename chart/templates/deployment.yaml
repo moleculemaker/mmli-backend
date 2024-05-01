@@ -30,6 +30,7 @@ spec:
         - name: wait-for-postgres
           image: busybox:1.28
           command: [ 'sh', '-c', "until nslookup {{ .Release.Name }}-postgresql.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for {{ .Release.Name }}-postgresql; sleep 2; done" ]
+{{- if .Values.postgresql.autoschema }}
         - name: init-postgres-alembic
           image: {{ .Values.controller.image }}
           imagePullPolicy: Always
@@ -57,6 +58,7 @@ spec:
               value: {{ .Values.postgresql.auth.username }}
             - name: SQLALCHEMY_DATABASE_URL
               value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+{{- end }}
       containers:
         - name: mmli-fastapi
           image: {{ .Values.controller.image }}
