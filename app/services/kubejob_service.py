@@ -17,7 +17,7 @@ from requests import HTTPError
 from sqlmodel import Session
 
 from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER, MINIO_ACCESS_KEY, \
-    MINIO_SECRET_KEY
+    MINIO_SECRET_KEY, SQLALCHEMY_DATABASE_URL
 from models.enums import JobStatus, JobType
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
@@ -111,7 +111,7 @@ class KubeEventWatcher:
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
         # Get global instance of the job handler database interface
 
-        self.engine = db.create_engine(app_config['db']['url'].replace('+asyncpg', ''))
+        self.engine = db.create_engine(SQLALCHEMY_DATABASE_URL.replace('+asyncpg', ''))
         self.connection = engine.connect()
         #self.connection.run_sync(SQLModel.metadata.create_all)
         self.metadata = db.MetaData()
