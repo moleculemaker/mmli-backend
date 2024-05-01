@@ -2,6 +2,7 @@ ingress:
   ingressClassName: nginx
 
 config:
+  existingSecret: mmli-backend-secrets
   external:
     chemscraper:
       # Change to local chemscraper service URL if deployed in local cluster

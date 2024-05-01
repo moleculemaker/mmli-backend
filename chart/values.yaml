@@ -60,7 +60,6 @@ minio:
 
 
 config:
-  existingSecret: mmli-backend-secrets
   server:
     port: 8080
     loglevel: "DEBUG"
@@ -72,9 +71,14 @@ config:
     ## API hostname. Must match the ingress.hostname value.
     hostName: "mmli.fastapi.mmli1.ncsa.illinois.edu"
 
+  db:
+    url: ''
+    
   minio:
     server: "mmli-backend-minio.mmli.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.localhost"
+    accessKey: ''
+    secretKey: ''
 
   auth:
     userInfoUrl: "http://oauth2.proxy.local/oauth2/userinfo"
