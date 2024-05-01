@@ -22,35 +22,39 @@ load_dotenv()
 CONFIG_FILEPATH = os.getenv('CONFIG_FILEPATH', 'cfg/config.yaml')
 SECRET_FILEPATH = os.getenv('SECRET_FILEPATH', 'cfg/secret.yaml')
 
+# Configure logging
+logging.basicConfig(format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
+log = get_logger(__name__)
+
 # Load configuration + secrets files
 with open(CONFIG_FILEPATH, "r") as server_yaml_file:
     # app_config takes on the format in cfg/config.yaml
     app_config = yaml.load(server_yaml_file, Loader=yaml.FullLoader)
 
-    with open(SECRET_FILEPATH, "r") as secret_yaml_file:
-        # app_secrets takes on the format in cfg/secrets.yaml
-        secrets_file = yaml.load(secret_yaml_file, Loader=yaml.FullLoader)
+    try:
+        with open(SECRET_FILEPATH, "r") as secret_yaml_file:
+            # app_secrets takes on the format in cfg/secrets.yaml
+            secrets_file = yaml.load(secret_yaml_file, Loader=yaml.FullLoader)
 
-        # app_config is a merged dictionary contains both config_file and secrets_file
-        app_config['minio']['accessKey'] = secrets_file['minio_accessKey']
-        app_config['minio']['secretKey'] = secrets_file['minio_secretKey']
-        app_config['auth']['hcaptcha_secret'] = secrets_file['auth_hcaptcha_secret']
+            # app_config is a merged dictionary contains both config_file and secrets_file
+            app_config['minio']['accessKey'] = secrets_file['minio_accessKey']
+            app_config['minio']['secretKey'] = secrets_file['minio_secretKey']
+            app_config['auth']['hcaptcha_secret'] = secrets_file['auth_hcaptcha_secret']
 
-        app_config['db'] = {}
-        app_config['db']['url'] = secrets_file['database_url']
+            app_config['db'] = {}
+            app_config['db']['url'] = secrets_file['database_url']
+    except Exception as ex:
+        log.error(f'Failed to load secrets file: {ex}')
 
-# Configure logging
-logging.basicConfig(format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
-
-log = get_logger(__name__)
 log.info('Server configuration: ', app_config)
 
 # Override app_config with some individual environment variables
 # TODO: Is this needed??
 
 SERVER_LOGLEVEL = os.getenv('LOGLEVEL', app_config['server']['loglevel'])
-
 DEBUG = SERVER_LOGLEVEL.lower() == 'debug'
+log.setLevel(SERVER_LOGLEVEL)
+
 SQLALCHEMY_DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL", app_config['db']['url'])
 MINIO_SERVER = os.getenv("MINIO_SERVER", app_config['minio']['server'])
 MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", app_config['minio']['accessKey'])
