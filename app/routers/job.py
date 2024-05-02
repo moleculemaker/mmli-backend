@@ -6,8 +6,8 @@ from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from models.enums import JobType, JobStatus
-from models.sqlmodel.db import get_session, DATABASE_URL
+from models.enums import JobType
+from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 router = APIRouter()
