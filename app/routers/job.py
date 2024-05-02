@@ -95,6 +95,7 @@ async def create_job(
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
             kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
         except Exception as ex:
+            log.error("Failed to create Job: " + str(ex))
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
     else:
