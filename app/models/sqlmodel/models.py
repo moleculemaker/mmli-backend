@@ -87,3 +87,17 @@ class FlaggedMolecule(SQLModel, table=True):
 class FlaggedMoleculeDelete(BaseModel):
     smile: str 
     job_id: str
+
+class ChemicalIdentifier(SQLModel, table=True):
+    # change table name to chemical_identifier
+    __tablename__ = 'chemical_identifier'
+
+    id: int = Field(default=None, primary_key=True)
+    metanetx_id: Optional[str] = Field(default=None, nullable=True, index=True)
+    inchi: Optional[str] = Field(default=None, nullable=True)
+    inchi_key: Optional[str] = Field(default=None, nullable=True)
+    name: Optional[str] = Field(default=None, nullable=True, index=True)
+    smiles: Optional[str] = Field(default=None, nullable=True, index=True)
+    reference: Optional[str] = Field(default=None, nullable=True)
+    kegg_id: Optional[str] = Field(default=None, nullable=True, index=True)
+    formula: Optional[str] = Field(default=None, nullable=True)
