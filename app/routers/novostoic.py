@@ -18,6 +18,10 @@ from models.novostoicRequestBodies import DgPredictorRequestBody, NovostoicReque
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType, ChemicalIdentifier
 
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
+import re
+
 class ChemicalAutoCompleteResponse(BaseModel):
     name: str
     smiles: str
@@ -119,13 +123,33 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
         return 
     
     chemical = existing_chemicals[0]
+    pattern = re.compile("<\?xml.*\?>")
+
+    def draw_mol(mol, molSize=(300,150), kekulize=True):
+        mc = Chem.MolFromSmiles(mol)
+        if kekulize:
+            try:
+                Chem.Kekulize(mc)
+            except:
+                mc = Chem.Mol(mol.ToBinary())
+        if not mc.GetNumConformers():
+            Chem.rdDepictor.Compute2DCoords(mc)
+
+        drawer = rdMolDraw2D.MolDraw2DSVG(*molSize)
+        drawer.DrawMolecule(mc)
+        drawer.FinishDrawing()
+        svg = drawer.GetDrawingText().replace('svg:', '')
+        svg = re.sub(pattern, '', svg)
+        return svg
+
     return {
         "name": chemical[0],
         "smiles": chemical[1],
         "inchi": chemical[2],
         "inchi_key": chemical[3],
         "metanetx_id": chemical[4],
-        "kegg_id": chemical[5]
+        "kegg_id": chemical[5],
+        "structure": draw_mol(chemical[1]) if chemical[1] else None
     }
 
 @router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
