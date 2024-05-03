@@ -4,6 +4,8 @@ ingress:
 config:
 # Change to local chemscraper service URL if deployed in local cluster
   chemscraper_url: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
+  novostoic_frontend_url: "http://localhost:4200"
+  somn_frontend_url: "http://localhost:4200"
   chemscraper_frontend_url: "http://localhost:4200"
 
 postgresql:
