@@ -69,11 +69,13 @@ kubernetes_jobs:
   somn:
     image: "bodom0015/somn"
     imagePullPolicy: "Always"
+    volumes: []
 
   # Config for running NovoStoic job (subjob: OptStoic)
   novostoic_optstoic:
     image: "TBD"
     imagePullPolicy: "Always"
+    volumes: []
 
   defaults:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
