@@ -17,6 +17,9 @@ from services.email_service import EmailService
 from typing import List
 from rdkit import Chem
 
+class SomnException(Exception):
+    pass
+
 class SomnService:
     somn_frontend_baseURL = os.environ.get("SOMN_FRONTEND_URL")
 
@@ -124,7 +127,7 @@ class SomnService:
             if len(atm_indices) >= 1:
                 return atm_indices
             
-            raise Exception("No reactive nitrogens detected in nucleophile!")
+            raise SomnException("No reactive nitrogens detected in nucleophile!")
             
         def check_halides_aromatic(rdkmol,halides):
             rdkatoms = [atom for atom in rdkmol.GetAtoms() if atom.GetIdx() in halides]
@@ -159,33 +162,30 @@ class SomnService:
             if len(bromides) != 0:
                 aromatic_halides = check_halides_aromatic(mol,bromides)
                 if any(idx in aromatic_halides for idx in bromides):
-                    raise Exception("Bromides detected in nucleophile!")
+                    raise SomnException("Bromides detected in nucleophile!")
 
             if len(chlorides) != 0:
                 aromatic_halides = check_halides_aromatic(mol,bromides)
                 if any(idx in aromatic_halides for idx in chlorides):
-                    raise Exception("Chlorides detected in nucleophile!")
+                    raise SomnException("Chlorides detected in nucleophile!")
             
             if len(nitrogens) == 0:
-                raise Exception("No nitrogens detected in nucleophile!")
+                raise SomnException("No nitrogens detected in nucleophile!")
             
             indices = get_amine_ref_ns(mol,nitrogens)
             return indices
 
         elif role == 'electrophile':
             if len(bromides) + len(chlorides) == 0:
-                raise Exception("No Br or Cl sites detected in electrophile!")
+                raise SomnException("No Br or Cl sites detected in electrophile!")
             
             try:
                 chl_idxes = check_halides_aromatic(mol,chlorides)
                 brm_idxes = check_halides_aromatic(mol,bromides)
 
-                if len(brm_idxes + chl_idxes) == 0: 
-                    return None
-                
                 return chl_idxes + brm_idxes
             
             except Exception as e:
                 raise e
 
-        return None
+        return []

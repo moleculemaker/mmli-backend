@@ -2,12 +2,12 @@ import json
 import time
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, BackgroundTasks, status
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from services.minio_service import MinIOService
 from services.email_service import EmailService
-from services.somn_service import SomnService
+from services.somn_service import SomnService, SomnException
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -57,7 +57,12 @@ async def start_somn(
 
 @router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'])
 async def check_reaction_sites(smiles: str, role: str):
-    reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
+    try:
+        reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
+    except SomnException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str('Invalid user input'))
 
     mol = Chem.MolFromSmiles(smiles)
     d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(300, 150)
@@ -77,8 +82,8 @@ async def check_reaction_sites(smiles: str, role: str):
     Chem.rdDepictor.Compute2DCoords(mol)
 
     d2d.DrawMolecule(mol, 
-                     highlightAtoms=reactionSiteIdxes, 
-                     highlightAtomColors=get_highlight_atom_color(reactionSiteIdxes))
+                    highlightAtoms=reactionSiteIdxes, 
+                    highlightAtomColors=get_highlight_atom_color(reactionSiteIdxes))
     d2d.FinishDrawing()
 
     return {
