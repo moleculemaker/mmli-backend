@@ -81,7 +81,7 @@ async def check_reaction_sites(smiles: str, role: str):
     dopts.fillHighlights=False
 
     def get_highlight_atom_color(idxes):
-        return { idx: (200, 100, 100, 0) for idx in idxes }
+        return { idx: (.5, .25, .25, 0) for idx in idxes }
 
     Chem.rdDepictor.Compute2DCoords(mol)
 
