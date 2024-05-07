@@ -1,9 +1,9 @@
-import json
-import time
 from datetime import datetime
+from typing import List
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from services.minio_service import MinIOService
 from services.email_service import EmailService
@@ -19,6 +19,10 @@ from models.sqlmodel.models import Job, JobType
 from rdkit import Chem
 
 router = APIRouter()
+
+class CheckReactionSiteResponse(BaseModel):
+    reaction_site_idxes: List[int]
+    svg: str
 
 @router.post(f"/{JobType.SOMN}/run", tags=['Somn'])
 async def start_somn(
@@ -55,7 +59,7 @@ async def start_somn(
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
-@router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'])
+@router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
 async def check_reaction_sites(smiles: str, role: str):
     try:
         reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
@@ -65,19 +69,19 @@ async def check_reaction_sites(smiles: str, role: str):
         raise HTTPException(status_code=400, detail=str('Invalid user input'))
 
     mol = Chem.MolFromSmiles(smiles)
-    d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(300, 150)
+    d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(450, 300)
 
     # Settings for SVG Image coloring via draw options
     dopts = d2d.drawOptions()
+    dopts.useBWAtomPalette()
     dopts.continuousHighlight=False
     dopts.highlightBondWidthMultiplier = 24
     dopts.highlightRadius = .4
-    dopts.setHighlightColour((.9,.9,0))
     dopts.prepareMolsBeforeDrawing=True
     dopts.fillHighlights=False
 
     def get_highlight_atom_color(idxes):
-        return { idx: (0, 0, 0, 0) for idx in idxes }
+        return { idx: (200, 100, 100, 0) for idx in idxes }
 
     Chem.rdDepictor.Compute2DCoords(mol)
 
