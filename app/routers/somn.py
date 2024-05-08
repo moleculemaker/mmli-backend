@@ -80,14 +80,10 @@ async def check_reaction_sites(smiles: str, role: str):
     dopts.prepareMolsBeforeDrawing=True
     dopts.fillHighlights=False
 
-    def get_highlight_atom_color(idxes):
-        return { idx: (.5, .25, .25, 0) for idx in idxes }
-
     Chem.rdDepictor.Compute2DCoords(mol)
-
-    d2d.DrawMolecule(mol, 
-                    highlightAtoms=reactionSiteIdxes, 
-                    highlightAtomColors=get_highlight_atom_color(reactionSiteIdxes))
+    
+    reactionSiteIdxes = [int(i) for i in reactionSiteIdxes]
+    d2d.DrawMolecule(mol, highlightAtoms=reactionSiteIdxes)
     d2d.FinishDrawing()
 
     return {
