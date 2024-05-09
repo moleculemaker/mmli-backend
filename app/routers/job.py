@@ -3,6 +3,9 @@ import json
 import re
 import time
 import uuid
+import csv
+import io
+
 from typing import List
 
 from fastapi import Depends, HTTPException, APIRouter, UploadFile
@@ -21,6 +24,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 from services import kubejob_service, clean_service, molli_service
+from services.minio_service import MinIOService
 
 router = APIRouter()
 
@@ -34,6 +38,7 @@ async def create_job(
         email: Optional[str] = Body(default=None),
         job_info: Optional[str] = Body(default="{}"),
         job_type: str = Path(),
+        service: MinIOService = Depends(),
         db: AsyncSession = Depends(get_session)
 ):
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
@@ -72,6 +77,26 @@ async def create_job(
 
             # TODO: Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
+            file = io.StringIO()
+            writer = csv.writer(file)
+            writer.writerow([
+                "user", 
+                "nuc", 
+                "el", 
+                "nuc_name", 
+                "el_name"
+            ])
+            writer.writerow([
+                "testuser", 
+                job_config["amine_smiles"],
+                job_config["aryl_halide_smiles"], 
+                job_config["amine_name"], 
+                job_config["aryl_halide_name"]
+            ])
+            
+            upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
+            if not upload_result:
+                raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
 
             # We assume that file has already been uploaded to MinIO
             somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'

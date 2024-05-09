@@ -39,7 +39,7 @@ services:
     volumes:
       - ./app:/code/app
       - ./migrations:/code/migrations
-      - /Users/lambert8/.kube/config:/opt/kubeconfig
+      - ${HOME}/.kube/config:/opt/kubeconfig
 
 volumes:
   postgres:
