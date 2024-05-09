@@ -155,7 +155,7 @@ config:
           claimName: 'mmli-clean-job-weights'
 
     # Config for running NovoStoic job (subjob: OptStoic)
-    novostoic_optstoic:
+    novostoic-optstoic:
       image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py optstoic"
       imagePullPolicy: "Always"
@@ -164,7 +164,7 @@ config:
       volumes: []
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
-    novostoic_pathways:
+    novostoic-novostoic:
       image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py pathways"
       imagePullPolicy: "Always"
@@ -173,7 +173,7 @@ config:
       volumes: []
 
     # Config for running NovoStoic job (subjob: dGPredictor)
-    novostoic_dgpredictor:
+    novostoic-dgpredictor:
       image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py dgpredictor"
       imagePullPolicy: "Always"
@@ -182,7 +182,7 @@ config:
       volumes: []
 
     # Config for running NovoStoic job (subjob: EnzRank)
-    novostoic_enzrank:
+    novostoic-enzrank:
       image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py enzrank"
       imagePullPolicy: "Always"

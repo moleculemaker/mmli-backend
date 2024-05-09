@@ -70,9 +70,10 @@ async def create_job(
             model_set = 'apr-2024'
             new_predictions_name = 'asdf'
 
-            # TODO: Build up example_request.csv from user input
-            # Assumes that file has already been uploaded to MinIO
+            # TODO: Build up example_request.csv from user input, upload to MinIO?
+            job_config = json.loads(job_info.replace('\"', '"'))
 
+            # We assume that file has already been uploaded to MinIO
             somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'
             #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
             #output_file_path = f'{somn_project_dir}/outputs/asdf'
@@ -86,8 +87,22 @@ async def create_job(
             }]
 
         # TODO: support NOVOSTOIC job types
-        elif 'novostoic' in job_type:
-            raise HTTPException(status_code=501, detail=f'{job_type} not yet implemented')
+        elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_ENZRANK:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
 
         elif job_type == JobType.CLEAN:
             # Build up input.FASTA from user input

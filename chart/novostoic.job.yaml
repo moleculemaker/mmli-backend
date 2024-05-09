@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: novostoic
+  namespace: staging
+spec:
+  template:
+    spec:
+      containers:
+      - name: novostoic
+        image: "moleculemaker/novostoic"
+        command: ["python",  "./novostoic-job.py", "optstoic"]
+      restartPolicy: Never
+  backoffLimit: 4
