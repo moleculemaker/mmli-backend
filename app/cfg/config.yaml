@@ -73,8 +73,8 @@ kubernetes_jobs:
     imagePullPolicy: "Always"
     securityContext:
       # mount/run as mambauser => 57439
-      runAsUser: 57439
-      runAsGroup: 57439
+      runAsUser: 0
+      runAsGroup: 0
       fsGroup: 57439
     volumes:
       - name: 'shared-storage'
