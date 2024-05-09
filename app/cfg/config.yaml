@@ -72,10 +72,11 @@ kubernetes_jobs:
     command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict 44eb8d94effa11eea46f18c04d0a4970 apr-2024 asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
     imagePullPolicy: "Always"
     securityContext:
-      # mount/run as mambauser => 57439
+      # TODO: mount/run as mambauser => 57439 causes permission errors
+      # workaround for now is to run as root
       runAsUser: 0
       runAsGroup: 0
-      fsGroup: 57439
+      #fsGroup: 57439
     volumes:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/somn/JOB_ID/in'
