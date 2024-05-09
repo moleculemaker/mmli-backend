@@ -67,14 +67,59 @@ kubernetes_jobs:
 
   # Config for running SOMN job
   somn:
-    image: "bodom0015/somn"
+    image: "moleculemaker/somn"
+    #prejob_command: "chown -R 57439:57439 ${JOB_OUTPUT_DIR}/"
+    command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict 44eb8d94effa11eea46f18c04d0a4970 apr-2024 asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
     imagePullPolicy: "Always"
-    volumes: []
+    securityContext:
+      # mount/run as mambauser => 57439
+      runAsUser: 57439
+      runAsGroup: 57439
+      fsGroup: 57439
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/somn/JOB_ID/in'
+        subPath: 'uws/jobs/somn/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/somn/JOB_ID/out'
+        subPath: 'uws/jobs/somn/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: OptStoic)
   novostoic_optstoic:
-    image: "TBD"
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py optstoic"
     imagePullPolicy: "Always"
+    imagePullSecrets:
+      - regcred
+    volumes: []
+
+  # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
+  novostoic_pathways:
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py pathways"
+    imagePullPolicy: "Always"
+    imagePullSecrets:
+      - regcred
+    volumes: []
+
+  # Config for running NovoStoic job (subjob: dGPredictor)
+  novostoic_dgpredictor:
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py dgpredictor"
+    imagePullPolicy: "Always"
+    imagePullSecrets:
+      - regcred
+    volumes: []
+
+  # Config for running NovoStoic job (subjob: EnzRank)
+  novostoic_enzrank:
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py enzrank"
+    imagePullPolicy: "Always"
+    imagePullSecrets:
+      - regcred
     volumes: []
 
   defaults:

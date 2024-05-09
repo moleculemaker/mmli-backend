@@ -25,12 +25,12 @@ spec:
         {% endfor %}
       {%- endif %}
       restartPolicy: Never
-      # {%- if securityContext %}
-      # securityContext:
-      #   runAsUser: {{ securityContext['runAsUser'] }}
-      #   runAsGroup: {{ securityContext['runAsGroup'] }}
-      #   # fsGroup: {{ securityContext['fsGroup'] }}
-      # {%- endif %}
+      {%- if securityContext %}
+      securityContext:
+        runAsUser: {{ securityContext['runAsUser'] }}
+        runAsGroup: {{ securityContext['runAsGroup'] }}
+        fsGroup: {{ securityContext['fsGroup'] }}
+      {%- endif %}
       volumes:
         - name: server-config
           configMap:
@@ -69,14 +69,20 @@ spec:
           value: "{{ job_input_dir }}"
         - name: MINIO_SERVER
           value: "{{ minio_server }}"
+        {% for env in environment %}
+        - name: "{{ env.name }}"
+          value: "{{ env.value }}"
+        {% endfor %}
         command:
         - /bin/bash
         - -c
         # - sleep 1000d
         - >
           mkdir -p "${JOB_INPUT_DIR}" && mkdir -p "${JOB_OUTPUT_DIR}" && ./prejob.py && pwd && ls -al ${JOB_INPUT_DIR}
+{%- if prejob_command %}
+          && {{ prejob_command }}
         #   chown {{ securityContext['runAsUser'] }}:{{ securityContext['runAsGroup'] }} "${JOB_OUTPUT_DIR}"
-
+{%- endif %}
       - name: job
         image: {{ image.repository }}
         imagePullPolicy: {{ image.pull_policy }}

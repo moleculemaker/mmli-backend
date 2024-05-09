@@ -71,10 +71,19 @@ async def create_job(
             new_predictions_name = 'asdf'
 
             # TODO: Build up example_request.csv from user input
-            input_file_path = f'somn_scratch/{project_id}/scratch/example_request.csv'
+            # Assumes that file has already been uploaded to MinIO
 
-            command = None
+            somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'
+            #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
+            #output_file_path = f'{somn_project_dir}/outputs/asdf'
+
+            command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f"ls -al && whoami && somn predict {project_id} {model_set} {new_predictions_name}"
+
+            environment = [{
+                'name': 'SOMN_PROJECT_DIR',
+                'value': somn_project_dir
+            }]
 
         # TODO: support NOVOSTOIC job types
         elif 'novostoic' in job_type:
