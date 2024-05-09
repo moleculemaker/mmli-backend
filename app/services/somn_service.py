@@ -114,20 +114,25 @@ class SomnService:
             """
             Returns the reference atom index for the nitrogen most likely to be reactive, or multiple (if there are multiple)
             """
-            
             reactive_nitrogens = []
+            reactive_nitrogen_idxes = []
             for idx in ref_atom_idxes:
                 neighbors = mol.GetAtomWithIdx(idx).GetNeighbors()
                 n_hs = [1 for nbr in neighbors if nbr.GetSymbol() == "H"]
                 reactive_nitrogens.append(sum(n_hs))
+                reactive_nitrogen_idxes.append(idx)
 
             reactive_nitrogens = np.array(reactive_nitrogens)
             atm_indices = np.where((reactive_nitrogens == np.max(reactive_nitrogens)) & (reactive_nitrogens != 0))[0]
-
-            if len(atm_indices) >= 1:
-                return atm_indices
             
-            raise SomnException("No reactive nitrogens detected in nucleophile!")
+            ret_val = []
+            for i in atm_indices:
+                ret_val.append(reactive_nitrogen_idxes[i])
+
+            if len(ret_val) >= 1:
+                return ret_val
+            
+            raise Exception("No reactive nitrogens detected in nucleophile!")
             
         def check_halides_aromatic(rdkmol,halides):
             rdkatoms = [atom for atom in rdkmol.GetAtoms() if atom.GetIdx() in halides]
