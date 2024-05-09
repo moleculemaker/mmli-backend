@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import json
 
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -65,4 +66,8 @@ class SomnService:
     
     @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return service.get_file(bucket_name, f"results/{job_id}/{job_id}.csv")
+        job = await db.get(Job, job_id)
+        job_info = json.loads(job.job_info)
+        file_name = f'{job_info['nuc_name']}_{job_info['el_name']}_processed.csv'
+        
+        return service.get_file(bucket_name, file_name)
