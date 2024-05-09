@@ -68,6 +68,6 @@ class SomnService:
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         job = await db.get(Job, job_id)
         job_info = json.loads(job.job_info)
-        file_name = f'{job_info['nuc_name']}_{job_info['el_name']}_processed.csv'
+        file_name = f"{job_info['nuc_name']}_{job_info['el_name']}_processed.csv"
         
         return service.get_file(bucket_name, file_name)
