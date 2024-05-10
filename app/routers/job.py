@@ -1,67 +1,152 @@
+import base64
+import json
+import re
 import time
 import uuid
+import csv
+import io
 
-from fastapi import Depends, HTTPException, APIRouter
+from typing import List
+
+from fastapi import Depends, HTTPException, APIRouter, UploadFile
+from fastapi.openapi.models import Response
+from fastapi.params import Path, Body, File
+from pydantic.fields import Annotated, Optional
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette import status
+from starlette.responses import JSONResponse
 
-from models.enums import JobType
+from config import get_logger, app_config
+from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
+from services import kubejob_service, clean_service, molli_service
+from services.minio_service import MinIOService
+
 router = APIRouter()
+
+log = get_logger(__name__)
 
 
 @router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
-async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(get_session)):
+async def create_job(
+        job_id: Optional[str] = Body(default=None),
+        run_id: Optional[str] = Body(default=None),
+        email: Optional[str] = Body(default=None),
+        job_info: Optional[str] = Body(default="{}"),
+        job_type: str = Path(),
+        service: MinIOService = Depends(),
+        db: AsyncSession = Depends(get_session)
+):
+    job_id = job_id if job_id else str(kubejob_service.generate_uuid())
+    #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
+
     # Check if this job_id already exists
-    existing_jobs = await db.execute(select(Job).where(Job.job_id == job.job_id).where(Job.run_id == job.run_id))
-    if existing_jobs.first():
-        raise HTTPException(status_code=409, detail="Job already exists with job_id=" + job.job_id + " and run_id=" + job.run_id)
+    statement = select(Job).where(Job.job_id == job_id)
+    existing_jobs = await db.exec(statement)
+    db_job: Job = existing_jobs.first()
+    #if db_job:
+    #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type == JobType.CHEMSCRAPER:
-        print("Creating CHEMSCRAPER job")
+        log.debug("Creating CHEMSCRAPER job")
         # runs as a background_task
+        command = 'N/A'
+        image_name = 'N/A'
+    elif job_type in JobTypes:
+        log.debug(f"Creating Kubernetes job: {job_type}")
+        # runs in Kubernetes, read Docker image name from config
+        image_name = app_config['kubernetes_jobs'][job_type]['image']
+
+        # Command + environment are set differently for each job (see below)
         command = ''
-        image = ''
-    elif job_type == JobType.MOLLI:
-        print("Creating MOLLI job")
-        # runs in Kubernetes
-        image = 'moleculemaker/molli:ncsa-workflow'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.CLEAN:
-        print("Creating CLEAN job")
-        # runs in Kubernetes
-        image = 'moleculemaker/clean-image-amd64'
-        command = ''  # insert reference to input file
-    elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-        print("Creating novostoic-optstoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
-        print("Creating novostoic-novostoic job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_ENZRANK:
-        print("Creating novostoic-enzrank job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-        print("Creating novostoic-dgpredictor job")
-        # runs as a background_task
-        command = ''
-        image = ''
-    elif job_type == JobType.SOMN:
-        print("Creating SOMN job")
-        # runs in Kubernetes
-        image = ''
-        command = ''
+        environment = []
+
+        if job_type == JobType.DEFAULT:
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
+        elif job_type == JobType.SOMN:
+            project_id = '44eb8d94effa11eea46f18c04d0a4970'
+            model_set = 'apr-2024'
+            new_predictions_name = 'asdf'
+
+            # TODO: Build up example_request.csv from user input, upload to MinIO?
+            job_config = json.loads(job_info.replace('\"', '"'))
+            file = io.StringIO()
+            writer = csv.writer(file)
+            writer.writerow([
+                "user", 
+                "nuc", 
+                "el", 
+                "nuc_name", 
+                "el_name"
+            ])
+            writer.writerow([
+                "testuser", 
+                job_config["nuc"],
+                job_config["el"], 
+                job_config["nuc_name"], 
+                job_config["el_name"]
+            ])
+            
+            upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
+            if not upload_result:
+                raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+
+            # We assume that file has already been uploaded to MinIO
+            somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'
+            #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
+            #output_file_path = f'{somn_project_dir}/outputs/asdf'
+
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            #command = f"ls -al && whoami && somn predict {project_id} {model_set} {new_predictions_name}"
+
+            environment = [{
+                'name': 'SOMN_PROJECT_DIR',
+                'value': somn_project_dir
+            }]
+
+        # TODO: support NOVOSTOIC job types
+        elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_ENZRANK:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+            # TODO: Scrape input values from user input JSON
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.CLEAN:
+            # Build up input.FASTA from user input
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_config)
+        elif job_type == JobType.MOLLI:
+            # Pass path to CORES/SUBS files into the container
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            job_config = json.loads(job_info.replace('\"', '"'))
+            environment = molli_service.build_molli_job_environment(job_id=job_id, job_info=job_config)
+
+        # Run a Kubernetes Job with the given image + command + environment
+        try:
+            log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+            kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+        except Exception as ex:
+            log.error("Failed to create Job: " + str(ex))
+            raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
+
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
@@ -70,31 +155,44 @@ async def create_job(job: JobCreate, job_type: str, db: AsyncSession = Depends(g
 
     # TODO: Validation
     # TODO: Set internal metadata / fields
-    # Create a new DB job from user input
-    db_job = Job(
-        # User input
-        email=job.email,
-        job_info=job.job_info,
-        job_id=str(uuid.uuid4()) if job.job_id is None else job.job_id,
-        run_id=job.run_id,
+    if not db_job:
+        # Create a new DB job from user input
+        db_job: Job = Job(
+            # User input
+            email=email,
+            job_info=job_info,
+            job_id=job_id,
+            run_id=run_id,
 
-        type=job_type,
-        command=command,
-        image=image,
+            type=job_type,
+            command=command,
+            image=image_name,
 
-        # Job metadata
-        deleted=0,
-        time_created=int(time.time()),
+            # Job metadata
+            deleted=0,
+            time_created=int(time.time()),
 
-        # Set ser metadata
-        user_agent=user_agent,
-    )
+            # Set ser metadata
+            user_agent=user_agent,
+        )
 
-    db.add(db_job)
-    await db.commit()
-    await db.refresh(db_job)
+        db.add(db_job)
+        await db.commit()
+        await db.refresh(db_job)
 
-    return db_job
+        return JSONResponse(status_code=status.HTTP_201_CREATED, content={
+            'job_id': str(db_job.job_id),
+            'run_id': str(db_job.run_id),
+            'email': str(db_job.email),
+            'job_info': str(db_job.job_info),
+        })
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'job_id': str(db_job.job_id),
+        'run_id': str(db_job.run_id),
+        'email': str(db_job.email),
+        'job_info': str(db_job.job_info),
+    })
 
 
 @router.get("/{job_type}/jobs", tags=['Jobs'], description="Get a list of all job runs by type")

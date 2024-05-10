@@ -8,6 +8,8 @@ import zipfile
 import time
 import pandas as pd
 from io import StringIO
+
+from config import get_logger, app_config
 from models.sqlmodel.models import Job
 from models.enums import JobStatus
 
@@ -24,20 +26,31 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.models import FlaggedMolecule
 
+log = get_logger(__name__)
+
 class ChemScraperService:
-    chemscraper_api_baseURL = os.environ.get("CHEMSCRAPER_API_BASE_URL")
-    chemscraper_frontend_baseURL = os.environ.get("CHEMSCRAPER_FRONTEND_URL")
+    chemscraper_api_baseURL = app_config['external']['chemscraper']['apiBaseUrl']
+    chemscraper_frontend_baseURL = app_config['external']['chemscraper']['frontendBaseUrl']
 
     def __init__(self, db) -> None:
         self.db = db
 
+    async def update_job_phase(self, jobObject, phase: JobStatus):
+        jobObject.phase = phase
+        if phase == JobStatus.PROCESSING:
+            jobObject.time_start = int(time.time())
+        else:
+            jobObject.time_end = int(time.time())
+        self.db.add(jobObject)
+        await self.db.commit()
+
     @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         rdkitService = RDKitService()
-        csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+        csv_filepath = job_id + "/out/" + job_id + ".csv"
+        csv_content = service.get_file(bucket_name, csv_filepath)
         if csv_content is None:
-            filename = "results/" + job_id + "/" + job_id + ".csv"
-            raise HTTPException(status_code=404, detail=f"File {filename} not found")
+            raise HTTPException(status_code=404, detail=f"File {csv_filepath} not found")
         molecules = []
         df = pd.read_csv(io.BytesIO(csv_content))
 
@@ -196,14 +209,6 @@ class ChemScraperService:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
 
-    async def update_job_phase(self, jobObject, phase: JobStatus):
-        jobObject.phase = phase
-        if phase == JobStatus.PROCESSING:
-            jobObject.time_start = int(time.time())
-        else:
-            jobObject.time_end = int(time.time())
-        self.db.add(jobObject)
-        await self.db.commit()
 
     async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
@@ -214,6 +219,7 @@ class ChemScraperService:
 
         data = service.get_file(bucket_name, objectPath)
         if data is None:
+            log.error(f'File not found: {bucket_name}/{objectPath}')
             await self.update_job_phase(db_job, JobStatus.ERROR)
             raise HTTPException(status_code=404, detail="File not found")
         
@@ -232,12 +238,12 @@ class ChemScraperService:
                     continue
                 if not filename.endswith('.tsv'):
                     file_data = zip_file.read(filename)
-                    upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + filename, file_data)
+                    upload_result = service.upload_file(bucket_name, jobId + "/out/" + filename, file_data)
 
             if tsv_file_name is not None:
                 with zip_file.open(tsv_file_name) as tsv_file:
                     tsv_data = tsv_file.read()
-                    upload_result = service.upload_file(bucket_name, "results/" + jobId + '/' + jobId + ".tsv", tsv_data)
+                    upload_result = service.upload_file(bucket_name, jobId + "/out/" + jobId + ".tsv", tsv_data)
                     if upload_result:
                         await self.fetchExternalDataAndStoreResults(bucket_name, jobId, tsv_data, service)
                         await self.update_job_phase(db_job, JobStatus.COMPLETED)
@@ -245,15 +251,16 @@ class ChemScraperService:
                             try:
                                 email_service.send_email(db_job.email, f'''Result for your ChemScraper Job ({db_job.job_id}) is ready''', f'''The result for your ChemScraper Job is available at {self.chemscraper_frontend_baseURL}/results/{db_job.job_id}''')
                             except Exception as e:
-                                print(e)
+                                log.error(f'Failed to send email notification on success: {str(e)}')
                         return True
         else:
             error_content = response.text.encode()
-            upload_result = service.upload_file(bucket_name, "errors/" + jobId + ".txt", error_content)
+            upload_result = service.upload_file(bucket_name, jobId + "/errors/" + jobId + ".txt", error_content)
+            log.error(f'Failed to POST /extractPdf: {error_content}')
             await self.update_job_phase(db_job, JobStatus.ERROR)
             if(db_job.email):
                 try:
                     email_service.send_email(db_job.email, f'''ChemScraper Job ({db_job.job_id}) failed''', f'''An error occurred in computing the result for your ChemScraper job.''')
                 except Exception as e:
-                    print(e)
+                    log.error(f'Failed to send email notification on failure: {str(e)}')
         return False

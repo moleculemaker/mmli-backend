@@ -33,7 +33,7 @@ class JobBase(SQLModel):
     email: Optional[str] = None
 
     job_id: Optional[str] = Field(default=None, nullable=False, primary_key=True)
-    run_id: Optional[str] = '0'
+    run_id: Optional[str] = None
 
 
 # What is stored in the database for each Job

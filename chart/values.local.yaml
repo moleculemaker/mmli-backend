@@ -2,7 +2,18 @@ ingress:
   ingressClassName: nginx
 
 config:
-# Change to local chemscraper service URL if deployed in local cluster
+  existingSecret: mmli-backend-secrets
+  external:
+    chemscraper:
+      # Change to local chemscraper service URL if deployed in local cluster
+      apiBaseUrl: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
+      frontendBaseUrl: "http://localhost:4200"
+
+controller:
+  image: moleculemaker/mmli-backend:kubejob
+
+  # Change to local chemscraper service URL if deployed in local cluster
+  # TODO: fit this into new config structure
   chemscraper_url: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
   novostoic_frontend_url: "http://localhost:4200"
   somn_frontend_url: "http://localhost:4200"
@@ -10,11 +21,12 @@ config:
 
 postgresql:
   enabled: true
+  autoschema: true
 #  global:
 #    storageClass: hostpath
   auth:
-    rootPassword: "postgres"
     password: "postgres"
+    postgresPassword: "postgres"
     username: "postgres"
     database: "mmli"
 

@@ -18,7 +18,7 @@ from models.sqlmodel.models import FlaggedMolecule, FlaggedMoleculeDelete
 from sqlmodel.ext.asyncio.session import AsyncSession
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job
-from models.enums import JobType
+from models.enums import JobType, JobStatus
 import pandas as pd
 import io
 
@@ -31,15 +31,18 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         # Create a new job and add to the DB
         separator = "|"
         curr_time = time.time()
-        db_job = Job(
-            email=requestBody.user_email,
-            job_info=separator.join(requestBody.fileList),
-            job_id=requestBody.jobId,
-            # Run ID takes the default value since the app doesn't support multiple runs right now
-            type=JobType.CHEMSCRAPER,
-            user_agent='',
-            time_created=int(curr_time)
-        )
+        db_job: Job = await db.get(Job, requestBody.jobId)
+        if not db_job:
+            db_job = Job(
+                email=requestBody.user_email,
+                job_info=separator.join(requestBody.fileList),
+                job_id=requestBody.jobId,
+                phase=JobStatus.PROCESSING,
+                # Run ID takes the default value since the app doesn't support multiple runs right now
+                type=JobType.CHEMSCRAPER,
+                user_agent='',
+                time_created=int(curr_time)
+            )
 
         try: 
             db.add(db_job)
@@ -50,7 +53,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
 
         filename = requestBody.fileList[0]
         chemscraperService = ChemScraperService(db=db)
-        objectPath = f"inputs/{requestBody.jobId}/{filename}"
+        objectPath = f"{requestBody.jobId}/in/{filename}"
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
