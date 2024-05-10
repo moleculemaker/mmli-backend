@@ -1,8 +1,11 @@
+import io
 import os
 import time
 import asyncio
 import json
 
+from fastapi import HTTPException
+import pandas as pd
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.models import Job
@@ -70,4 +73,26 @@ class SomnService:
         job_info = json.loads(job.job_info)
         file_name = f"{job_info['nuc_name']}_{job_info['el_name']}_processed.csv"
         
-        return service.get_file(bucket_name, file_name)
+        csv_content = service.get_file(bucket_name, f"/{job_id}/out/{file_name}")
+        if csv_content is None:
+            filename = "results/" + job_id + "/" + job_id + ".csv"
+            raise HTTPException(status_code=404, detail=f"File {filename} not found")
+        
+        df = pd.read_csv(io.BytesIO(csv_content))
+        retVal = []
+        for index, row in df.iterrows():
+            data = {}
+            keys = row[0].split('_')
+            average = row['average']
+            stdev = row['stdev']
+            data['nuc_name'] = keys[0]
+            data['el_name'] = keys[1]
+            data['catalyst'] = int(keys[2])
+            data['solvent'] = int(keys[3])
+            data['base'] = keys[4]
+            data['yield'] = average
+            data['stdev'] = stdev
+            retVal.append(data)
+            
+        return retVal
+        
