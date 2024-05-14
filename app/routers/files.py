@@ -10,34 +10,39 @@ from fastapi.responses import JSONResponse
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.responses import FileResponse
 
-from models.enums import JobType
+from config import get_logger
 from models.exportRequestBody import ExportRequestBody
 from models.sqlmodel.db import get_session
 
-from services.minio_service import MinIOService
-from services.chemscraper_service import ChemScraperService
+from models.enums import JobType
+
 from services.novostoic_service import NovostoicService
 from services.somn_service import SomnService
+from services.minio_service import MinIOService
+from services.chemscraper_service import ChemScraperService
 
 
 from typing import Optional
 
 router = APIRouter()
 
+log = get_logger(__name__)
 
 @router.post("/{bucket_name}/upload", tags=['Files'])
 async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", minio: MinIOService = Depends()):
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
-    if first_four_bytes == b'%PDF':
+    if bucket_name != 'chemscraper' or first_four_bytes == b'%PDF':
         if job_id == "":
-            job_id = str(uuid.uuid4())
+            job_id = str(uuid.uuid4()).replace('-', '')
 
         file_content = await file.read()
-        upload_result = minio.upload_file(bucket_name, "inputs/" + job_id + '/' + file.filename, file_content)
+        upload_result = minio.upload_file(bucket_name, job_id + '/in/' + file.filename, file_content)
         if upload_result:
             content = {"jobID": job_id, "uploaded_at": datetime.now().isoformat()}
             return JSONResponse(content=content, status_code=status.HTTP_200_OK)
+
+    log.error(f'Failed to upload file: {file.filename}')
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -68,11 +73,10 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
         print("Getting novostoic-dgpredictor job result")
         return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
-      
+
     elif bucket_name == JobType.SOMN:
-        print("Getting somn job result")
         return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
-      
+
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)
 

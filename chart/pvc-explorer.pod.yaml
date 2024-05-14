@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pvc-explorer
+spec:
+  containers:
+    - name: pvc-explorer
+      image: ubuntu:20.04
+      stdin: true 
+      tty: true 
+      workingDir: /app/data/
+      volumeMounts:
+      - mountPath: "/app/data"
+        name: data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        # local dev
+        # claimName: job-manager-pvc
+        
+        # prod
+        # claimName: mmli-clean-job-weights
+
+        # staging
+        claimName: mmli-clean-job-weights

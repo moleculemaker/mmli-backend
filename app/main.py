@@ -1,18 +1,40 @@
-import os
+#!/bin/env python3
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 
-import uvicorn
+
 from fastapi import FastAPI
 
+from config import app_config, get_logger
 from routers import chemscraper, job, files, somn, novostoic
 from fastapi.middleware.cors import CORSMiddleware
+
+from services.kubejob_service import KubeEventWatcher
 
 from models.sqlmodel.models import Job
 from models.sqlmodel.db import init_db
 
-app = FastAPI()
+log = get_logger(__name__)
 
-DEBUG = 't' in str.lower(os.getenv("DEBUG", "true"))
 
+watcher = KubeEventWatcher()
+#asyncio.run(init_db())
+
+
+@asynccontextmanager
+async def lifespan(app_: FastAPI):
+    global watcher
+    global log
+    log.info("Starting up...")
+    log.info("Starting KubeWatcher...")
+    watcher.run()
+    yield
+    log.info("Shutting down...")
+    watcher.close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(files.router)
 app.include_router(job.router)
@@ -41,5 +63,3 @@ app.add_middleware(
 )
 
 
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)

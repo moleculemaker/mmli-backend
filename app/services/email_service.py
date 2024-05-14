@@ -6,12 +6,14 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import formataddr
 
+from config import app_config
+
 class SingleEmailHeader(object):
     def __init__(self, recipients, email_params, template=''):
         self.recipients = recipients
-        self.server = os.environ.get("EMAIL_SERVER")
-        self.from_email = os.environ.get("EMAIL_FROM_EMAIL")
-        self.from_name = os.environ.get("EMAIL_FROM_NAME")
+        self.server = app_config['email']['server']
+        self.from_email = app_config['email']['fromEmail']
+        self.from_name = app_config['email']['fromName']
         ## Construct email o
         self.msg = MIMEMultipart('alternative')
         self.msg['Subject'] = email_params['subject']

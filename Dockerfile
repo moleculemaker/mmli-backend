@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY ./app /code/app
 
 # Copy in versions of the database schema
-COPY ./migrations /code/migrations
+COPY migrations /code/migrations
 COPY ./alembic.ini /code/alembic.ini
 
 # Override default command in the container

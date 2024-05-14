@@ -15,9 +15,67 @@ spec:
       labels:
         app: mmli-fastapi
     spec:
+      serviceAccountName: {{ .Release.Name }}-foreman
+      volumes:
+{{- if .Values.config.existingSecret }}
+        - name: server-secrets
+          secret:
+            secretName: {{ .Values.config.existingSecret }}
+{{- end }}
+        - name: server-config
+          configMap:
+            name: {{ .Release.Name }}-config
+        - name: shared-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.sharedStorage.existingClaim }}
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.28
+          command: [ 'sh', '-c', "until nslookup {{ .Release.Name }}-postgresql.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for {{ .Release.Name }}-postgresql; sleep 2; done" ]
+{{- if .Values.postgresql.autoschema }}
+        - name: init-postgres-alembic
+          image: {{ .Values.controller.image }}
+          imagePullPolicy: Always
+          workingDir: /code
+          command: [ 'alembic', 'upgrade', 'head' ]
+          env:
+            - name: POSTGRES_HOST
+{{- if .Values.postgresql.hostname }}
+              value: {{ .Values.postgresql.hostname }}
+{{ else }}
+              value: {{ .Release.Name }}-postgresql.{{ .Release.Namespace }}.svc.cluster.local
+{{- end }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: postgres-password
+{{- if .Values.postgresql.auth.existingSecret }}
+                  name: {{ .Values.postgresql.auth.existingSecret }}
+{{ else }}
+                  name: {{ .Release.Name }}-postgresql
+{{- end }}
+            - name: POSTGRES_DATABASE
+              value: {{ .Values.postgresql.auth.database }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgresql.auth.username }}
+            - name: SQLALCHEMY_DATABASE_URL
+              value: "postgresql+asyncpg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):5432/$(POSTGRES_DATABASE)"
+{{- end }}
       containers:
         - name: mmli-fastapi
           image: {{ .Values.controller.image }}
+          volumeMounts:
+            - name: server-config
+              mountPath: /code/app/cfg/config.yaml
+              subPath: config.yaml
+{{- if .Values.config.existingSecret }}
+            - name: server-secrets
+              mountPath: /code/app/cfg/secret.yaml
+              subPath: secret.yaml
+{{- end }}
+            - name: shared-storage
+              mountPath: {{ .Values.sharedStorage.mountPath }}
+              subPath: {{ .Values.sharedStorage.subPath }}
           env:
 
           - name: POSTGRES_HOST
@@ -28,13 +86,13 @@ spec:
 {{- end }}
 
           - name: POSTGRES_PASSWORD
-{{- if .Values.postgresql.auth.existingSecret }}
             valueFrom:
               secretKeyRef:
-                name: {{ .Values.postgresql.auth.existingSecret }}
                 key: postgres-password
-{{- else }}
-            value: {{ .Values.postgresql.auth.password }}
+{{- if .Values.postgresql.auth.existingSecret }}
+                name: {{ .Values.postgresql.auth.existingSecret }}
+{{ else }}
+                name: {{ .Release.Name }}-postgresql
 {{- end }}
 
           - name: POSTGRES_DATABASE
@@ -80,6 +138,8 @@ spec:
 
           - name: CHEMSCRAPER_API_BASE_URL
             value: {{ .Values.config.chemscraper_url }}
+          - name: RELEASE_NAME
+            value: {{ .Release.Name }}
 
           - name: CHEMSCRAPER_FRONTEND_URL
             value: {{ .Values.config.chemscraper_frontend_url }}

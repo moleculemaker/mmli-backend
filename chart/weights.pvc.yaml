@@ -1,0 +1,16 @@
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mmli-clean-job-weights
+  namespace: mmli
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+#  storageClassName: nfs-taiga
+#  volumeName: pvc-60b03632-3186-41b1-8dd3-ece79936cac7
+
+
