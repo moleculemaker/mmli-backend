@@ -47,7 +47,7 @@ class ChemScraperService:
     @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         rdkitService = RDKitService()
-        csv_filepath = job_id + "/out/" + job_id + ".csv"
+        csv_filepath = job_id + "/out/" + job_id + "-results.csv"
         csv_content = service.get_file(bucket_name, csv_filepath)
         if csv_content is None:
             raise HTTPException(status_code=404, detail=f"File {csv_filepath} not found")
@@ -204,7 +204,7 @@ class ChemScraperService:
         df.to_csv(csv_buffer)
         csv_data = csv_buffer.getvalue().encode('utf-8')
 
-        upload_result = service.upload_file(bucket_name, "results/" + jobId + "/" + jobId + ".csv", csv_data)
+        upload_result = service.upload_file(bucket_name, jobId + "/out/" + jobId + "-results.csv", csv_data)
         if not upload_result:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
