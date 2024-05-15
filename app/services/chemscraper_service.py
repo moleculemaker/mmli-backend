@@ -124,10 +124,10 @@ class ChemScraperService:
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
+                    SVG = service.get_file(bucket_name, jobId + '/out/molecules/' + svg_filename)
                     if SVG is None:
                         print("SVG not found, generating using rdkit")
-                        SVG = RDKitService.renderSVGFromSMILE(SMILE)
+                        SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
 
                     location = " | page: " + page_no
 
