@@ -84,14 +84,18 @@ async def create_job(
                 "nuc", 
                 "el", 
                 "nuc_name", 
-                "el_name"
+                "el_name",
+                "nuc_idx",
+                "el_idx"
             ])
             writer.writerow([
                 "testuser", 
                 job_config["nuc"],
                 job_config["el"], 
                 job_config["nuc_name"], 
-                job_config["el_name"]
+                job_config["el_name"],
+                job_config["nuc_idx"] if "nuc_idx" in job_config else "-",
+                job_config["el_idx"] if "el_idx" in job_config else "-"
             ])
             
             upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
