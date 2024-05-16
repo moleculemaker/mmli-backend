@@ -83,18 +83,18 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
 
 @router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    pdf_urls = service.get_file_urls(bucket_name, "inputs/" + job_id + "/")
+    pdf_urls = service.get_file_urls(bucket_name, job_id + "/in/")
     if pdf_urls is None:
-        filename = "inputs/" + job_id + "/"
+        filename = job_id + "/in/"
         raise HTTPException(status_code=404, detail=f"Files {filename} not found")
     return pdf_urls
 
 
 @router.get("/{bucket_name}/errors/{job_id}", tags=['Files'])
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
-    error_content = service.get_file(bucket_name, "errors/" + job_id + ".txt")
+    error_content = service.get_file(bucket_name, job_id + "/errors.txt")
     if error_content is None:
-        filename = "errors/" + job_id + ".txt"
+        filename = job_id + "/errors.txt"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
 
@@ -105,7 +105,7 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
     if requestBody.jobId == "":
         raise HTTPException(status_code=404, detail="Invalid Job ID")
     if requestBody.jobId != "":
-        objectPathPrefix = "results/" + requestBody.jobId + "/"
+        objectPathPrefix = requestBody.jobId + "/out/"
         files_count = 0
         filename = f'chemscraper_{requestBody.jobId}.zip'
         with zipfile.ZipFile(filename, "w") as new_zip:

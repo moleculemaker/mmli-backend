@@ -217,6 +217,7 @@ class ChemScraperService:
         # Update Job Status to Processing
         await self.update_job_phase(db_job, JobStatus.PROCESSING)
 
+        log.info(f'runChemscraperOnDocument: Fetching file - {bucket_name}/{objectPath}')
         data = service.get_file(bucket_name, objectPath)
         if data is None:
             log.error(f'File not found: {bucket_name}/{objectPath}')

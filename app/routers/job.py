@@ -226,7 +226,7 @@ async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_
     result = await db.execute(select(Job).where(Job.job_id == job_id).where(Job.run_id == run_id))
     job = result.first()
     if not job:
-        raise HTTPException(status_code=404, detail="No job found with job_id=" + job_id)
+        raise HTTPException(status_code=404, detail=f"No job found with job_id={job_id} and run_id={run_id}")
     return job.Job
 
 
