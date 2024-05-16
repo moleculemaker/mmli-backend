@@ -1,0 +1,1 @@
+delete from chemical_identifier;

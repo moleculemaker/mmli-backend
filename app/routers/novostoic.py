@@ -1,4 +1,5 @@
 import time
+import re
 from datetime import datetime
 from typing import Optional, Union
 
@@ -20,7 +21,7 @@ from models.sqlmodel.models import Job, JobType, ChemicalIdentifier
 
 from rdkit import Chem
 from rdkit.Chem.Draw import rdMolDraw2D
-import re
+from rdkit.Chem import CanonSmiles
 
 class ChemicalAutoCompleteResponse(BaseModel):
     name: str
@@ -102,6 +103,11 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
 
 @router.get(f"/chemical/validate", tags=['Novostoic'], response_model=Union[ChemicalAutoCompleteResponse, None])
 async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)):
+    try:
+        smiles = CanonSmiles(search)
+    except:
+        smiles = search
+
     existing_chemicals = (await db.execute(
         select(ChemicalIdentifier.name, 
                ChemicalIdentifier.smiles, 
@@ -110,8 +116,8 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
                ChemicalIdentifier.metanetx_id, 
                ChemicalIdentifier.kegg_id
         ).filter(or_(
+            ChemicalIdentifier.smiles == smiles,
             ChemicalIdentifier.name == search,
-            ChemicalIdentifier.smiles == search,
             ChemicalIdentifier.inchi == search,
             ChemicalIdentifier.inchi_key == search,
             ChemicalIdentifier.metanetx_id == search,
