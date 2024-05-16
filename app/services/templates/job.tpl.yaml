@@ -23,13 +23,13 @@ spec:
         {% for tol in tolerations %}
           {{ tol }}
         {% endfor %}
-      {% endfor %}
+      {% endif %}
       {%- if nodeSelector %}
       nodeSelector:
         {% for labelKey, labelValue in nodeSelector %}
           {{ labelKey }}: {{ labelValue }}
         {% endfor %}
-      {% endfor %}
+      {% endif %}
       {%- if image.pull_secrets %}
       imagePullSecrets:
         {% for sec in image.pull_secrets %}
