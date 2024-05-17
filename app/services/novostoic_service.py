@@ -1,4 +1,5 @@
 import asyncio
+import io
 import os
 import time
 import json
@@ -6,6 +7,7 @@ import re
 
 from fastapi import HTTPException
 
+import pandas as pd
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 from sqlalchemy import or_
@@ -154,4 +156,21 @@ class NovostoicService:
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        job = await db.get(Job, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job_info = json.loads(job.job_info)
+        ret_val = []
+        
+        file = service.get_file(bucket_name, f"results/{job_id}/dgpredictor-result.csv")
+        df = pd.read_csv(io.BytesIO(file))
+        
+        for reaction, (_, row) in zip(job_info['reactions'], df.iterrows()):
+            ret_val.append({
+                "reaction": reaction,
+                "gibbsEnergy": row['mu'],
+            })
+            
+        return ret_val
+        
