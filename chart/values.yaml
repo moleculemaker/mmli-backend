@@ -167,6 +167,13 @@ config:
           mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
           subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
+      resources:
+        limits:
+          cpu: "1"
+          memory: "24Gi"
+        requests:
+          cpu: "1"
+          memory: "12Gi"
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-novostoic:

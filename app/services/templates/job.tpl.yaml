@@ -21,13 +21,15 @@ spec:
       {%- if tolerations %}
       tolerations:
         {% for tol in tolerations %}
-          {{ tol }}
+        - effect: {{ tol.effect }}
+          key: {{ tol.key }}
+          operator: {{ tol.operator }}
         {% endfor %}
       {% endif %}
       {%- if nodeSelector %}
       nodeSelector:
-        {% for label in nodeSelector %}
-          {{ label }}
+        {% for labelKey, labelValue in nodeSelector.items() %}
+        {{ labelKey }}: "{{ labelValue }}"
         {% endfor %}
       {% endif %}
       {%- if image.pull_secrets %}

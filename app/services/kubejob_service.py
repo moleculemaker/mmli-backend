@@ -476,10 +476,9 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
 
         with open(os.path.join(os.path.dirname(__file__), 'templates', templateFile)) as f:
             templateText = f.read()
-        template = Template(templateText)
+        jinja_template = Template(templateText)
 
-
-        job_body = yaml.safe_load(template.render(
+        yaml_template = jinja_template.render(
             name=job_name,
             runId=run_id,
             jobId=job_id,
@@ -510,14 +509,16 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             securityContext=app_config['kubernetes_jobs'][job_type]['securityContext'] if 'securityContext' in app_config['kubernetes_jobs'][job_type] else None,
             workingVolume=app_config['kubernetes_jobs']['defaults']['workingVolume'],
             volumes=all_volumes,
-            resources=app_config['kubernetes_jobs']['defaults']['resources'],
+            resources=app_config['kubernetes_jobs'][job_type]['resources'] if 'resources' in app_config['kubernetes_jobs'][job_type] else app_config['kubernetes_jobs']['defaults']['resources'],
             # apiToken=config['jwt']['hs256Secret'],
             apiToken='dummy',
             jobCompleteApiUrl=jobCompleteApiUrl,
             releaseName=RELEASE_NAME,
             ttlSecondsAfterFinished=app_config['kubernetes_jobs']['defaults']['ttlSecondsAfterFinished'],
             activeDeadlineSeconds=app_config['kubernetes_jobs']['defaults']['activeDeadlineSeconds'],
-        ))
+        )
+        log.info('Rendered YAML template: ' + str(yaml_template))
+        job_body = yaml.safe_load(yaml_template)
         if DEBUG:
             log.debug("Job {}:\n{}".format(job_name, yaml.dump(job_body, indent=2)))
         api_response = api_batch_v1.create_namespaced_job(
