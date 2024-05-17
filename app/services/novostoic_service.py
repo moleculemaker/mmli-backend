@@ -91,6 +91,25 @@ class NovostoicService:
         return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     @staticmethod
+    def draw_mol(mol, molSize=(300,150), kekulize=True):
+        pattern = re.compile("<\?xml.*\?>")
+        mc = Chem.MolFromSmiles(mol)
+        if kekulize:
+            try:
+                Chem.Kekulize(mc)
+            except:
+                mc = Chem.Mol(mol.ToBinary())
+        if not mc.GetNumConformers():
+            Chem.rdDepictor.Compute2DCoords(mc)
+
+        drawer = rdMolDraw2D.MolDraw2DSVG(*molSize)
+        drawer.DrawMolecule(mc)
+        drawer.FinishDrawing()
+        svg = drawer.GetDrawingText().replace('svg:', '')
+        svg = re.sub(pattern, '', svg)
+        return svg
+    
+    @staticmethod
     async def getChemical(search: str, db: AsyncSession):
         try:
             smiles = CanonSmiles(search)
@@ -118,24 +137,6 @@ class NovostoicService:
             return 
         
         chemical = existing_chemicals[0]
-        pattern = re.compile("<\?xml.*\?>")
-
-        def draw_mol(mol, molSize=(300,150), kekulize=True):
-            mc = Chem.MolFromSmiles(mol)
-            if kekulize:
-                try:
-                    Chem.Kekulize(mc)
-                except:
-                    mc = Chem.Mol(mol.ToBinary())
-            if not mc.GetNumConformers():
-                Chem.rdDepictor.Compute2DCoords(mc)
-
-            drawer = rdMolDraw2D.MolDraw2DSVG(*molSize)
-            drawer.DrawMolecule(mc)
-            drawer.FinishDrawing()
-            svg = drawer.GetDrawingText().replace('svg:', '')
-            svg = re.sub(pattern, '', svg)
-            return svg
 
         return {
             "name": chemical[0],
@@ -144,13 +145,22 @@ class NovostoicService:
             "inchi_key": chemical[3],
             "metanetx_id": chemical[4],
             "kegg_id": chemical[5],
-            "structure": draw_mol(chemical[1]) if chemical[1] else None
+            "structure": NovostoicService.draw_mol(chemical[1]) if chemical[1] else None
         }
     
     @staticmethod
     async def getChemicalByMetanetXId(metanetx_id: str, db: AsyncSession):
         chemical = (await db.execute(select(ChemicalIdentifier).where(ChemicalIdentifier.metanetx_id == metanetx_id))).all()
-        return chemical[0][0] if chemical else None
+        chemical = chemical[0][0]
+        return {
+            "name": chemical[0],
+            "smiles": chemical[1],
+            "inchi": chemical[2],
+            "inchi_key": chemical[3],
+            "metanetx_id": chemical[4],
+            "kegg_id": chemical[5],
+            "structure": NovostoicService.draw_mol(chemical[1]) if chemical[1] else None
+        } if chemical else None
     
     @staticmethod
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
