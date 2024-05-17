@@ -157,7 +157,7 @@ config:
 
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
-      image: "moleculemaker/novostoic"
+      image: "moleculemaker/novostoic:05152024"
       command: "python ./novostoic-job.py optstoic"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -170,7 +170,7 @@ config:
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-novostoic:
-      image: "moleculemaker/novostoic"
+      image: "moleculemaker/novostoic:05152024"
       command: "python ./novostoic-job.py pathways"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -183,7 +183,7 @@ config:
 
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
-      image: "moleculemaker/novostoic"
+      image: "moleculemaker/novostoic:05152024"
       command: "python ./novostoic-job.py dgpredictor"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -196,7 +196,7 @@ config:
 
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
-      image: "moleculemaker/novostoic"
+      image: "moleculemaker/novostoic:05152024"
       command: "python ./novostoic-job.py enzrank"
       imagePullPolicy: "Always"
       #imagePullSecrets:
