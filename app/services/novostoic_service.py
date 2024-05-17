@@ -88,6 +88,43 @@ class NovostoicService:
         return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     @staticmethod
+    async def getChemical(search: str, db: AsyncSession):
+        try:
+            smiles = CanonSmiles(search)
+        except:
+            smiles = search
+
+        existing_chemicals = (await db.execute(
+            select(ChemicalIdentifier.name, 
+                ChemicalIdentifier.smiles, 
+                ChemicalIdentifier.inchi, 
+                ChemicalIdentifier.inchi_key, 
+                ChemicalIdentifier.metanetx_id, 
+                ChemicalIdentifier.kegg_id
+            ).filter(or_(
+                ChemicalIdentifier.smiles == smiles,
+                ChemicalIdentifier.name == search,
+                ChemicalIdentifier.inchi == search,
+                ChemicalIdentifier.inchi_key == search,
+                ChemicalIdentifier.metanetx_id == search,
+                ChemicalIdentifier.kegg_id == search)
+            )
+        )).all()
+
+        if not len(existing_chemicals):
+            return 
+        
+        chemical = existing_chemicals[0]
+        return {
+            "name": chemical[0],
+            "smiles": chemical[1],
+            "inchi": chemical[2],
+            "inchi_key": chemical[3],
+            "metanetx_id": chemical[4],
+            "kegg_id": chemical[5]
+        }
+    
+    @staticmethod
     async def getChemicalByMetanetXId(metanetx_id: str, db: AsyncSession):
         chemical = (await db.execute(select(ChemicalIdentifier).where(ChemicalIdentifier.metanetx_id == metanetx_id))).all()
         return chemical[0][0] if chemical else None
@@ -152,7 +189,20 @@ class NovostoicService:
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        job = await db.get(Job, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        job_info = json.loads(job.job_info)
+        
+        file = service.get_file(bucket_name, f"results/{job_id}/enzrank-result.csv")
+        df = pd.read_csv(io.BytesIO(file))
+        
+        return {
+            'primaryPrecursor': await NovostoicService.getChemical(job_info['primary_precursor'], db),
+            'enzymeSequence': job_info['enzyme_sequence'],
+            'activityScore': df.values[0][0]
+        }
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):

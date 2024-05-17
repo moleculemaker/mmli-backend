@@ -100,40 +100,7 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
 
 @router.get(f"/chemical/validate", tags=['Novostoic'], response_model=Union[ChemicalAutoCompleteResponse, None])
 async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)):
-    try:
-        smiles = CanonSmiles(search)
-    except:
-        smiles = search
-
-    existing_chemicals = (await db.execute(
-        select(ChemicalIdentifier.name, 
-               ChemicalIdentifier.smiles, 
-               ChemicalIdentifier.inchi, 
-               ChemicalIdentifier.inchi_key, 
-               ChemicalIdentifier.metanetx_id, 
-               ChemicalIdentifier.kegg_id
-        ).filter(or_(
-            ChemicalIdentifier.smiles == smiles,
-            ChemicalIdentifier.name == search,
-            ChemicalIdentifier.inchi == search,
-            ChemicalIdentifier.inchi_key == search,
-            ChemicalIdentifier.metanetx_id == search,
-            ChemicalIdentifier.kegg_id == search)
-        )
-    )).all()
-
-    if not len(existing_chemicals):
-        return 
-    
-    chemical = existing_chemicals[0]
-    return {
-        "name": chemical[0],
-        "smiles": chemical[1],
-        "inchi": chemical[2],
-        "inchi_key": chemical[3],
-        "metanetx_id": chemical[4],
-        "kegg_id": chemical[5]
-    }
+    return await NovostoicService.getChemical(search, db)
 
 @router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
 async def start_novostoic(
