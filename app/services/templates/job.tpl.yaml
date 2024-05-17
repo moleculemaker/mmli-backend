@@ -26,8 +26,8 @@ spec:
       {% endif %}
       {%- if nodeSelector %}
       nodeSelector:
-        {% for labelKey, labelValue in nodeSelector %}
-          {{ labelKey }}: {{ labelValue }}
+        {% for label in nodeSelector %}
+          {{ label }}
         {% endfor %}
       {% endif %}
       {%- if image.pull_secrets %}
