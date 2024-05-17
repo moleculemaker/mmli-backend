@@ -20,6 +20,31 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd,alphasynthesis-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
 config:
+  kubernetes_jobs:
+    novostoic-dgpredictor:
+      # TODO: Temporarily run on GPU node
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    novostoic-novastoic:
+      # TODO: Temporarily run on GPU node
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    novostoic-optstoic:
+      # TODO: Temporarily run on GPU node
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"

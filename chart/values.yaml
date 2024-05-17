@@ -158,33 +158,33 @@ config:
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
       image: "moleculemaker/novostoic:05152024"
-      command: "python ./novostoic-job.py optstoic"
+      command: "python ./novostoic-job.py optstoic && cp -r /novostoic/Results/optStoic_solutions/* ${JOB_OUTPUT_DIR}/"
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
       volumes:
         - name: 'shared-storage'
-          mountPath: '/novostoic/Results/optStoic_solutions'
+          mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
           subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-novostoic:
       image: "moleculemaker/novostoic:05152024"
-      command: "python ./novostoic-job.py pathways"
+      command: "python ./novostoic-job.py pathways && cp -r /novostoic/Results/novoStoic_solutions/* ${JOB_OUTPUT_DIR}/"
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
       volumes:
         - name: 'shared-storage'
-          mountPath: '/novostoic/novostoic-novostoic/novoStoic_solutions'
+          mountPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
           subPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
 
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
       image: "moleculemaker/novostoic:05152024"
-      command: "python ./novostoic-job.py dgpredictor"
+      command: "python ./novostoic-job.py dgpredictor && cp -r /novostoic/Results/dgpredictor-result.csv ${JOB_OUTPUT_DIR}/dgpredictor-result.csv"
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
@@ -197,7 +197,7 @@ config:
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
       image: "moleculemaker/novostoic:05152024"
-      command: "python ./novostoic-job.py enzrank"
+      command: "python ./novostoic-job.py enzrank && cp -r /novostoic/Results/enzrank-result.csv ${JOB_OUTPUT_DIR}/enzrank-result.csv"
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
