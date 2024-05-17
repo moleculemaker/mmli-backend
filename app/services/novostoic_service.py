@@ -19,6 +19,9 @@ from services.minio_service import MinIOService
 from services.email_service import EmailService
 
 from rdkit.Chem import CanonSmiles
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
+import re
 
 class NovostoicService:
     novostoic_frontend_baseURL = os.environ.get("NOVOSTOIC_FRONTEND_URL")
@@ -102,8 +105,8 @@ class NovostoicService:
                 ChemicalIdentifier.metanetx_id, 
                 ChemicalIdentifier.kegg_id
             ).filter(or_(
-                ChemicalIdentifier.smiles == smiles,
                 ChemicalIdentifier.name == search,
+                ChemicalIdentifier.smiles == smiles,
                 ChemicalIdentifier.inchi == search,
                 ChemicalIdentifier.inchi_key == search,
                 ChemicalIdentifier.metanetx_id == search,
@@ -115,13 +118,33 @@ class NovostoicService:
             return 
         
         chemical = existing_chemicals[0]
+        pattern = re.compile("<\?xml.*\?>")
+
+        def draw_mol(mol, molSize=(300,150), kekulize=True):
+            mc = Chem.MolFromSmiles(mol)
+            if kekulize:
+                try:
+                    Chem.Kekulize(mc)
+                except:
+                    mc = Chem.Mol(mol.ToBinary())
+            if not mc.GetNumConformers():
+                Chem.rdDepictor.Compute2DCoords(mc)
+
+            drawer = rdMolDraw2D.MolDraw2DSVG(*molSize)
+            drawer.DrawMolecule(mc)
+            drawer.FinishDrawing()
+            svg = drawer.GetDrawingText().replace('svg:', '')
+            svg = re.sub(pattern, '', svg)
+            return svg
+
         return {
             "name": chemical[0],
             "smiles": chemical[1],
             "inchi": chemical[2],
             "inchi_key": chemical[3],
             "metanetx_id": chemical[4],
-            "kegg_id": chemical[5]
+            "kegg_id": chemical[5],
+            "structure": draw_mol(chemical[1]) if chemical[1] else None
         }
     
     @staticmethod

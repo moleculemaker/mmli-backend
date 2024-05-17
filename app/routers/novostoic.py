@@ -11,14 +11,12 @@ from services.minio_service import MinIOService
 from services.email_service import EmailService
 from services.novostoic_service import NovostoicService
 
-from sqlmodel import select, func
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.novostoicRequestBodies import DgPredictorRequestBody, NovostoicRequestBody, EnzRankRequestBody, OptstoicRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType, ChemicalIdentifier
-
-from rdkit.Chem import CanonSmiles
 
 class ChemicalAutoCompleteResponse(BaseModel):
     name: str
