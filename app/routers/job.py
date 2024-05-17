@@ -23,7 +23,9 @@ from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
-from services import kubejob_service, clean_service, molli_service
+from services import kubejob_service
+from services.clean_service import CleanService
+from services.molli_service import MolliService
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -132,12 +134,12 @@ async def create_job(
         elif job_type == JobType.CLEAN:
             # Build up input.FASTA from user input
             job_config = json.loads(job_info.replace('\"', '"'))
-            command = clean_service.build_clean_job_command(job_id=job_id, job_info=job_config)
+            command = CleanService.build_clean_job_command(job_id=job_id, job_info=job_config)
         elif job_type == JobType.MOLLI:
             # Pass path to CORES/SUBS files into the container
             command = app_config['kubernetes_jobs'][job_type]['command']
             job_config = json.loads(job_info.replace('\"', '"'))
-            environment = molli_service.build_molli_job_environment(job_id=job_id, job_info=job_config)
+            environment = MolliService.build_molli_job_environment(job_id=job_id, job_info=job_config)
 
         # Run a Kubernetes Job with the given image + command + environment
         try:
