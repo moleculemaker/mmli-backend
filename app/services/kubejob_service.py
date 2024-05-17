@@ -517,7 +517,6 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             ttlSecondsAfterFinished=app_config['kubernetes_jobs']['defaults']['ttlSecondsAfterFinished'],
             activeDeadlineSeconds=app_config['kubernetes_jobs']['defaults']['activeDeadlineSeconds'],
         )
-        log.info('Rendered YAML template: ' + str(yaml_template))
         job_body = yaml.safe_load(yaml_template)
         if DEBUG:
             log.debug("Job {}:\n{}".format(job_name, yaml.dump(job_body, indent=2)))
