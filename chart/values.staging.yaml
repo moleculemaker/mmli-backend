@@ -19,6 +19,7 @@ analyzeIngress:
 config:
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
+    apiBaseUrl: "https://minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"

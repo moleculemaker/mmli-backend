@@ -10,7 +10,7 @@ from config import app_config, get_logger, MINIO_SERVER, MINIO_ACCESS_KEY, MINIO
 log = get_logger(__name__)
 
 class MinIOService:
-    #minio_api_baseURL = app_config['minio']['apiBaseUrl']
+    minio_api_baseURL = app_config['minio']['apiBaseUrl']
 
     def __init__(self):
         log.info(f'Setting up MinIO client: {MINIO_SERVER} {MINIO_ACCESS_KEY}:*********')
@@ -54,7 +54,7 @@ class MinIOService:
                 url = url.split('?', 1)[0]
                 parsed_url = urlparse(url)
                 minio_api_url = urlunparse(
-                    ("https", MINIO_SERVER, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+                    ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
                 )
                 # urls.append(url)
                 urls.append(minio_api_url)
