@@ -256,7 +256,7 @@ class ChemScraperService:
                         return True
         else:
             error_content = response.text.encode()
-            upload_result = service.upload_file(bucket_name, jobId + "/errors/" + jobId + ".txt", error_content)
+            upload_result = service.upload_file(bucket_name, jobId + "/errors.txt", error_content)
             log.error(f'Failed to POST /extractPdf: {error_content}')
             await self.update_job_phase(db_job, JobStatus.ERROR)
             if(db_job.email):
