@@ -60,7 +60,7 @@ async def start_somn(
 
 
 @router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
-async def check_reaction_sites(smiles: str, role: str):
+async def check_reaction_sites(smiles: str, role: str, width: int = 450, height: int = 300):
     try:
         reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
     except SomnException as e:
@@ -69,7 +69,7 @@ async def check_reaction_sites(smiles: str, role: str):
         raise HTTPException(status_code=400, detail=str('Invalid user input'))
 
     mol = Chem.MolFromSmiles(smiles)
-    d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(450, 300)
+    d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(width, height)
 
     # Settings for SVG Image coloring via draw options
     dopts = d2d.drawOptions()
