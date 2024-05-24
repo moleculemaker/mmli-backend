@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import time
 
@@ -89,4 +90,7 @@ class NovostoicService:
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return service.get_file(bucket_name, f"{job_id}/out/output.json")
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        return json.loads(file)
