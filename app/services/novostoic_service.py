@@ -89,4 +89,4 @@ class NovostoicService:
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        return service.get_file(bucket_name, f"/{job_id}/out/output.json")
