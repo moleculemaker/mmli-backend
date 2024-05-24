@@ -126,10 +126,10 @@ async def create_job(
             command = app_config['kubernetes_jobs'][job_type]['command']
         elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
             # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
-            upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_config)
-            if not upload_result:
-                raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
 
         elif job_type == JobType.CLEAN:
