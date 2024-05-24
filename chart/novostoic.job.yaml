@@ -11,7 +11,7 @@ spec:
         nvidia.com/gpu.present: "true"
       containers:
       - name: novostoic
-        image: "moleculemaker/novostoic:05152024"
+        image: "moleculemaker/novostoic"
         command: ["python",  "./novostoic-job.py", "optstoic"]
       tolerations:
       - effect: NoSchedule

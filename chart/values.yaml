@@ -157,7 +157,7 @@ config:
 
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
-      image: "moleculemaker/novostoic:05152024"
+      image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py optstoic && cp -r /novostoic/Results/optStoic_solutions/* ${JOB_OUTPUT_DIR}/"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -177,7 +177,7 @@ config:
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-novostoic:
-      image: "moleculemaker/novostoic:05152024"
+      image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py pathways && cp -r /novostoic/Results/novoStoic_solutions/* ${JOB_OUTPUT_DIR}/"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -190,7 +190,7 @@ config:
 
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
-      image: "moleculemaker/novostoic:05152024"
+      image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py dgpredictor && cp -r /novostoic/Results/dgpredictor-result.csv ${JOB_OUTPUT_DIR}/dgpredictor-result.csv"
       imagePullPolicy: "Always"
       #imagePullSecrets:
@@ -203,7 +203,7 @@ config:
 
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
-      image: "moleculemaker/novostoic:05152024"
+      image: "moleculemaker/novostoic"
       command: "python ./novostoic-job.py enzrank && cp -r /novostoic/Results/enzrank-result.csv ${JOB_OUTPUT_DIR}/enzrank-result.csv"
       imagePullPolicy: "Always"
       #imagePullSecrets:
