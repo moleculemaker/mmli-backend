@@ -116,7 +116,7 @@ async def create_job(
             # TODO: Scrape input values from user input JSON
             job_config = json.loads(job_info.replace('\"', '"'))
             command = app_config['kubernetes_jobs'][job_type]['command']
-        elif job_type == JobType.NOVOSTOIC_NOVOSTOIC:
+        elif job_type == JobType.NOVOSTOIC_PATHWAYS:
             # TODO: Scrape input values from user input JSON
             job_config = json.loads(job_info.replace('\"', '"'))
             command = app_config['kubernetes_jobs'][job_type]['command']

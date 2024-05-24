@@ -89,8 +89,8 @@ kubernetes_jobs:
 
   # Config for running NovoStoic job (subjob: OptStoic)
   novostoic-optstoic:
-    image: "moleculemaker/novostoic:05152024"
-    command: "python ./novostoic-job.py optstoic && cp -r /novostoic/Results/optStoic_solutions/* ${JOB_OUTPUT_DIR}/"
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py optstoic"
     imagePullPolicy: "Always"
     #imagePullSecrets:
     #  - regcred
@@ -101,9 +101,9 @@ kubernetes_jobs:
         claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
-  novostoic-novostoic:
-    image: "moleculemaker/novostoic:05152024"
-    command: "python ./novostoic-job.py pathways && cp -r /novostoic/Results/novoStoic_solutions/* ${JOB_OUTPUT_DIR}/"
+  novostoic-pathways:
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py pathways"
     imagePullPolicy: "Always"
     #imagePullSecrets:
     #  - regcred
@@ -115,8 +115,8 @@ kubernetes_jobs:
 
   # Config for running NovoStoic job (subjob: dGPredictor)
   novostoic-dgpredictor:
-    image: "moleculemaker/novostoic:05152024"
-    command: "python ./novostoic-job.py dgpredictor && cp -r /novostoic/Results/dgpredictor-result.csv ${JOB_OUTPUT_DIR}/dgpredictor-result.csv"
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py dgpredictor"
     imagePullPolicy: "Always"
     #imagePullSecrets:
     #  - regcred
@@ -128,8 +128,8 @@ kubernetes_jobs:
 
   # Config for running NovoStoic job (subjob: EnzRank)
   novostoic-enzrank:
-    image: "moleculemaker/novostoic:05152024"
-    command: "python ./novostoic-job.py enzrank && cp -r /novostoic/Results/enzrank-result.csv ${JOB_OUTPUT_DIR}/enzrank-result.csv"
+    image: "moleculemaker/novostoic"
+    command: "python ./novostoic-job.py enzrank"
     imagePullPolicy: "Always"
     #imagePullSecrets:
     #  - regcred
