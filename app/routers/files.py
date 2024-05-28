@@ -15,6 +15,8 @@ from models.exportRequestBody import ExportRequestBody
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
+from services.molli_service import MolliService
+from services.clean_service import CleanService
 
 from services.novostoic_service import NovostoicService
 from services.somn_service import SomnService
@@ -54,9 +56,11 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     
     elif bucket_name == JobType.MOLLI:
         print("Getting MOLLI job result")
-        
+        return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
+
     elif bucket_name == JobType.CLEAN:
         print("Getting CLEAN job result")
+        return await CleanService.cleanResultPostProcess(bucket_name, job_id, service, db)
         
     elif bucket_name == JobType.NOVOSTOIC_OPTSTOIC:
         print("Getting novostoic-optstoic job result")
