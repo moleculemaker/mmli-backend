@@ -13,7 +13,7 @@ class MinIOService:
     minio_api_baseURL = app_config['minio']['apiBaseUrl']
 
     def __init__(self):
-        log.debug(f'Setting up MinIO client: {MINIO_SERVER} {MINIO_ACCESS_KEY}:*********')
+        log.info(f'Setting up MinIO client: {MINIO_SERVER} {MINIO_ACCESS_KEY}:*********')
         self.client = Minio(
             MINIO_SERVER,
             access_key=MINIO_ACCESS_KEY,

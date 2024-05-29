@@ -47,7 +47,7 @@ class ChemScraperService:
     @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         rdkitService = RDKitService()
-        csv_filepath = job_id + "/out/" + job_id + ".csv"
+        csv_filepath = job_id + "/out/" + job_id + "-results.csv"
         csv_content = service.get_file(bucket_name, csv_filepath)
         if csv_content is None:
             raise HTTPException(status_code=404, detail=f"File {csv_filepath} not found")
@@ -124,10 +124,10 @@ class ChemScraperService:
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    SVG = service.get_file(bucket_name, "results/" + jobId + '/molecules/' + svg_filename)
+                    SVG = service.get_file(bucket_name, jobId + '/out/molecules/' + svg_filename)
                     if SVG is None:
                         print("SVG not found, generating using rdkit")
-                        SVG = RDKitService.renderSVGFromSMILE(SMILE)
+                        SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
 
                     location = " | page: " + page_no
 
@@ -204,7 +204,7 @@ class ChemScraperService:
         df.to_csv(csv_buffer)
         csv_data = csv_buffer.getvalue().encode('utf-8')
 
-        upload_result = service.upload_file(bucket_name, "results/" + jobId + "/" + jobId + ".csv", csv_data)
+        upload_result = service.upload_file(bucket_name, jobId + "/out/" + jobId + "-results.csv", csv_data)
         if not upload_result:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
@@ -217,6 +217,7 @@ class ChemScraperService:
         # Update Job Status to Processing
         await self.update_job_phase(db_job, JobStatus.PROCESSING)
 
+        log.info(f'runChemscraperOnDocument: Fetching file - {bucket_name}/{objectPath}')
         data = service.get_file(bucket_name, objectPath)
         if data is None:
             log.error(f'File not found: {bucket_name}/{objectPath}')
@@ -255,7 +256,7 @@ class ChemScraperService:
                         return True
         else:
             error_content = response.text.encode()
-            upload_result = service.upload_file(bucket_name, jobId + "/errors/" + jobId + ".txt", error_content)
+            upload_result = service.upload_file(bucket_name, jobId + "/errors.txt", error_content)
             log.error(f'Failed to POST /extractPdf: {error_content}')
             await self.update_job_phase(db_job, JobStatus.ERROR)
             if(db_job.email):
