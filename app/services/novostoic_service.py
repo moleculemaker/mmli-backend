@@ -25,11 +25,16 @@ class NovostoicService:
         if not file:
             return None
         data = json.loads(file)
+        cache = {}
         for stoic in data:
             for reactant in stoic['stoichiometry']['reactants']:
-                reactant['molecule'] = await validate_chemical(reactant['molecule'], db)
+                if reactant['molecule'] not in cache:
+                    cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+                reactant['molecule'] = cache[reactant['molecule']]
             for product in stoic['stoichiometry']['products']:
-                product['molecule'] = await validate_chemical(product['molecule'], db)
+                if product['molecule'] not in cache:
+                    cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+                product['molecule'] = cache[product['molecule']]
         return data
     
     @staticmethod
