@@ -27,9 +27,9 @@ class NovostoicService:
         data = json.loads(file)
         for stoic in data:
             for reactant in stoic['stoichiometry']['reactants']:
-                reactant['molecule'] = await validate_chemical(reactant['name'], db)
+                reactant['molecule'] = await validate_chemical(reactant['molecule'], db)
             for product in stoic['stoichiometry']['products']:
-                product['molecule'] = await validate_chemical(product['name'], db)
+                product['molecule'] = await validate_chemical(product['molecule'], db)
         return data
     
     @staticmethod
