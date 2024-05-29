@@ -11,6 +11,8 @@ from models.enums import JobStatus
 from services.minio_service import MinIOService
 from services.email_service import EmailService
 
+from routers.novostoic import validate_chemical
+
 class NovostoicService:
     novostoic_frontend_baseURL = os.environ.get("NOVOSTOIC_FRONTEND_URL")
 
@@ -23,6 +25,11 @@ class NovostoicService:
         if not file:
             return None
         data = json.loads(file)
+        for stoic in data:
+            for reactant in stoic['stoichiometry']['reactants']:
+                reactant['molecule'] = await validate_chemical(reactant['name'], db)
+            for product in stoic['stoichiometry']['products']:
+                product['molecule'] = await validate_chemical(product['name'], db)
         return data
     
     @staticmethod
