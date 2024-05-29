@@ -66,8 +66,8 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         print("Getting novostoic-optstoic job result")
         return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
     
-    elif bucket_name == JobType.NOVOSTOIC_NOVOSTOIC:
-        print("Getting novostoic-novostoic job result")
+    elif bucket_name == JobType.NOVOSTOIC_PATHWAYS:
+        print("Getting novostoic-pathways job result")
         return await NovostoicService.novostoicResultPostProcess(bucket_name, job_id, service, db)
         
     elif bucket_name == JobType.NOVOSTOIC_ENZRANK:

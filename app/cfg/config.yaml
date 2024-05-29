@@ -88,40 +88,56 @@ kubernetes_jobs:
         claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: OptStoic)
-  novostoic_optstoic:
+  novostoic-optstoic:
     image: "moleculemaker/novostoic"
     command: "python ./novostoic-job.py optstoic"
     imagePullPolicy: "Always"
-    imagePullSecrets:
-      - regcred
-    volumes: []
+    #imagePullSecrets:
+    #  - regcred
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
+        subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
-  novostoic_pathways:
+  novostoic-pathways:
     image: "moleculemaker/novostoic"
     command: "python ./novostoic-job.py pathways"
     imagePullPolicy: "Always"
-    imagePullSecrets:
-      - regcred
-    volumes: []
+    #imagePullSecrets:
+    #  - regcred
+    volumes:
+      - name: 'shared-storage'
+        mountPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
+        subPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: dGPredictor)
-  novostoic_dgpredictor:
+  novostoic-dgpredictor:
     image: "moleculemaker/novostoic"
     command: "python ./novostoic-job.py dgpredictor"
     imagePullPolicy: "Always"
-    imagePullSecrets:
-      - regcred
-    volumes: []
+    #imagePullSecrets:
+    #  - regcred
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/novostoic-dgpredictor/JOB_ID/out'
+        subPath: 'uws/jobs/novostoic-dgpredictor/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: EnzRank)
-  novostoic_enzrank:
+  novostoic-enzrank:
     image: "moleculemaker/novostoic"
     command: "python ./novostoic-job.py enzrank"
     imagePullPolicy: "Always"
-    imagePullSecrets:
-      - regcred
-    volumes: []
+    #imagePullSecrets:
+    #  - regcred
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'
+        subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
 
   defaults:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
