@@ -115,19 +115,27 @@ async def create_job(
 
         # TODO: support NOVOSTOIC job types
         elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_PATHWAYS:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_ENZRANK:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-            # TODO: Scrape input values from user input JSON
             if service.ensure_bucket_exists(job_type):
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:

@@ -19,7 +19,11 @@ class NovostoicService:
     
     @staticmethod
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return service.get_file(bucket_name, f"results/{job_id}/{job_id}.csv")
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        data = json.loads(file)
+        return data
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
@@ -27,7 +31,10 @@ class NovostoicService:
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        return json.loads(file)
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
