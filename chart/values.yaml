@@ -162,7 +162,18 @@ config:
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
-      volumes: []
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
+          subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+      resources:
+        limits:
+          cpu: "1"
+          memory: "24Gi"
+        requests:
+          cpu: "1"
+          memory: "12Gi"
 
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-novostoic:
@@ -171,7 +182,11 @@ config:
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
-      volumes: []
+      volumes:
+        - name: 'shared-storage'
+          mountPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
+          subPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
 
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
@@ -180,7 +195,11 @@ config:
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
-      volumes: []
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/novostoic-dgpredictor/JOB_ID/out'
+          subPath: 'uws/jobs/novostoic-dgpredictor/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
 
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
@@ -189,7 +208,11 @@ config:
       imagePullPolicy: "Always"
       #imagePullSecrets:
       #  - regcred
-      volumes: []
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'
+          subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes

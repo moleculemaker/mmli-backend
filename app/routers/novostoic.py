@@ -135,7 +135,7 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
         "kegg_id": chemical[5]
     }
 
-@router.post(f"/{JobType.NOVOSTOIC_NOVOSTOIC}/run", tags=['Novostoic'])
+@router.post(f"/{JobType.NOVOSTOIC_PATHWAYS}/run", tags=['Novostoic'])
 async def start_novostoic(
     requestBody: NovostoicRequestBody, 
     background_tasks: BackgroundTasks, 
@@ -161,7 +161,7 @@ async def start_novostoic(
     novostoicService = NovostoicService(db=db)
     background_tasks.add_task(
         novostoicService.runNovostoic, 
-        JobType.NOVOSTOIC_NOVOSTOIC,
+        JobType.NOVOSTOIC_PATHWAYS,
         payload,
         service, 
         email_service

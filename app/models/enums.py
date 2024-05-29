@@ -6,7 +6,7 @@ class JobType(str, Enum):
     CHEMSCRAPER = 'chemscraper'
     MOLLI = 'molli'
     NOVOSTOIC_OPTSTOIC= 'novostoic-optstoic'
-    NOVOSTOIC_NOVOSTOIC = 'novostoic-novostoic'
+    NOVOSTOIC_PATHWAYS = 'novostoic-pathways'
     NOVOSTOIC_ENZRANK = 'novostoic-enzrank'
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
     SOMN = 'somn'

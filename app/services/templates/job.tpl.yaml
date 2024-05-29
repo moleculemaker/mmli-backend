@@ -18,6 +18,20 @@ spec:
         runId: "{{ runId }}"
         ownerId: "{{ ownerId }}"
     spec:
+      {%- if tolerations %}
+      tolerations:
+        {% for tol in tolerations %}
+        - effect: {{ tol.effect }}
+          key: {{ tol.key }}
+          operator: {{ tol.operator }}
+        {% endfor %}
+      {% endif %}
+      {%- if nodeSelector %}
+      nodeSelector:
+        {% for labelKey, labelValue in nodeSelector.items() %}
+        {{ labelKey }}: "{{ labelValue }}"
+        {% endfor %}
+      {% endif %}
       {%- if image.pull_secrets %}
       imagePullSecrets:
         {% for sec in image.pull_secrets %}

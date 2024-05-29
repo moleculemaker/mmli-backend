@@ -1,14 +1,23 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: novostoic
+  name: novostoic-manual-run-optstoic
   namespace: staging
 spec:
   template:
     spec:
+      nodeSelector:
+#        ncsa.role: "worker-gpu"
+        nvidia.com/gpu.present: "true"
       containers:
       - name: novostoic
         image: "moleculemaker/novostoic"
         command: ["python",  "./novostoic-job.py", "optstoic"]
+      tolerations:
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
+      imagePullSecrets:
+      - name: regcred
       restartPolicy: Never
   backoffLimit: 4
