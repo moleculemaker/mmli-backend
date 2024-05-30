@@ -3,6 +3,8 @@ import json
 import os
 import time
 
+from fastapi import HTTPException
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.models import Job
@@ -39,12 +41,40 @@ class NovostoicService:
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        job = await db.get(Job, job_id)
+        if not job:
+            return HTTPException(status_code=404, detail="Job not found")
+        
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
             return None
-        data = json.loads(file)
+        pathways = json.loads(file)
         cache = {}
-        for pathway in data:
+        result = {}
+        config = json.loads(job.job_info)
+        if config['substrate'] not in cache:
+            cache[config['substrate']] = await validate_chemical(config['substrate'], db)
+        if config['product'] not in cache:
+            cache[config['product']] = await validate_chemical(config['product'], db)
+        result['primaryPrecursor'] = cache[config['substrate']]
+        result['targetMolecule'] = cache[config['product']]
+        
+        for reactant in config['reactants']:
+            if reactant['molecule'] not in cache:
+                cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+            reactant['molecule'] = cache[reactant['molecule']]
+        
+        for product in config['products']:
+            if product['molecule'] not in cache:
+                cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+            product['molecule'] = cache[product['molecule']]
+            
+        result['stoichiometry'] = {
+            'reactants': config['reactants'],
+            'products': config['products']
+        }
+        
+        for pathway in pathways:
             if pathway['primaryPrecursor'] not in cache:
                 cache[pathway['primaryPrecursor']] = await validate_chemical(pathway['primaryPrecursor'], db)
                 
@@ -63,7 +93,9 @@ class NovostoicService:
                 if product['molecule'] not in cache:
                     cache[product['molecule']] = await validate_chemical(product['molecule'], db)
                 product['molecule'] = cache[product['molecule']]
-        return data
+                
+        result['pathways'] = pathways
+        return result
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):

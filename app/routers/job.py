@@ -136,7 +136,8 @@ async def create_job(
                 job_info['substrate'] = job_info['substrate']['molecule']
                 job_info['product'] = job_info['product']['molecule']
                 
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", json.dumps(job_info).encode('utf-8'))
+                job_info = json.dumps(job_info)
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
