@@ -123,7 +123,20 @@ async def create_job(
             
         elif job_type == JobType.NOVOSTOIC_PATHWAYS:
             if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                job_info = json.loads(job_info.replace('\"', '"'))
+                stoic = f'{job_info["substrate"]["amount"]} {job_info["substrate"]["molecule"]}'
+                for coReactant in job_info['reactants']:
+                    stoic += f' + {coReactant["amount"]} {coReactant["molecule"]}'
+                stoic += " <=> "
+                for coProduct in job_info['products']:
+                    stoic += f'{coProduct["amount"]} {coProduct["molecule"]} + '
+                stoic += f'{job_info["product"]["amount"]} {job_info["product"]["molecule"]}'
+                
+                job_info['stoic'] = stoic
+                job_info['substrate'] = job_info['substrate']['molecule']
+                job_info['product'] = job_info['product']['molecule']
+                
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", json.dumps(job_info).encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
