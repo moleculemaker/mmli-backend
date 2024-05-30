@@ -39,7 +39,31 @@ class NovostoicService:
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        data = json.loads(file)
+        cache = {}
+        for pathway in data:
+            if pathway['primaryPrecursor'] not in cache:
+                cache[pathway['primaryPrecursor']] = await validate_chemical(pathway['primaryPrecursor'], db)
+                
+            if pathway['targetMolecule'] not in cache:
+                cache[pathway['targetMolecule']] = await validate_chemical(pathway['targetMolecule'], db)
+            
+            pathway['primaryPrecursor'] = cache[pathway['primaryPrecursor']]
+            pathway['targetMolecule'] = cache[pathway['targetMolecule']]
+            
+            for reactant in pathway['reactants']:
+                if reactant['molecule'] not in cache:
+                    cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+                reactant['molecule'] = cache[reactant['molecule']]
+            
+            for product in pathway['products']:
+                if product['molecule'] not in cache:
+                    cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+                product['molecule'] = cache[product['molecule']]
+        return data
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
