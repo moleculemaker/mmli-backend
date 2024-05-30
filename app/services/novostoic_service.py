@@ -90,24 +90,25 @@ class NovostoicService:
         }
         
         for pathway in pathways:
-            if pathway['primaryPrecursor'] not in cache:
-                cache[pathway['primaryPrecursor']] = await validate_chemical(pathway['primaryPrecursor'], db)
+            for step in pathway:
+                if step['primaryPrecursor'] not in cache:
+                    cache[step['primaryPrecursor']] = await validate_chemical(step['primaryPrecursor'], db)
+                    
+                if step['targetMolecule'] not in cache:
+                    cache[step['targetMolecule']] = await validate_chemical(step['targetMolecule'], db)
                 
-            if pathway['targetMolecule'] not in cache:
-                cache[pathway['targetMolecule']] = await validate_chemical(pathway['targetMolecule'], db)
-            
-            pathway['primaryPrecursor'] = cache[pathway['primaryPrecursor']]
-            pathway['targetMolecule'] = cache[pathway['targetMolecule']]
-            
-            for reactant in pathway['reactants']:
-                if reactant['molecule'] not in cache:
-                    cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
-                reactant['molecule'] = cache[reactant['molecule']]
-            
-            for product in pathway['products']:
-                if product['molecule'] not in cache:
-                    cache[product['molecule']] = await validate_chemical(product['molecule'], db)
-                product['molecule'] = cache[product['molecule']]
+                step['primaryPrecursor'] = cache[step['primaryPrecursor']]
+                step['targetMolecule'] = cache[step['targetMolecule']]
+                
+                for reactant in step['reactants']:
+                    if reactant['molecule'] not in cache:
+                        cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+                    reactant['molecule'] = cache[reactant['molecule']]
+                
+                for product in step['products']:
+                    if product['molecule'] not in cache:
+                        cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+                    product['molecule'] = cache[product['molecule']]
                 
         result['pathways'] = pathways
         return result
