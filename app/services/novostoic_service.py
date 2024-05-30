@@ -23,11 +23,24 @@ class NovostoicService:
     
     @staticmethod
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        job = await db.get(Job, job_id)
+        if not job:
+            return HTTPException(status_code=404, detail="Job not found")
+        
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
             return None
+        result = {}
         data = json.loads(file)
         cache = {}
+        config = json.loads(job.job_info)
+        if config['primary_precursor'] not in cache:
+            cache[config['primary_precursor']] = await validate_chemical(config['primary_precursor'], db)
+        if config['target_molecule'] not in cache:
+            cache[config['target_molecule']] = await validate_chemical(config['target_molecule'], db)
+        result['primaryPrecursor'] = cache[config['primary_precursor']]
+        result['targetMolecule'] = cache[config['target_molecule']]
+        
         for stoic in data:
             for reactant in stoic['stoichiometry']['reactants']:
                 if reactant['molecule'] not in cache:
@@ -37,7 +50,9 @@ class NovostoicService:
                 if product['molecule'] not in cache:
                     cache[product['molecule']] = await validate_chemical(product['molecule'], db)
                 product['molecule'] = cache[product['molecule']]
-        return data
+        result['results'] = data        
+        
+        return result
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
