@@ -118,13 +118,13 @@ class NovostoicService:
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
             return None
-        return json.loads(file)
+        data = json.loads(file)
+        data['primaryPrecursor'] = await validate_chemical(data['primaryPrecursor'], db)
+        return data
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
             return None
-        data = json.loads(file)
-        data['primaryPrecursor'] = await validate_chemical(data['primaryPrecursor'], db)
-        return data
+        return json.loads(file)
