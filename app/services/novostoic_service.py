@@ -125,4 +125,6 @@ class NovostoicService:
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
             return None
-        return json.loads(file)
+        data = json.loads(file)
+        data['primaryPrecursor'] = await validate_chemical(data['primaryPrecursor'], db)
+        return data
