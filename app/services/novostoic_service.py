@@ -3,6 +3,8 @@ import json
 import os
 import time
 
+from fastapi import HTTPException
+from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.models import Job
@@ -11,82 +13,114 @@ from models.enums import JobStatus
 from services.minio_service import MinIOService
 from services.email_service import EmailService
 
+from routers.novostoic import validate_chemical
+
 class NovostoicService:
     novostoic_frontend_baseURL = os.environ.get("NOVOSTOIC_FRONTEND_URL")
 
     def __init__(self, db) -> None:
         self.db = db
-
-    async def update_job_phase(self, jobObject, phase: JobStatus):
-        jobObject.phase = phase
-        if phase == JobStatus.PROCESSING:
-            jobObject.time_start = int(time.time())
-        else:
-            jobObject.time_end = int(time.time())
-        self.db.add(jobObject)
-        await self.db.commit()
-
-    async def runOptstoic(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
-        job_id = payload["job_id"]
-        db_job = await self.db.get(Job, job_id)
-
-        await self.update_job_phase(db_job, JobStatus.PROCESSING)
-
-        #TODO: use optstoic image
-        await asyncio.sleep(3)
-
-        sample_response = f"{bucket_name}:pong"
-        upload_result = service.upload_file(bucket_name, f"results/{job_id}/{job_id}.csv", bytes(sample_response, 'utf-8'))
-
-        if upload_result:
-            await self.update_job_phase(db_job, JobStatus.COMPLETED)
-            if(db_job.email):
-                try:
-                    email_service.send_email(
-                        db_job.email, 
-                        f'''Result for your Optstoic Job ({db_job.job_id}) is ready''', 
-                        f'''The result for your ChemScraper Job is available at {self.novostoic_frontend_baseURL}/results/{db_job.job_id}''')
-                except Exception as e:
-                    print(e)
-                return True
-        else:
-            error_content = 'error'
-            upload_result = service.upload_file(bucket_name, f"results/{job_id}/error.txt", error_content)
-            await self.update_job_phase(db_job, JobStatus.ERROR)
-            if db_job.email:
-                try:
-                    email_service.send_email(
-                        db_job.email, 
-                        f'''Novostoic/Optstoic Job ({db_job.job_id}) failed''', 
-                        f'''An error occurred in computing the result for your Novostoic/Optstoic job.''')
-                except Exception as e:
-                    print(e)
-            
-        return False
-
-    async def runNovostoic(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
-        #TODO: use novostoic image
-        return await self.runOptstoic(bucket_name, payload, service, email_service) 
-    
-    async def runEnzRank(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
-        #TODO: use enzRank image
-        return await self.runOptstoic(bucket_name, payload, service, email_service) 
-    
-    async def runDgPredictor(self, bucket_name: str, payload, service: MinIOService, email_service: EmailService):
-        #TODO: use dGPredictor image
-        return await self.runOptstoic(bucket_name, payload, service, email_service) 
     
     @staticmethod
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return service.get_file(bucket_name, f"results/{job_id}/{job_id}.csv")
+        job = await db.get(Job, job_id)
+        if not job:
+            return HTTPException(status_code=404, detail="Job not found")
+        
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        result = {}
+        data = json.loads(file)
+        cache = {}
+        config = json.loads(job.job_info)
+        if config['primary_precursor'] not in cache:
+            cache[config['primary_precursor']] = await validate_chemical(config['primary_precursor'], db)
+        if config['target_molecule'] not in cache:
+            cache[config['target_molecule']] = await validate_chemical(config['target_molecule'], db)
+        result['primaryPrecursor'] = cache[config['primary_precursor']]
+        result['targetMolecule'] = cache[config['target_molecule']]
+        
+        for stoic in data:
+            for reactant in stoic['stoichiometry']['reactants']:
+                if reactant['molecule'] not in cache:
+                    cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+                reactant['molecule'] = cache[reactant['molecule']]
+            for product in stoic['stoichiometry']['products']:
+                if product['molecule'] not in cache:
+                    cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+                product['molecule'] = cache[product['molecule']]
+        result['results'] = data        
+        
+        return result
     
     @staticmethod
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        job = await db.get(Job, job_id)
+        if not job:
+            return HTTPException(status_code=404, detail="Job not found")
+        
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        pathways = json.loads(file)
+        cache = {}
+        result = {}
+        config = json.loads(job.job_info)
+        if config['substrate'] not in cache:
+            cache[config['substrate']] = await validate_chemical(config['substrate'], db)
+        if config['product'] not in cache:
+            cache[config['product']] = await validate_chemical(config['product'], db)
+        result['primaryPrecursor'] = cache[config['substrate']]
+        result['targetMolecule'] = cache[config['product']]
+        
+        for reactant in config['reactants']:
+            if reactant['molecule'] not in cache:
+                cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+            reactant['molecule'] = cache[reactant['molecule']]
+        
+        for product in config['products']:
+            if product['molecule'] not in cache:
+                cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+            product['molecule'] = cache[product['molecule']]
+            
+        result['stoichiometry'] = {
+            'reactants': config['reactants'],
+            'products': config['products']
+        }
+        
+        for pathway in pathways:
+            for step in pathway:
+                if step['primaryPrecursor'] not in cache:
+                    cache[step['primaryPrecursor']] = await validate_chemical(step['primaryPrecursor'], db)
+                    
+                if step['targetMolecule'] not in cache:
+                    cache[step['targetMolecule']] = await validate_chemical(step['targetMolecule'], db)
+                
+                step['primaryPrecursor'] = cache[step['primaryPrecursor']]
+                step['targetMolecule'] = cache[step['targetMolecule']]
+                
+                for reactant in step['reactants']:
+                    if reactant['molecule'] not in cache:
+                        cache[reactant['molecule']] = await validate_chemical(reactant['molecule'], db)
+                    reactant['molecule'] = cache[reactant['molecule']]
+                
+                for product in step['products']:
+                    if product['molecule'] not in cache:
+                        cache[product['molecule']] = await validate_chemical(product['molecule'], db)
+                    product['molecule'] = cache[product['molecule']]
+                
+        result['pathways'] = pathways
+        return result
     
     @staticmethod
     async def enzRankResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
+        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
+        if not file:
+            return None
+        data = json.loads(file)
+        data['primaryPrecursor'] = await validate_chemical(data['primaryPrecursor'], db)
+        return data
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
