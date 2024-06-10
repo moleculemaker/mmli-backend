@@ -135,6 +135,7 @@ async def create_job(
                 job_info['stoic'] = stoic
                 job_info['substrate'] = job_info['substrate']['molecule']
                 job_info['product'] = job_info['product']['molecule']
+                job_info['num_enzymes'] = job_info['num_enzymes'] if 'num_enzymes' in job_info else 0
                 
                 job_info = json.dumps(job_info)
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
