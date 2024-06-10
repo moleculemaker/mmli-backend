@@ -87,7 +87,11 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
     if not len(existing_chemicals):
         return 
     
-    chemical = existing_chemicals[0]
+    
+    # if there are multiple matches, return the first one that has a KEGG ID
+    chemicals_with_keggid = [chemical for chemical in existing_chemicals if chemical[5]]
+    chemical = chemicals_with_keggid[0] if len(chemicals_with_keggid) else existing_chemicals[0]
+
     pattern = re.compile("<\?xml.*\?>")
 
     def draw_mol(mol, molSize=(300,150), kekulize=True):
