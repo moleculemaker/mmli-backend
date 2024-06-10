@@ -121,7 +121,7 @@ class NovostoicService:
         data = json.loads(file)
         
         # enzyme rank runs on smiles, which passed through add_info field with format <component_id>:<smiles>
-        _, smiles = data['add_info'].split(':')
+        _, smiles = data['addInfo'].split(':')
         data['primaryPrecursor'] = await validate_chemical(smiles, db)
 
         return data
