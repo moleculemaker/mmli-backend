@@ -109,8 +109,8 @@ kubernetes_jobs:
     #  - regcred
     volumes:
       - name: 'shared-storage'
-        mountPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
-        subPath: 'uws/jobs/novostoic-novostoic/JOB_ID/out'
+        mountPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
+        subPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
         claimName: 'mmli-clean-job-weights'
 
   # Config for running NovoStoic job (subjob: dGPredictor)

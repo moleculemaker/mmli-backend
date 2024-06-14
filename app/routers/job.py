@@ -115,19 +115,42 @@ async def create_job(
 
         # TODO: support NOVOSTOIC job types
         elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_PATHWAYS:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                job_info = json.loads(job_info.replace('\"', '"'))
+                stoic = f'{job_info["substrate"]["amount"]} {job_info["substrate"]["molecule"]}'
+                for coReactant in job_info['reactants']:
+                    stoic += f' + {coReactant["amount"]} {coReactant["molecule"]}'
+                stoic += " <=> "
+                for coProduct in job_info['products']:
+                    stoic += f'{coProduct["amount"]} {coProduct["molecule"]} + '
+                stoic += f'{job_info["product"]["amount"]} {job_info["product"]["molecule"]}'
+                
+                job_info['stoic'] = stoic
+                job_info['substrate'] = job_info['substrate']['molecule']
+                job_info['product'] = job_info['product']['molecule']
+                job_info['num_enzymes'] = job_info['num_enzymes'] if 'num_enzymes' in job_info else 0
+                
+                job_info = json.dumps(job_info)
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_ENZRANK:
-            # TODO: Scrape input values from user input JSON
-            job_config = json.loads(job_info.replace('\"', '"'))
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
         elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-            # TODO: Scrape input values from user input JSON
             if service.ensure_bucket_exists(job_type):
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
