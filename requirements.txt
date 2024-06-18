@@ -2,17 +2,21 @@ fastapi[all]==0.89.0
 
 uvicorn==0.22.0
 pandas==2.0.3
-python-dotenv~=1.0.0
-minio~=7.1.15
-rdkit~=2023.3.2
-requests~=2.31.0
-kubernetes~=27.2.0
+python-dotenv==1.0.1
+minio==7.1.17
+rdkit==2023.3.3
+requests==2.31.0
+kubernetes==27.2.0
+
+# Pin dependencies to specific versions
+# NumPy 2.0.0 is not backwards compatible
+numpy==1.26.4
 
 # ORM layer
 sqlmodel==0.0.8
 asyncpg==0.28.0
 alembic==1.11.1
-SQLAlchemy~=1.4.41
-pydantic~=1.9.2
+SQLAlchemy==1.4.52
+pydantic==1.9.2
 
 psycopg2-binary==2.9.9
