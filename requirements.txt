@@ -16,7 +16,7 @@ numpy==1.26.4
 sqlmodel==0.0.8
 asyncpg==0.28.0
 alembic==1.11.1
-SQLAlchemy==1.4.52
+SQLAlchemy==1.4.41
 pydantic==1.9.2
 
 psycopg2-binary==2.9.9
