@@ -32,7 +32,7 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    novostoic-novastoic:
+    novostoic-pathways:
       # TODO: Temporarily run on GPU node
       nodeSelector:
         nvidia.com/gpu.present: "true"
