@@ -101,3 +101,15 @@ class ChemicalIdentifier(SQLModel, table=True):
     reference: Optional[str] = Field(default=None, nullable=True)
     kegg_id: Optional[str] = Field(default=None, nullable=True, index=True)
     formula: Optional[str] = Field(default=None, nullable=True)
+
+class SavedMolecule(SQLModel, table=True):
+    __tablename__ = 'saved_molecule'
+    email: str = Field(default=None, primary_key=True)
+    job_id: str = Field(default=None, primary_key=True, foreign_key="job.job_id")
+    molecule_id: str = Field(default=None, primary_key=True)
+    time_created: Optional[int] = Field(default=None, nullable=False)
+
+class SavedMoleculeDelete(BaseModel):
+    email: str 
+    job_id: str
+    molecule_id: str
