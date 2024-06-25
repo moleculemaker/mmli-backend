@@ -23,6 +23,7 @@ from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
 
+from services.email_service import EmailService
 
 log = get_logger(__name__)
 
@@ -103,6 +104,7 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str):
             minioClient.fput_object(bucket_name=bucket_name, object_name=remote_path, file_path=local_file)
 
 
+
 class KubeEventWatcher:
 
     def __init__(self):
@@ -116,11 +118,58 @@ class KubeEventWatcher:
         #self.connection.run_sync(SQLModel.metadata.create_all)
         self.metadata = db.MetaData()
         self.jobs = []
+        self.email_service = EmailService()
 
         self.stream = None
         self.logger.info('Starting KubeWatcher')
         self.thread.start()
         self.logger.info('Started KubeWatcher')
+
+    def send_notification_email(self, updated_job, new_phase):
+        job_type = updated_job.type
+        job_type_name = 'Unknown'
+        if 'novostoic' in job_type:
+            novostoic_frontend_url = app_config['novostoic_frontend_url']
+            if job_type == JobType.NOVOSTOIC_PATHWAYS:
+                results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
+                job_type_name = 'NovoStoic'
+            elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+                results_url = f'{novostoic_frontend_url}/overall-stoichiometry/result/{updated_job.job_id}'
+                job_type_name = 'OptStoic'
+            elif job_type == JobType.NOVOSTOIC_ENZRANK:
+                results_url = f'{novostoic_frontend_url}/enzyme-selection/result/{updated_job.job_id}'
+                job_type_name = 'EnzRank'
+            elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+                results_url = f'{novostoic_frontend_url}/thermodynamical-feasibility/result/{updated_job.job_id}'
+                job_type_name = 'dGPredictor'
+        elif job_type == JobType.SOMN:
+            somn_frontend_url = app_config['somn_frontend_url']
+            results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'SOMN'
+        elif job_type == JobType.CLEAN:
+            clean_frontend_url = app_config['clean_frontend_url']
+            results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'CLEAN'
+        elif job_type == JobType.MOLLI:
+            molli_frontend_url = app_config['molli_frontend_url']
+            results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'MOLLI'
+
+        # Send email notification about success/failure
+        if new_phase == JobStatus.COMPLETED and updated_job.email:
+            try:
+                self.email_service.send_email(updated_job.email,
+                                              f'''Result for your {job_type_name} Job ({updated_job.job_id}) is ready''',
+                                              f'''The result for your {job_type_name} Job is available at {results_url}''')
+            except Exception as e:
+                log.error(f'Failed to send email notification on success: {str(e)}')
+        elif new_phase == JobStatus.ERROR and updated_job.email:
+            try:
+                self.email_service.send_email(updated_job.email,
+                                              f'''{job_type_name} Job ({updated_job.job_id}) failed''',
+                                              f'''An error occurred in computing the result for your {job_type_name} job.''')
+            except Exception as e:
+                log.error(f'Failed to send email notification on failure: {str(e)}')
 
     def run(self):
         # Ignore kube-system namespace
@@ -223,6 +272,8 @@ class KubeEventWatcher:
                             session.add(updated_job)
                             session.commit()
                             session.flush()
+
+                            self.send_notification_email(updated_job, new_phase)
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))

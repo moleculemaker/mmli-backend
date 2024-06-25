@@ -22,6 +22,14 @@ email:
   fromEmail: "devnull+alphasynthesis@ncsa.illinois.edu"
   fromName: "no-reply-ALPHASYNTHESIS"
 
+# Change frontend service URLs depending on where they're deployed (used for email notifications)
+chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
+chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu"
+somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
+clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
+molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+
 kubernetes_jobs:
   # Config for running CLEAN job
   clean:
