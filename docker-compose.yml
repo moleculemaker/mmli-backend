@@ -15,8 +15,8 @@ services:
     container_name: mmli-backend-minio
     image: minio/minio
     ports:
-      - "9000:9000"
       - "9001:9001"
+      - "9002:9002"
     env_file:
       - .env
     volumes:

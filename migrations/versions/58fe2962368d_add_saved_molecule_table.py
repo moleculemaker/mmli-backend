@@ -19,16 +19,21 @@ depends_on = None
 
 def upgrade() -> None:
     op.create_table('saved_molecule',
-    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+    sa.Column('id', sa.Integer, primary_key=True, autoincrement=True),
+    sa.Column('email', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
     sa.Column('job_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('molecule_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('time_created', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.ForeignKeyConstraint(['job_id'], ['job.job_id'], ),
-    sa.PrimaryKeyConstraint('email', 'job_id', 'molecule_id')
+    sa.ForeignKeyConstraint(['job_id'], ['job.job_id']),
+    sa.UniqueConstraint('email', 'job_id', 'molecule_id', name='unique_email_job_molecule')
     )
+    op.create_index('idx_email_job', 'saved_molecule', ['email', 'job_id'])
+    op.create_index('idx_email_job_molecule', 'saved_molecule', ['email', 'job_id', 'molecule_id'], unique=True)
     pass
 
 
 def downgrade() -> None:
+    op.drop_index('idx_email_job', table_name='saved_molecule')
+    op.drop_index('idx_email_job_molecule', table_name='saved_molecule')
     op.drop_table('saved_molecule')
     pass

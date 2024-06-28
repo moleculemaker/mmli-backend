@@ -104,12 +104,12 @@ class ChemicalIdentifier(SQLModel, table=True):
 
 class SavedMolecule(SQLModel, table=True):
     __tablename__ = 'saved_molecule'
-    email: str = Field(default=None, primary_key=True)
-    job_id: str = Field(default=None, primary_key=True, foreign_key="job.job_id")
-    molecule_id: str = Field(default=None, primary_key=True)
-    time_created: Optional[int] = Field(default=None, nullable=False)
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: Optional[str] = Field(default=None, index=True, nullable=True)
+    job_id: str = Field(default=None, index=True, foreign_key="job.job_id")
+    molecule_id: str = Field(default=None, index=True)
+    time_created: Optional[int] = Field(default=None)
 
 class SavedMoleculeDelete(BaseModel):
-    email: str 
-    job_id: str
-    molecule_id: str
+    id: int
