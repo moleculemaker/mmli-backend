@@ -69,7 +69,7 @@ kubernetes_jobs:
   somn:
     image: "moleculemaker/somn"
     #prejob_command: "chown -R 57439:57439 ${JOB_OUTPUT_DIR}/"
-    command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict 44eb8d94effa11eea46f18c04d0a4970 apr-2024 asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
+    command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict last apr-2024 asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
     imagePullPolicy: "Always"
     securityContext:
       # TODO: mount/run as mambauser => 57439 causes permission errors
