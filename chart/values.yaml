@@ -61,6 +61,15 @@ minio:
 
 
 config:
+  # Change frontend service URLs depending on where they're deployed (used for email notifications)
+  # TODO: Default these to local cluster? For now, default is staging and we override for prod
+  chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
+  chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+  novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu"
+  somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
+  clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
+  molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+
   server:
     port: 8080
     loglevel: "DEBUG"
