@@ -107,7 +107,7 @@ class SavedMolecule(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     email: Optional[str] = Field(default=None, index=True, nullable=True)
-    job_id: str = Field(default=None, index=True, foreign_key="job.job_id")
+    job_id: str = Field(default=None, index=True)
     molecule_id: str = Field(default=None, index=True)
     time_created: Optional[int] = Field(default=None)
 

@@ -24,7 +24,6 @@ def upgrade() -> None:
     sa.Column('job_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('molecule_id', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('time_created', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-    sa.ForeignKeyConstraint(['job_id'], ['job.job_id']),
     sa.UniqueConstraint('email', 'job_id', 'molecule_id', name='unique_email_job_molecule')
     )
     op.create_index('idx_email_job', 'saved_molecule', ['email', 'job_id'])
