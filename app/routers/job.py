@@ -101,7 +101,7 @@ async def create_job(
                 raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
 
             # We assume that file has already been uploaded to MinIO
-            somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'
+            somn_project_dir = '/tmp/somn_root/somn_scratch/last'
             #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
             #output_file_path = f'{somn_project_dir}/outputs/asdf'
 
