@@ -16,7 +16,7 @@ spec:
             - "true"
   containers:
     - name: modelgen
-      image: "moleculemaker/novostoic"
+      image: "moleculemaker/novostoic:pr-5"
       command:
         - sleep
         - "3600"
