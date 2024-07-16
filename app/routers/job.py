@@ -102,7 +102,7 @@ async def create_job(
 
             # We assume that file has already been uploaded to MinIO
             #somn_project_dir = '/tmp/somn_root/somn_scratch/last'
-            somn_project_dir = '/tmp/somn_root/somn_scratch/IID-Models-2024'
+            somn_project_dir = app_config['kubernetes_jobs']['somn']['projectDirectory']
             #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
             #output_file_path = f'{somn_project_dir}/outputs/asdf'
 
