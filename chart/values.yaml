@@ -146,7 +146,7 @@ config:
     somn:
       image: "ianrinehart/somn:1.0"
       projectDirectory: '/tmp/somn_root/somn_scratch/IID-Models-2024'
-      command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict last latest asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
+      command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/test_request.csv && micromamba run -n base somn predict last latest asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
       imagePullPolicy: "Always"
       securityContext:
         # TODO: mount/run as mambauser => 57439 causes permission errors
