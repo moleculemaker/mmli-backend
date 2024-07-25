@@ -16,7 +16,7 @@ from models.somnRequestBody import SomnRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType
 
-from rdkit import Chem
+from services.shared import smiles_to_svg
 
 router = APIRouter()
 
@@ -67,26 +67,21 @@ async def check_reaction_sites(smiles: str, role: str):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str('Invalid user input'))
-
-    mol = Chem.MolFromSmiles(smiles)
-    d2d = Chem.Draw.rdMolDraw2D.MolDraw2DSVG(450, 300)
-
-    # Settings for SVG Image coloring via draw options
-    dopts = d2d.drawOptions()
-    dopts.useBWAtomPalette()
-    dopts.continuousHighlight=False
-    dopts.highlightBondWidthMultiplier = 24
-    dopts.highlightRadius = .4
-    dopts.prepareMolsBeforeDrawing=True
-    dopts.fillHighlights=False
-
-    Chem.rdDepictor.Compute2DCoords(mol)
     
-    reactionSiteIdxes = [int(i) for i in reactionSiteIdxes]
-    d2d.DrawMolecule(mol, highlightAtoms=reactionSiteIdxes)
-    d2d.FinishDrawing()
+    def beforeDraw(d2d):
+        dopts = d2d.drawOptions()
+        dopts.useBWAtomPalette()
+        dopts.continuousHighlight=False
+        dopts.highlightBondWidthMultiplier = 24
+        dopts.highlightRadius = .4
+        dopts.prepareMolsBeforeDrawing=True
+        dopts.fillHighlights=False
 
     return {
         "reaction_site_idxes": reactionSiteIdxes,
-        "svg": d2d.GetDrawingText()
+        "svg": smiles_to_svg(smiles, 
+                             width=450,
+                             height=300,
+                             beforeDraw=beforeDraw, 
+                             highlightAtoms=reactionSiteIdxes)
     }
