@@ -7,7 +7,7 @@ router = APIRouter()
 async def draw_smiles(smiles: list[str]):
     return smiles_to_svg(smiles)
 
-@router.get("/chemicals/info", tags=['Shared'])
-async def get_chemical_info(ids: list[str]):
-    # TODO: implement the function
-    return None
+# TODO: implement the function
+# @router.get("/chemicals/info", tags=['Shared'])
+# async def get_chemical_info(ids: list[str]):
+    # return None
