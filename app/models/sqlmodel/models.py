@@ -1,7 +1,6 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
-from sqlalchemy import Column, String, Text
 from sqlmodel import SQLModel, Field, Relationship
 from pydantic import BaseModel
 
@@ -102,21 +101,3 @@ class ChemicalIdentifier(SQLModel, table=True):
     reference: Optional[str] = Field(default=None, nullable=True)
     kegg_id: Optional[str] = Field(default=None, nullable=True, index=True)
     formula: Optional[str] = Field(default=None, nullable=True)
-    is_cofactor: Optional[bool] = Field(default=False, nullable=True)
-
-class ReactionEnzID(SQLModel, table=True):
-    __tablename__ = "reactions_enzids"
-    reaction_id: str = Field(primary_key=True)
-    enz_id: str = Field(primary_key=True)
-
-class EnzIDEnzIID(SQLModel, table=True):
-    __tablename__ = "enzids_enziids"
-    enz_id: str = Field(primary_key=True)
-    enz_iid: str = Field(foreign_key="enziid_enzseq.id")
-    enz_seq: "EnzIIDEnzSeq" = Relationship(back_populates="enz_ids")
-
-class EnzIIDEnzSeq(SQLModel, table=True):
-    __tablename__ = "enziid_enzseq"
-    id: str = Field(primary_key=True)
-    seq: str = Field(sa_column=Column(Text))
-    enz_ids: List["EnzIDEnzIID"] = Relationship(back_populates="enz_seq")

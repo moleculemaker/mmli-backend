@@ -1,15 +1,14 @@
 from typing import Optional, Union
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import or_, text
-from sqlalchemy.orm import aliased
+from sqlalchemy import or_
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.db import get_session
-from models.sqlmodel.models import ChemicalIdentifier, ReactionEnzID, EnzIDEnzIID, EnzIIDEnzSeq
+from models.sqlmodel.models import ChemicalIdentifier
 
 from rdkit.Chem import CanonSmiles
 from services.shared import draw_chemical_svg
@@ -25,7 +24,7 @@ class ChemicalAutoCompleteResponse(BaseModel):
 
 router = APIRouter()
 
-@router.get(f"/novostoic/auto-complete", 
+@router.get(f"/chemical/auto-complete", 
             tags=['Novostoic'], 
             response_model=list[ChemicalAutoCompleteResponse], 
             description="Returns a list of chemicals that match the search string limited to 20 results.")
@@ -58,7 +57,7 @@ async def get_chemical_auto_complete(search: str, db: AsyncSession = Depends(get
         } for chemical in existing_chemicals.all()
     ]
 
-@router.get(f"/novostoic/validate", tags=['Novostoic'], response_model=Union[ChemicalAutoCompleteResponse, None])
+@router.get(f"/chemical/validate", tags=['Novostoic'], response_model=Union[ChemicalAutoCompleteResponse, None])
 async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)):
     try:
         smiles = CanonSmiles(search)
@@ -101,38 +100,3 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
         "is_cofactor": chemical[6] is not None,
         "structure": draw_chemical_svg(chemical[1]) if chemical[1] else None
     }
-    
-@router.get("/novostoic/enzseqs", tags=['Novostoic'])
-async def get_metanex_reaction_enzymes(
-    metanetx: str = Query(..., description="Comma-separated list of reaction IDs"),
-    db: AsyncSession = Depends(get_session)
-):
-    # Split the comma-separated string into a list
-    reaction_ids = [id.strip() for id in metanetx.split(',')]
-
-    re = aliased(ReactionEnzID)
-    ee = aliased(EnzIDEnzIID)
-    es = aliased(EnzIIDEnzSeq)
-
-    query = (
-        select(re.reaction_id, re.enz_id, es.seq)
-        .join(ee, re.enz_id == ee.enz_id)
-        .join(es, ee.enz_iid == es.id)
-        .where(re.reaction_id.in_(reaction_ids))
-    )
-
-    # Execute the query
-    result = await db.execute(query, {"reaction_ids": reaction_ids})
-    
-    # Fetch all results
-    all_results = result.all()
-    
-    # Group results by reaction_id
-    grouped_results = {}
-    for row in all_results:
-        reaction_id = row.reaction_id
-        if reaction_id not in grouped_results:
-            grouped_results[reaction_id] = []
-        grouped_results[reaction_id].append({"enz_id": row.enz_id, "seq": row.seq})
-    
-    return grouped_results
