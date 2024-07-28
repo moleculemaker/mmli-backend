@@ -12,7 +12,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import ChemicalIdentifier, ReactionEnzID, EnzIDEnzIID, EnzIIDEnzSeq
 
 from rdkit.Chem import CanonSmiles
-from services.shared import smiles_to_svg
+from services.shared import draw_chemical_svg
 
 class ChemicalAutoCompleteResponse(BaseModel):
     name: str
@@ -71,7 +71,8 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
                ChemicalIdentifier.inchi, 
                ChemicalIdentifier.inchi_key, 
                ChemicalIdentifier.metanetx_id, 
-               ChemicalIdentifier.kegg_id
+               ChemicalIdentifier.kegg_id,
+               ChemicalIdentifier.is_cofactor,
         ).filter(or_(
             ChemicalIdentifier.smiles == smiles,
             ChemicalIdentifier.name == search,
@@ -97,7 +98,8 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
         "inchi_key": chemical[3],
         "metanetx_id": chemical[4],
         "kegg_id": chemical[5],
-        "structure": smiles_to_svg(chemical[1]) if chemical[1] else None
+        "is_cofactor": chemical[6] is not None,
+        "structure": draw_chemical_svg(chemical[1]) if chemical[1] else None
     }
     
 @router.get("/novostoic/enzseqs", tags=['Novostoic'])

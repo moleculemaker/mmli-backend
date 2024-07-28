@@ -16,7 +16,7 @@ from models.somnRequestBody import SomnRequestBody
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobType
 
-from services.shared import smiles_to_svg
+from services.shared import draw_chemical_svg
 
 router = APIRouter()
 
@@ -79,7 +79,7 @@ async def check_reaction_sites(smiles: str, role: str):
 
     return {
         "reaction_site_idxes": reactionSiteIdxes,
-        "svg": smiles_to_svg(smiles, 
+        "svg": draw_chemical_svg(smiles, 
                              width=450,
                              height=300,
                              beforeDraw=beforeDraw, 

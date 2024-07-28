@@ -4,16 +4,16 @@ from rdkit.Chem import Draw
 from rdkit.Chem import rdDepictor
 from typing import Callable, Optional
 
-def smiles_to_svg(smiles_string: str, 
+def draw_chemical_svg(id: str,
                   width: int = 300, 
                   height: int = 150, 
                   beforeDraw: Optional[Callable[[Draw.MolDraw2DSVG], None]] = None,
                   **kwargs) -> str:
     """
-    Convert a SMILES string to an SVG image.
+    Convert a chemical string to an SVG image.
     
     Parameters:
-        smiles_string (str): SMILES string representing a molecule or a reaction
+        id (str): string representing a molecule or a reaction, can be inchi, smiles, or reaction smarts
         width (int): Width of the SVG image
         height (int): Height of the SVG image
         beforeDraw (Callable[[Draw.MolDraw2DSVG], None], optional): Function to customize drawer before drawing
@@ -33,9 +33,9 @@ def smiles_to_svg(smiles_string: str,
             beforeDraw(drawer)
         
         # Check if the SMILES string represents a reaction
-        if ">" in smiles_string:
+        if ">" in id:
             # Process as a reaction
-            reaction = AllChem.ReactionFromSmarts(smiles_string, useSmiles=True)
+            reaction = AllChem.ReactionFromSmarts(id, useSmiles=True)
             
             # Compute 2D coordinates for each molecule in the reaction
             for mol in reaction.GetReactants():
@@ -47,9 +47,14 @@ def smiles_to_svg(smiles_string: str,
             drawer.DrawReaction(reaction, **kwargs)
         else:
             # Process as a molecule
-            mol = Chem.MolFromSmiles(smiles_string)
+            if id.lower().startswith("inchi="):
+                mol = Chem.MolFromInchi(id)
+            else:
+                mol = Chem.MolFromSmiles(id)
+                
             if mol is None:
-                raise ValueError(f"Invalid SMILES string: {smiles_string}")
+                raise ValueError(f"Invalid input: {id}")
+            
             rdDepictor.Compute2DCoords(mol)
             drawer.DrawMolecule(mol, **kwargs)
 
@@ -58,4 +63,4 @@ def smiles_to_svg(smiles_string: str,
         return svg.replace('svg:', '')  # Remove 'svg:' namespace for compatibility
     
     except Exception as e:
-        raise Exception(f"Error processing SMILES string: {smiles_string}") from e
+        raise Exception(f"Error processing input: {id}") from e
