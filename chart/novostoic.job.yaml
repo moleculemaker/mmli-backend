@@ -1,23 +1,153 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: novostoic-manual-run-optstoic
+  labels:
+    job-name: mmli-job-somn-f4da0fabab0d45f6820062c7183b2cfc
+    jobId: f4da0fabab0d45f6820062c7183b2cfc
+    jobType: somn
+    ownerId: None
+    runId: f4da0fabab0d45f6820062c7183b2cfc
+    type: mmli-job
+  name: mmli-job-somn-f4da0fabab0d45f6820062c7183b2cfc
   namespace: staging
 spec:
+  activeDeadlineSeconds: 259200
+  backoffLimit: 0
+  completionMode: NonIndexed
+  completions: 1
+  parallelism: 1
   template:
+    metadata:
+      labels:
+        job-name: mmli-job-somn-f4da0fabab0d45f6820062c7183b2cfc
+        jobId: f4da0fabab0d45f6820062c7183b2cfc
+        jobType: somn
+        ownerId: None
+        runId: f4da0fabab0d45f6820062c7183b2cfc
+        type: mmli-job
     spec:
-      nodeSelector:
-#        ncsa.role: "worker-gpu"
-        nvidia.com/gpu.present: "true"
       containers:
-      - name: novostoic
-        image: "moleculemaker/novostoic"
-        command: ["python",  "./novostoic-job.py", "optstoic"]
-      tolerations:
-      - effect: NoSchedule
-        key: nvidia.com/gpu
-        operator: Exists
-      imagePullSecrets:
-      - name: regcred
+      - command:
+        - bash
+        - -c
+        - |
+          ./postjob.py
+        env:
+        - name: JOB_ID
+          value: f4da0fabab0d45f6820062c7183b2cfc
+        - name: JOB_TYPE
+          value: somn
+        - name: JOB_OUTPUT_DIR
+          value: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/out
+        - name: MINIO_SERVER
+          value: mmli-backend-staging-minio.staging.svc.cluster.local:9000
+        image: moleculemaker/mmli-backend:kubejob
+        imagePullPolicy: Always
+        name: post-job
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /uws
+          name: shared-storage
+          subPath: uws
+        - mountPath: /code/app/cfg/config.yaml
+          name: server-config
+          subPath: config.yaml
+        - mountPath: /code/app/cfg/secret.yaml
+          name: server-secret
+          subPath: secret.yaml
+      dnsPolicy: ClusterFirst
+      initContainers:
+      - command:
+        - /bin/bash
+        - -c
+        - |
+          ./prejob.py
+        env:
+        - name: JOB_ID
+          value: f4da0fabab0d45f6820062c7183b2cfc
+        - name: JOB_TYPE
+          value: somn
+        - name: JOB_OUTPUT_DIR
+          value: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/out
+        - name: JOB_INPUT_DIR
+          value: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/in
+        - name: MINIO_SERVER
+          value: mmli-backend-staging-minio.staging.svc.cluster.local:9000
+        - name: SOMN_PROJECT_DIR
+          value: /tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970
+        image: moleculemaker/mmli-backend:kubejob
+        imagePullPolicy: Always
+        name: init
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /uws
+          name: shared-storage
+          subPath: uws
+        - mountPath: /code/app/cfg/config.yaml
+          name: server-config
+          subPath: config.yaml
+        - mountPath: /code/app/cfg/secret.yaml
+          name: server-secret
+          subPath: secret.yaml
+      - command:
+        - bash
+        - -c
+        - |
+          ls -al ${JOB_INPUT_DIR} && cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv && micromamba run -n base somn predict 44eb8d94effa11eea46f18c04d0a4970 apr-2024 asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR} && ls -al ${JOB_OUTPUT_DIR} && touch "${JOB_OUTPUT_DIR}/finished"
+        env:
+        - name: JOB_OUTPUT_DIR
+          value: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/out
+        - name: JOB_INPUT_DIR
+          value: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/in
+        - name: JOB_ID
+          value: f4da0fabab0d45f6820062c7183b2cfc
+        - name: JOB_TYPE
+          value: somn
+        - name: SOMN_PROJECT_DIR
+          value: /tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970
+        image: moleculemaker/somn
+        imagePullPolicy: Always
+        name: job
+        resources:
+          limits:
+            cpu: "1"
+            memory: 16Gi
+          requests:
+            cpu: "1"
+            memory: 12Gi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /uws
+          name: shared-storage
+          subPath: uws
+        - mountPath: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/in
+          name: shared-storage
+          subPath: uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/in
+        - mountPath: /uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/out
+          name: shared-storage
+          subPath: uws/jobs/somn/f4da0fabab0d45f6820062c7183b2cfc/out
       restartPolicy: Never
-  backoffLimit: 4
+      schedulerName: default-scheduler
+      securityContext:
+      #  fsGroup: 57439
+        runAsGroup: 0
+        runAsUser: 0 
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: mmli-backend-staging-config
+        name: server-config
+      - name: server-secret
+        secret:
+          defaultMode: 420
+          secretName: mmli-backend-staging-secrets
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: mmli-clean-job-weights
+  ttlSecondsAfterFinished: 43200
