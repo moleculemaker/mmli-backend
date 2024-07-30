@@ -73,6 +73,15 @@ async def create_job(
         if job_type == JobType.DEFAULT:
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
+
+        elif job_type == JobType.ACERETRO:
+            # ACERetro jobs
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+        
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
@@ -115,7 +124,7 @@ async def create_job(
                 'name': 'SOMN_PROJECT_DIR',
                 'value': somn_project_dir
             }]
-
+        
         # TODO: support NOVOSTOIC job types
         elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
             if service.ensure_bucket_exists(job_type):
@@ -123,6 +132,20 @@ async def create_job(
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+
+            environment = [{
+                # TBD... 
+                # 'name': 'SOMN_PROJECT_DIR',
+                # 'value': somn_project_dir
+            }]
+
+            # Run a Kubernetes Job with the given image + command + environment
+            try:
+                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+                kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+            except Exception as ex:
+                log.error("Failed to create Job: " + str(ex))
+                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
             
         elif job_type == JobType.NOVOSTOIC_PATHWAYS:
             if service.ensure_bucket_exists(job_type):
