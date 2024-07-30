@@ -11,10 +11,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import ChemicalIdentifier
 
 from rdkit.Chem import CanonSmiles
-
-from rdkit import Chem
-from rdkit.Chem.Draw import rdMolDraw2D
-import re
+from services.shared import draw_chemical_svg
 
 class ChemicalAutoCompleteResponse(BaseModel):
     name: str
@@ -73,7 +70,8 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
                ChemicalIdentifier.inchi, 
                ChemicalIdentifier.inchi_key, 
                ChemicalIdentifier.metanetx_id, 
-               ChemicalIdentifier.kegg_id
+               ChemicalIdentifier.kegg_id,
+               ChemicalIdentifier.is_cofactor,
         ).filter(or_(
             ChemicalIdentifier.smiles == smiles,
             ChemicalIdentifier.name == search,
@@ -92,25 +90,6 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
     chemicals_with_keggid = [chemical for chemical in existing_chemicals if chemical[5]]
     chemical = chemicals_with_keggid[0] if len(chemicals_with_keggid) else existing_chemicals[0]
 
-    pattern = re.compile("<\?xml.*\?>")
-
-    def draw_mol(mol, molSize=(300,150), kekulize=True):
-        mc = Chem.MolFromSmiles(mol)
-        if kekulize:
-            try:
-                Chem.Kekulize(mc)
-            except:
-                mc = Chem.Mol(mol.ToBinary())
-        if not mc.GetNumConformers():
-            Chem.rdDepictor.Compute2DCoords(mc)
-
-        drawer = rdMolDraw2D.MolDraw2DSVG(*molSize)
-        drawer.DrawMolecule(mc)
-        drawer.FinishDrawing()
-        svg = drawer.GetDrawingText().replace('svg:', '')
-        svg = re.sub(pattern, '', svg)
-        return svg
-
     return {
         "name": chemical[0],
         "smiles": chemical[1],
@@ -118,5 +97,6 @@ async def validate_chemical(search: str, db: AsyncSession = Depends(get_session)
         "inchi_key": chemical[3],
         "metanetx_id": chemical[4],
         "kegg_id": chemical[5],
-        "structure": draw_mol(chemical[1]) if chemical[1] else None
+        "is_cofactor": chemical[6] is not None,
+        "structure": draw_chemical_svg(chemical[1]) if chemical[1] else None
     }

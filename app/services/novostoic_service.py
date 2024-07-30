@@ -12,6 +12,7 @@ from models.enums import JobStatus
 
 from services.minio_service import MinIOService
 from services.email_service import EmailService
+from services.shared import draw_chemical_svg
 
 from routers.novostoic import validate_chemical
 
@@ -128,7 +129,28 @@ class NovostoicService:
     
     @staticmethod
     async def dgPredictorResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
-        file = service.get_file(bucket_name, f"{job_id}/out/output.json")
-        if not file:
-            return None
-        return json.loads(file)
+        results = json.loads(service.get_file(bucket_name, f"{job_id}/out/output.json"))
+        
+        molecule_cache = {}
+        for result in results:
+            # get info for each molecule
+            for molecule in result['molecules']:
+                y = result['molecules'][molecule]
+                result['molecules'][molecule] = { 'amount': y }
+                if molecule not in result['novelMolecules']:
+                    if not molecule in molecule_cache:
+                        molecule_cache[molecule] = await validate_chemical(molecule, db)
+                    result['molecules'][molecule].update(molecule_cache[molecule])
+                else:
+                    value = result['novelMolecules'][molecule]
+                    if not value in molecule_cache:
+                        molecule_cache[value] = draw_chemical_svg(value)
+                        
+                    result['molecules'][molecule].update({
+                        'is_cofactor': False,
+                        'type': 'inchi' if value.lower().startswith('inchi') else 'smiles',
+                        'value': value,
+                        'structure': molecule_cache[value],
+                    })
+
+        return results

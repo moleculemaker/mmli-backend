@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config import app_config, get_logger
-from routers import chemscraper, job, files, somn, novostoic
+from routers import chemscraper, job, files, somn, novostoic, shared
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.kubejob_service import KubeEventWatcher
@@ -41,6 +41,7 @@ app.include_router(job.router)
 app.include_router(chemscraper.router)
 app.include_router(novostoic.router)
 app.include_router(somn.router)
+app.include_router(shared.router)
 
 origins = [
     "http://test.mydomain.com",
