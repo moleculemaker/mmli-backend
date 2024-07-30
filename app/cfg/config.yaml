@@ -31,6 +31,12 @@ clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
 molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
+  # aceretro backend
+  aceretro:
+    image: "kastanday/aceretro:prod"
+    imagePullPolicy: "Always"
+    # command: "your-command" # what should be the default command?
+
   # Config for running CLEAN job
   clean:
     image: "moleculemaker/clean-image-amd64:latest"

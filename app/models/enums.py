@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class JobType(str, Enum):
+    ACERETRO = 'aceretro'
     CLEAN = 'clean'
     CHEMSCRAPER = 'chemscraper'
     MOLLI = 'molli'
