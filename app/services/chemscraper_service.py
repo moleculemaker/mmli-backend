@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import HTTPException
 import requests
@@ -126,7 +127,7 @@ class ChemScraperService:
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     SVG = service.get_file(bucket_name, jobId + '/out/molecules/' + svg_filename)
                     if SVG is None:
-                        print("SVG not found, generating using rdkit")
+                        log.warning("SVG not found, generating using rdkit")
                         SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
 
                     location = " | page: " + page_no
@@ -138,12 +139,12 @@ class ChemScraperService:
                     try:
                         fingerprint = rdkitService.getFingerprint(SMILE)
                     except Exception as e:
-                        print("Could not generate fingerprint for: " + SMILE)
+                        log.error("Could not generate fingerprint for: " + SMILE)
                         fingerprint = "0"
                     try:
                         atom_count = rdkitService.getAtomCount(SMILE)
                     except Exception as e:
-                        print("Could not generate fingerprint for: " + SMILE)
+                        log.error("Could not generate fingerprint for: " + SMILE)
                         atom_count = 0
                     molecules.append(
                         Molecule(
@@ -168,9 +169,9 @@ class ChemScraperService:
 
         # Only for debugging
         # TODO: Remove after Pub Chem Batching tested in PROD
-        print('=== Printing Smile List ====')
-        print(SMILE_LIST)
-        print('=== End Printing Smile List ====')
+        log.debug('=== Printing Smile List ====')
+        log.debug(SMILE_LIST)
+        log.debug('=== End Printing Smile List ====')
 
         # Get data for all molecules
         pubChemService = PubChemService()
@@ -178,12 +179,18 @@ class ChemScraperService:
 
         # Only for debugging
         # TODO: Remove after Pub Chem Batching tested in PROD
-        print('======== Printing All Molecule Data =======')
+        log.debug('======== Printing All Molecule Data =======')
         data_idx = 0
+
+        # Short-circuit if no PubChem molecule information is found
+        if molecules_data is None:
+            log.warning(f'No PubChem molecule results found - skipping: {molecules_data}')
+            return
+
         while data_idx < len(molecules_data):
-            print(molecules_data[data_idx], ' ', molecules_data[data_idx+1], ' ', molecules_data[data_idx+2], ' ',molecules_data[data_idx+3], ' ', molecules_data[data_idx+4])
+            log.debug(f'{molecules_data[data_idx]} {molecules_data[data_idx+1]} {molecules_data[data_idx+2]} {molecules_data[data_idx+3]} {molecules_data[data_idx+4]}')
             data_idx += 5
-        print('======== End Printing All Molecule Data ======')
+        log.debug('======== End Printing All Molecule Data ======')
 
         # To iterate Molecule Data Array - molecules_data
         molecules_data_idx = 0
