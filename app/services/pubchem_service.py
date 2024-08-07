@@ -30,41 +30,41 @@ class PubChemService:
             # Short circuit if PubChem CID result set contains no results
             if mol_cid == ['Result set is empty.']:
                 self.logger.warning(f'PubChem CID result set is empty.. SKIPPING: {str(cidFileContent)}')
-                return
+            else:
+                cids_list.append(mol_cid[1])
+                smile_cid_dict[mol_cid[0]] = mol_cid[1]
 
-            cids_list.append(mol_cid[1])
-            smile_cid_dict[mol_cid[0]] = mol_cid[1]
-
-        pub_chem_url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/MolecularFormula,MolecularWeight,IUPACName/JSON'.format(cids=",".join(cids_list))
-
-        # Request to get data for all molecules
-        response = requests.get(pub_chem_url)
+        cid_to_properties = {}
+        if len(cids_list) > 0:
+            pub_chem_url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/MolecularFormula,MolecularWeight,IUPACName/JSON'.format(cids=",".join(cids_list))
+    
+            # Request to get data for all molecules
+            response = requests.get(pub_chem_url)
+            if response.status_code == 200:
+                parsed_data = json.loads(response.text)
+                cid_to_properties = {str(properties['CID']): properties for properties in parsed_data['PropertyTable']['Properties']}
+            else:
+                self.logger.warning(f'PubChem property request failed with status code {str(response.status_code)}')
 
         vals = []
-        if response.status_code == 200:
-            parsed_data = json.loads(response.text)
-            properties = parsed_data['PropertyTable']['Properties']
 
-            json_counter = 0
-            for smile in smile_list:
-                if smile_cid_dict[smile] == '':
-                    # CID Not Available for SMILE
-                    vals.append(smile)
-                    vals.append('Unavailable')
-                    vals.append('Unavailable')
-                    vals.append('Unavailable')
-                    vals.append('Unavailable')
-                else:
-                    vals.append(smile)
-                    json_element = properties[json_counter]
-                    vals.append(str(json_element["CID"]))
-                    vals.append(json_element.get("MolecularFormula", "Unavailable"))
-                    vals.append(json_element.get("MolecularWeight", "Unavailable"))
-                    vals.append(json_element.get("IUPACName", "Unavailable"))
-                    json_counter+=1
-            return vals
-        else:
-            pass
+        for smile in smile_list:
+            # cid = smile_cid_dict[smile]
+            if smile in smile_cid_dict and smile_cid_dict[smile] in cid_to_properties:
+                vals.append(smile)
+                properties = cid_to_properties[smile_cid_dict[smile]]
+                vals.append(str(properties["CID"]))
+                vals.append(properties.get("MolecularFormula", "Unavailable"))
+                vals.append(properties.get("MolecularWeight", "Unavailable"))
+                vals.append(properties.get("IUPACName", "Unavailable"))
+            else:
+                # CID Not Available for SMILE
+                vals.append(smile)
+                vals.append('Unavailable')
+                vals.append('Unavailable')
+                vals.append('Unavailable')
+                vals.append('Unavailable')
+        return vals
 
     async def getDataForAllMolecules(self, smile_list):
             # Parse the XML data
