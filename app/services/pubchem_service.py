@@ -49,10 +49,10 @@ class PubChemService:
         vals = []
 
         for smile in smile_list:
-            cid = smile_cid_dict[smile]
-            if cid in cid_to_properties:
+            # cid = smile_cid_dict[smile]
+            if smile in smile_cid_dict and smile_cid_dict[smile] in cid_to_properties:
                 vals.append(smile)
-                properties = cid_to_properties[cid]
+                properties = cid_to_properties[smile_cid_dict[smile]]
                 vals.append(str(properties["CID"]))
                 vals.append(properties.get("MolecularFormula", "Unavailable"))
                 vals.append(properties.get("MolecularWeight", "Unavailable"))
