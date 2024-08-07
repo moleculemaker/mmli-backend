@@ -34,16 +34,17 @@ class PubChemService:
                 cids_list.append(mol_cid[1])
                 smile_cid_dict[mol_cid[0]] = mol_cid[1]
 
-        pub_chem_url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/MolecularFormula,MolecularWeight,IUPACName/JSON'.format(cids=",".join(cids_list))
-
-        # Request to get data for all molecules
-        response = requests.get(pub_chem_url)
-        if response.status_code == 200:
-            parsed_data = json.loads(response.text)
-            cid_to_properties = { str(properties['CID']): properties for properties in parsed_data['PropertyTable']['Properties']}
-        else:
-            self.logger.warning(f'PubChem property request failed with status code {str(response.status_code)}')
-            cid_to_properties = {}
+        cid_to_properties = {}
+        if len(cids_list) > 0:
+            pub_chem_url = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/MolecularFormula,MolecularWeight,IUPACName/JSON'.format(cids=",".join(cids_list))
+    
+            # Request to get data for all molecules
+            response = requests.get(pub_chem_url)
+            if response.status_code == 200:
+                parsed_data = json.loads(response.text)
+                cid_to_properties = {str(properties['CID']): properties for properties in parsed_data['PropertyTable']['Properties']}
+            else:
+                self.logger.warning(f'PubChem property request failed with status code {str(response.status_code)}')
 
         vals = []
 
