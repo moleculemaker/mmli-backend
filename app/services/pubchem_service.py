@@ -52,11 +52,11 @@ class PubChemService:
             cid = smile_cid_dict[smile]
             if cid in cid_to_properties:
                 vals.append(smile)
-                json_element = cid_to_properties[cid]
-                vals.append(json_element["CID"])
-                vals.append(json_element.get("MolecularFormula", "Unavailable"))
-                vals.append(json_element.get("MolecularWeight", "Unavailable"))
-                vals.append(json_element.get("IUPACName", "Unavailable"))
+                properties = cid_to_properties[cid]
+                vals.append(str(properties["CID"]))
+                vals.append(properties.get("MolecularFormula", "Unavailable"))
+                vals.append(properties.get("MolecularWeight", "Unavailable"))
+                vals.append(properties.get("IUPACName", "Unavailable"))
             else:
                 # CID Not Available for SMILE
                 vals.append(smile)
