@@ -80,7 +80,16 @@ async def create_job(
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
+
+            # add minio_path to command
+            command = app_config['kubernetes_jobs'][job_type]['command'] + f" --minio_path /{job_id}/in/input.json"
+            try:
+                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+                kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+            except Exception as ex:
+                log.error("Failed to create Job: " + str(ex))
+                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
+
         
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
