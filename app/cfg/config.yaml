@@ -31,11 +31,11 @@ clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
 molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
-  # aceretro backend
+  # ACERetro backend
   aceretro:
     image: "kastanday/aceretro:prod"
     imagePullPolicy: "Always"
-    # command: "your-command" # what should be the default command?
+    command: "python entrypoint.py" # run the entrypoint, add `--minio_path xxx` in job.py
 
   # Config for running CLEAN job
   clean:
