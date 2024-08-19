@@ -116,7 +116,7 @@ Referenced by:
 
 ## Local development Setup (without Docker, not recommended)
 
-### (1/4) Configure Environment
+### (1/3) Configure Environment
 Create a `.env` from the `env.tpl` file in this repo. The default env is fine without modifications for testing. Change the passwords for production use.
 ```bash
 cp .env.tpl .env
@@ -124,7 +124,7 @@ cp .env.tpl .env
 
 Setting `DEBUG=true` will enable automatically reload the app when the Python source code changes
 
-### (2/4) Install dependencies
+### (2/3) Install dependencies
 Or, you can use Python + pip if you have them installed locally
 
 To install Dependencies:
@@ -140,15 +140,14 @@ This will only run the Python app.
 
 ### (3/3) Initialize the databse
 
-Initialize the Postgres database, this initializes the SQL tables.
+Initialize the Postgres database, this initializes the SQL tables with the "init" migration.
 ```bash
 alembic upgrade head
-```
-This will apply the "init" migration and create the needed database tables:
-```bash
+# You should see these logs:
 INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
 INFO  [alembic.runtime.migration] Will assume transactional DDL.
 INFO  [alembic.runtime.migration] Running upgrade  -> d775ee615d7b, init
+...
 ```
 
 Finally, verify the tables are created: 
@@ -173,7 +172,7 @@ mmli=# \d
  public | job                        | table    | postgres
 (5 rows)
 ```
-3. Check the jobs table `\d jobs`:
+3. Check the `job` table `\d job`:
 ```bash
 mmli=# \d job
                         Table "public.job"
