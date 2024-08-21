@@ -26,17 +26,14 @@ class SomnService:
     
     @staticmethod
     def gen3d_test(smiles: str):
-        try:
-            mol = Chem.MolFromSmiles(smiles)
-            mol_str = Chem.MolToMolBlock(mol)
-            
-            obmol = pb.readstring("mol", mol_str)
+        try:            
+            obmol = pb.readstring("smi", smiles)
             obmol.addh()
             
             # this step may fail, so we know SOMN cannot compute on the input
             obmol.make3D() 
             
-            return mol_str
+            return obmol.write("mol2")
             
         except Exception as e:
             raise SomnException(f"Unable to generate 3D coordinates for {smiles}")
@@ -141,10 +138,11 @@ class SomnService:
 
         # add gen3d_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        SomnService.gen3d_test(user_input)
+        obmol = SomnService.gen3d_test(user_input)
 
-        mol = Chem.MolFromSmiles(user_input)
-        mol = Chem.AddHs(mol)
+        # generate rdkit mol using obmol because rdkit
+        # might have issues generating mol from smiles directly
+        mol = Chem.MolFromMol2Block(obmol, sanitize=False, removeHs=False)
 
         bromides = get_atoms_by_symbol(mol, symbol="Br")
         chlorides = get_atoms_by_symbol(mol, symbol="Cl")
