@@ -11,11 +11,27 @@ cp .env.tpl .env
 
 ### (2/4) Setup a K8 cluster, here we use Minikube 
 1. [Install Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download).
-2. Follow the instructions to set it up, e.g. `minikube start`
+2. Start minikube w/ an extrenal network (defined in this repo's `docker-compose.yml`)
+```bash
+minikube start --network=mmli-net --driver=docker --memory=24384
+```
 3. Ensure it's running: `minikube kubectl cluster-info`
 ```
 Kubernetes control plane is running at https://192.168.49.2:8443
 CoreDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+```
+
+4. Apply the necessary confgurations: 
+```bash
+# Create `mmli` namespace
+minikube kubectl -- create ns mmli
+
+# Apply secret and config
+minikube kubectl -- apply -f /home/kastan/ncsa/mmli/mmli-backend/app/cfg/local.secret.yaml -n mmli
+minikube kubectl -- apply -f /home/kastan/ncsa/mmli/mmli-backend/app/cfg/local.config.yaml -n mmli
+
+# Create PVC needed by molli jobs
+minikube kubectl -- apply -f /home/kastan/ncsa/mmli/mmli-backend/chart/weights.pvc.yaml
 ```
 
 ### (3/4) Run Docker Compose build
@@ -113,6 +129,33 @@ Referenced by:
 ```
 
 🎉 All done! 🎉 Check the Swagger docs for important commands on [`localhost:8080/docs`](localhost:8080/docs).
+
+### How to monitor running jobs
+
+First, submit a job using Curl, Swagger or Postman. E.g.: 
+
+```bash
+curl -X POST https://mmli.kastan.ai/aceretro/jobs \
+-H "Content-Type: application/json" \
+-d '{
+  "job_id": "123",
+  "run_id": "123",
+  "email": "user@gmail.com",
+  "job_info": "{\"nuc\": \"hi\", \"CORES_FILE_NAME\": \"hi\", \"SUBS_FILE_NAME\": \"hi\"}"
+}'
+```
+
+Monitoring the job:
+```bash
+# after submitted a job, it should create a pod
+minikube kubectl -- get pods -A
+
+# Then get details of the pod, including failures
+minikube kubectl -- describe pod mmli-job-molli-123456-j4pwd -n mmli
+
+# get the logs from a pod
+minikube kubectl -- logs mmli-job-aceretro-222222222222-n5cl4 -n mmli -c job
+```
 
 ## Local development Setup (without Docker, not recommended)
 

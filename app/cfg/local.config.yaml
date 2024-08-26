@@ -1,0 +1,156 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mmli-backend-config
+data:
+  config.yaml: |
+    
+    auth:
+      cookiename: _oauth2_proxy
+      userInfoUrl: http://oauth2.proxy.local/oauth2/userinfo
+    chemscraper_frontend_url: https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu
+    chemscraper_url: http://chemscraper-services-staging.staging.svc.cluster.local:8000
+    clean_frontend_url: https://clean.frontend.staging.mmli1.ncsa.illinois.edu
+    db:
+      url: ""
+    email:
+      fromEmail: devnull+alphasynthesis@ncsa.illinois.edu
+      fromName: no-reply-ALPHASYNTHESIS
+      server: smtp.ncsa.uiuc.edu
+    existingSecret: mmli-backend-secrets
+    external:
+      chemscraper:
+        apiBaseUrl: https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu
+        frontendBaseUrl: http://localhost:4200
+    kubernetes_jobs:
+      clean:
+        image: moleculemaker/clean-image-amd64:latest
+        imagePullPolicy: Always
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /app/data/inputs
+          name: shared-storage
+          subPath: uws/jobs/clean/JOB_ID/in
+        - claimName: mmli-clean-job-weights
+          mountPath: /app/results/inputs
+        name: shared-storage
+          subPath: output
+        - claimName: mmli-clean-job-weights
+          mountPath: /root/.cache/torch/hub/checkpoints
+          name: shared-storage
+          subPath: weights
+      defaults:
+        activeDeadlineSeconds: 259200
+        command: perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out
+        image: perl:5.34.0
+        kubeconfig: /opt/kubeconfig
+        logFilePollingPeriod: 300
+        namespace: mmli
+        resources:
+          limits:
+            cpu: "1"
+            memory: 16Gi
+          requests:
+            cpu: "1"
+            memory: 12Gi
+        ttlSecondsAfterFinished: 43200
+        volumes: []
+        workingVolume:
+          claimName: mmli-clean-job-weights
+          mountPath: /uws
+          subPath: uws
+      molli:
+        command: /molli/entrypoint.sh
+        image: ghcr.io/moleculemaker/molli:ncsa-workflow
+        imagePullPolicy: Always
+        imagePullSecrets:
+        - regcred
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/clean/JOB_ID/in
+          name: shared-storage
+          subPath: uws/jobs/clean/JOB_ID/in
+        - claimName: mmli-clean-job-weights
+          mountPath: /app/results/inputs
+          name: shared-storage
+          subPath: output
+        - claimName: mmli-clean-job-weights
+          mountPath: /root/.cache/torch/hub/checkpoints
+          name: shared-storage
+          subPath: weights
+      novostoic-dgpredictor:
+        command: python ./novostoic-job.py dgpredictor
+        image: moleculemaker/novostoic
+        imagePullPolicy: Always
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/novostoic-dgpredictor/JOB_ID/out
+          name: shared-storage
+          subPath: uws/jobs/novostoic-dgpredictor/JOB_ID/out
+      novostoic-enzrank:
+        command: python ./novostoic-job.py enzrank
+        image: moleculemaker/novostoic
+        imagePullPolicy: Always
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/novostoic-enzrank/JOB_ID/out
+          name: shared-storage
+          subPath: uws/jobs/novostoic-enzrank/JOB_ID/out
+      novostoic-optstoic:
+        command: python ./novostoic-job.py optstoic
+        image: moleculemaker/novostoic
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: "1"
+            memory: 24Gi
+          requests:
+            cpu: "1"
+            memory: 12Gi
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/novostoic-optstoic/JOB_ID/out
+          name: shared-storage
+          subPath: uws/jobs/novostoic-optstoic/JOB_ID/out
+      novostoic-pathways:
+        command: python ./novostoic-job.py pathways
+        image: moleculemaker/novostoic
+        imagePullPolicy: Always
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: uws/jobs/novostoic-pathways/JOB_ID/out
+          name: shared-storage
+          subPath: uws/jobs/novostoic-pathways/JOB_ID/out
+      somn:
+        command: cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/example_request.csv
+          && micromamba run -n base somn predict 44eb8d94effa11eea46f18c04d0a4970 apr-2024
+          asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}
+        image: moleculemaker/somn
+        imagePullPolicy: Always
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
+        volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/somn/JOB_ID/in
+          name: shared-storage
+          subPath: uws/jobs/somn/JOB_ID/in
+        - claimName: mmli-clean-job-weights
+          mountPath: /uws/jobs/somn/JOB_ID/out
+          name: shared-storage
+          subPath: uws/jobs/somn/JOB_ID/out
+    minio:
+      accessKey: ""
+      apiBaseUrl: minioapi.mmli.fastapi.localhost
+      secretKey: ""
+      server: mmli-backend-minio.mmli.svc.cluster.local:9000
+    molli_frontend_url: https://molli.frontend.staging.mmli1.ncsa.illinois.edu
+    novostoic_frontend_url: https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu
+    server:
+      apiBasePath: api/v1
+      basePath: ""
+      hostName: mmli.fastapi.mmli1.ncsa.illinois.edu
+      loglevel: DEBUG
+      port: 8080
+      protocol: https
+    somn_frontend_url: https://somn.frontend.staging.mmli1.ncsa.illinois.edu
