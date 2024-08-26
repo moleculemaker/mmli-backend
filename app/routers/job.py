@@ -76,15 +76,37 @@ async def create_job(
 
         elif job_type == JobType.ACERETRO:
             # ACERetro jobs
+            # Example usage:
+            # curl -X POST https://mmli.kastan.ai/aceretro/jobs \
+            #   -H "Content-Type: application/json" \
+            #   -d '{
+            #     "job_id": "123",
+            #     "email": "user@gmail.com",
+            #     "job_info": "{\"smiles\": \"O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO\"}"
+            #   }'
+            log.info(f"------------------ STARTING ACERETRO JOB ------------------  job[{job_type}]: " + job_id)
             if service.ensure_bucket_exists(job_type):
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            
+            environment = [{
+                'name': 'MINIO_URL',
+                'value': app_config['minio']['apiBaseUrl']
+            },
+            {
+                'name': 'MINIO_ACCESS_KEY',
+                'value': app_config['minio']['accessKey']
+            },
+            {
+                'name': 'MINIO_SECRET_ACCESS_KEY',
+                'value': app_config['minio']['secretKey']
+            }]
 
-            # add minio_path to command
-            command = app_config['kubernetes_jobs'][job_type]['command'] + f" --minio_path /{job_id}/in/input.json"
+            # job_id is only param
+            command = f"python entrypoint.py --job_id {job_id}"
             try:
-                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+                log.debug(f"------- Creating Kubernetes job[{job_type}]: " + job_id)
                 kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
             except Exception as ex:
                 log.error("Failed to create Job: " + str(ex))
