@@ -11,7 +11,7 @@ cp .env.tpl .env
 
 ### (2/4) Setup a K8 cluster, here we use Minikube 
 1. [Install Minikube](https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download).
-2. Start minikube w/ an extrenal network (defined in this repo's `docker-compose.yml`)
+2. Start minikube w/ an external network (defined in this repo's `docker-compose.yml`)
 ```bash
 minikube start --network=mmli-net --driver=docker --memory=24384
 ```
