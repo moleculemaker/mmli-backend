@@ -1,6 +1,6 @@
 import json
 
-from config import get_logger
+from config import MINIO_SERVER, get_logger
 
 log = get_logger(__name__)
 
@@ -17,6 +17,7 @@ class MolliService:
         # Tell the job to use these files when it runs
         environment.append({'name': 'CORES_INPUT_FILE', 'value': f'{input_dir}/{CORES_FILE_NAME}'})
         environment.append({'name': 'SUBS_INPUT_FILE', 'value': f'{input_dir}/{SUBS_FILE_NAME}'})
+        environment.append({'name': 'MINIO_SERVER', 'value': MINIO_SERVER})
 
         return environment
 
@@ -34,4 +35,4 @@ class MolliService:
             }
         }
 
-        return json.dumps(result)
+        return result
