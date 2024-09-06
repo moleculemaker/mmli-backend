@@ -267,11 +267,15 @@ class KubeEventWatcher:
                         # create session and add objects
                         with Session(self.engine) as session:
                             updated_job = session.get(Job, job_id)
-                            updated_job.phase = new_phase
+                            if updated_job is not None:
+                                updated_job.phase = new_phase
 
-                            session.add(updated_job)
-                            session.commit()
-                            session.flush()
+                                session.add(updated_job)
+                                session.commit()
+                                session.flush()
+                            else:
+                                self.logger.warning('"None" was encountered when fetching Job:', job_id)
+                                self.logger.warning('Skipping database update...')
 
                             self.send_notification_email(updated_job, new_phase)
 
