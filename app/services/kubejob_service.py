@@ -84,9 +84,9 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str):
         return False
 
     minioClient = Minio(
-        app_config['minio']['server'],
-        access_key=app_config['minio']['accessKey'],
-        secret_key=app_config['minio']['secretKey'],
+        MINIO_SERVER,
+        access_key=MINIO_ACCESS_KEY,
+        secret_key=MINIO_SECRET_KEY,
         secure=False
     )
 
