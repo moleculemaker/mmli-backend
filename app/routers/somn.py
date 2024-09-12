@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Literal
 
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
 from fastapi.responses import JSONResponse
@@ -24,43 +24,8 @@ class CheckReactionSiteResponse(BaseModel):
     reaction_site_idxes: List[int]
     svg: str
 
-@router.post(f"/{JobType.SOMN}/run", tags=['Somn'])
-async def start_somn(
-    requestBody: SomnRequestBody, 
-    background_tasks: BackgroundTasks, 
-    service: MinIOService = Depends(), 
-    db: AsyncSession = Depends(get_session), 
-    email_service: EmailService = Depends()
-):
-    #ASSUMPTION: a job of novostoic/optstoic has been created in the db already
-    if requestBody.jobId == "":
-        content = {"jobId": requestBody.jobId, "error_message": "Job ID not provided."}
-        return JSONResponse(content=content, status_code=400)
-    
-    existing_job = await db.execute(select(Job).where(Job.job_id == requestBody.jobId))
-    if not existing_job.first():
-        content = {"jobId": requestBody.jobId, "error_message": "Job not found."}
-        return JSONResponse(content=content, status_code=404)
-
-    #TODO: add validation for the input
-    payload = {
-        "job_id": requestBody.jobId,
-    }
-
-    somnService = SomnService(db=db)
-    background_tasks.add_task(
-        somnService.runSomn, 
-        JobType.SOMN,
-        payload,
-        service, 
-        email_service
-    )
-    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
-    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
-
-
 @router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
-async def check_reaction_sites(smiles: str, role: str):
+async def check_reaction_sites(smiles: str, role: Literal['el', 'nuc']):
     try:
         reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
     except SomnException as e:
