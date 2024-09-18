@@ -9,3 +9,5 @@ class SomnRequestBody(BaseModel):
     el_name: str
     nuc: str
     nuc_name: str
+    nuc_idx: str
+    el_idx: str

@@ -101,6 +101,7 @@ class ChemicalIdentifier(SQLModel, table=True):
     reference: Optional[str] = Field(default=None, nullable=True)
     kegg_id: Optional[str] = Field(default=None, nullable=True, index=True)
     formula: Optional[str] = Field(default=None, nullable=True)
+    is_cofactor: Optional[bool] = Field(default=False, nullable=True)
 
 class SavedMolecule(SQLModel, table=True):
     __tablename__ = 'saved_molecule'

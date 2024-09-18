@@ -27,6 +27,7 @@ from services import kubejob_service
 from services.clean_service import CleanService
 from services.molli_service import MolliService
 from services.minio_service import MinIOService
+from services.somn_service import SomnService
 
 router = APIRouter()
 
@@ -73,12 +74,12 @@ async def create_job(
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
         elif job_type == JobType.SOMN:
-            project_id = '44eb8d94effa11eea46f18c04d0a4970'
-            model_set = 'apr-2024'
-            new_predictions_name = 'asdf'
-
-            # TODO: Build up example_request.csv from user input, upload to MinIO?
+            #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
+            
+            # validate user input
+            job_config = SomnService.validate_and_update_config(job_config)
+            
             file = io.StringIO()
             writer = csv.writer(file)
             writer.writerow([
@@ -86,14 +87,18 @@ async def create_job(
                 "nuc", 
                 "el", 
                 "nuc_name", 
-                "el_name"
+                "el_name",
+                "nuc_idx",
+                "el_idx"
             ])
             writer.writerow([
-                "testuser", 
+                job_config["reactant_pair_name"], 
                 job_config["nuc"],
                 job_config["el"], 
                 job_config["nuc_name"], 
-                job_config["el_name"]
+                job_config["el_name"],
+                job_config["nuc_idx"],
+                job_config["el_idx"]
             ])
             
             upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
@@ -101,9 +106,7 @@ async def create_job(
                 raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
 
             # We assume that file has already been uploaded to MinIO
-            somn_project_dir = '/tmp/somn_root/somn_scratch/44eb8d94effa11eea46f18c04d0a4970'
-            #input_file_path = f'{somn_project_dir}/scratch/example_request.csv'
-            #output_file_path = f'{somn_project_dir}/outputs/asdf'
+            somn_project_dir = app_config['kubernetes_jobs']['somn']['projectDirectory']
 
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f"ls -al && whoami && somn predict {project_id} {model_set} {new_predictions_name}"
