@@ -102,3 +102,15 @@ class ChemicalIdentifier(SQLModel, table=True):
     kegg_id: Optional[str] = Field(default=None, nullable=True, index=True)
     formula: Optional[str] = Field(default=None, nullable=True)
     is_cofactor: Optional[bool] = Field(default=False, nullable=True)
+
+class SavedMolecule(SQLModel, table=True):
+    __tablename__ = 'saved_molecule'
+    
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: Optional[str] = Field(default=None, index=True, nullable=True)
+    job_id: str = Field(default=None, index=True)
+    molecule_id: str = Field(default=None, index=True)
+    time_created: Optional[int] = Field(default=None)
+
+class SavedMoleculeDelete(BaseModel):
+    id: int

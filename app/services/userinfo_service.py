@@ -64,8 +64,14 @@ def userinfo(access_token) -> dict:
         log.warning(f'OAuth2 token verification failed: {str(e)}')
         pass
 
+def get_token_from_request_cookies(request):
+    cookiename = app_config['auth']['cookiename']
+    token = request.cookies.get(cookiename)
+    #log.debug('Found get_token: ' + str(token))
+    return token
 
 # TODO: required scopes currently ignored
-def validate_auth_cookie(token, required_scopes=[]):
+def validate_auth_cookie(request, required_scopes=[]):
+    token = get_token_from_request_cookies(request)
     #log.debug('Found validate_token: ' + str(token))
     return userinfo(token)

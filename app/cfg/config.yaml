@@ -14,7 +14,7 @@ minio:
   apiBaseUrl: "minioapi.mmli.fastapi.localhost"
 
 auth:
-  userInfoUrl: "http://oauth2.proxy.local/oauth2/userinfo"
+  userInfoUrl: "https://auth.platform.moleculemaker.org/oauth2/userinfo"
   cookiename: "_oauth2_proxy"
 
 email:
