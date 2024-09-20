@@ -3,8 +3,10 @@ services:
   postgresql:
     container_name: mmli-backend-postgresql
     image: postgres:15
+    networks:
+      - mmli-net
     restart: always
-    ports: 
+    ports:
       - "5432:5432"
     env_file:
       - .env
@@ -14,6 +16,8 @@ services:
   minio:
     container_name: mmli-backend-minio
     image: minio/minio
+    networks:
+      - mmli-net
     ports:
       - "9001:9001"
       - "9002:9002"
@@ -26,20 +30,39 @@ services:
     container_name: mmli-backend
     image: moleculemaker/mmli-backend:kubejob
     restart: on-failure
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    networks:
+      - mmli-net
+    command:
+      [
+        "uvicorn",
+        "main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8080",
+        "--reload"
+      ]
     depends_on:
       - postgresql
       - minio
-    build: 
+    build:
       context: .
-    ports: 
+    ports:
       - "8080:8080"
     env_file:
       - .env
     volumes:
       - ./app:/code/app
       - ./migrations:/code/migrations
-      - ${HOME}/.kube/config:/opt/kubeconfig
+      - /home/kastan/.kube/config:/opt/kubeconfig
+      - /home/kastan/.minikube/ca.crt:/home/kastan/.minikube/ca.crt
+      - /home/kastan/.minikube/profiles/minikube/client.crt:/home/kastan/.minikube/profiles/minikube/client.crt
+      - /home/kastan/.minikube/profiles/minikube/client.key:/home/kastan/.minikube/profiles/minikube/client.key
+
+networks:
+  mmli-net:
+    external: true
+    name: mmli-net
 
 volumes:
   postgres:
