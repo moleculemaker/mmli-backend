@@ -29,6 +29,7 @@ novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.
 somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
 clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
 molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
   # ACERetro backend
@@ -212,7 +213,7 @@ kubernetes_jobs:
         cpu: "64"
         memory: "24Gi"
       requests:
-        cpu: "1"
+        cpu: "16"
         memory: "12Gi"
 
 external:

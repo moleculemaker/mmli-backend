@@ -107,7 +107,7 @@ async def create_job(
             command = f"python entrypoint.py --job_id {job_id}"
             try:
                 log.debug(f"------- Creating Kubernetes job[{job_type}]: " + job_id)
-                kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+                # kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
             except Exception as ex:
                 log.error("Failed to create Job: " + str(ex))
                 raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
@@ -164,16 +164,18 @@ async def create_job(
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
 
-            environment = [{
-                # TBD... 
-                # 'name': 'SOMN_PROJECT_DIR',
-                # 'value': somn_project_dir
-            }]
+            # environment = [{
+            #     # TBD... 
+            #     # 'name': 'SOMN_PROJECT_DIR',
+            #     # 'value': somn_project_dir
+            # }]
 
             # Run a Kubernetes Job with the given image + command + environment
             try:
                 log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-                kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+
+                # TODO: DANGER -- THIS IS PROBABLY A BAD DOUBLE CALL TO `create_job`
+                # kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
             except Exception as ex:
                 log.error("Failed to create Job: " + str(ex))
                 raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
