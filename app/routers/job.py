@@ -103,6 +103,9 @@ async def create_job(
                 'value': app_config['minio']['secretKey']
             }]
 
+            print("ACERETRO job: APP CONFIG", app_config)
+            print("ACERETRO job: Environment vars", environment)
+
             # job_id is only param
             command = f"python entrypoint.py --job_id {job_id}"
             try:
