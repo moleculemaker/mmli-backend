@@ -107,9 +107,14 @@ async def create_job(
                 'value': MINIO_ACCESS_KEY
             },
             {
-                'name': 'MINIO_SECRET_ACCESS_KEY',
+                'name': 'MINIO_ACCESS_KEY',
+                # 'value': app_config['minio']['accessKey']
+                'value': MINIO_ACCESS_KEY
+            },
+            {
+                'name': 'MINIO_SECURE',
                 # 'value': app_config['minio']['secretKey']
-                'value': MINIO_SECRET_KEY
+                'value': False # HARD CODED, like everywhere else in this repo
             }]
 
             print("ACERETRO job: Environment vars", environment)
