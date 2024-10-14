@@ -107,9 +107,9 @@ async def create_job(
                 'value': MINIO_ACCESS_KEY
             },
             {
-                'name': 'MINIO_ACCESS_KEY',
+                'name': 'MINIO_SECRET_ACCESS_KEY',
                 # 'value': app_config['minio']['accessKey']
-                'value': MINIO_ACCESS_KEY
+                'value': MINIO_SECRET_KEY
             },
             {
                 'name': 'MINIO_SECURE',
