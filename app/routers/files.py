@@ -22,6 +22,7 @@ from services.novostoic_service import NovostoicService
 from services.somn_service import SomnService
 from services.minio_service import MinIOService
 from services.chemscraper_service import ChemScraperService
+from services.aceretro_service import ACERetroService
 
 
 from typing import Optional
@@ -53,6 +54,10 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     if bucket_name == JobType.CHEMSCRAPER:
         print("Getting CHEMSCRAPER job result")
         return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
+    
+    if bucket_name == JobType.ACERETRO:
+        print("Getting ACERETRO job result")
+        return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
     
     elif bucket_name == JobType.MOLLI:
         print("Getting MOLLI job result")

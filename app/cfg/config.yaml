@@ -29,8 +29,43 @@ novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.
 somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
 clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
 molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
+  aceretro:
+    image: "kastanday/aceretro:slimer"
+    imagePullPolicy: "Always"
+    # command: "python entrypoint.py" # defined in job.py
+    volumes:
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/in'
+      subPath: 'uws/jobs/aceretro/JOB_ID/in'
+      claimName: 'mmli-clean-job-weights'
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/out'
+      subPath: 'uws/jobs/aceretro/JOB_ID/out'
+      claimName: 'mmli-clean-job-weights'
+    # env:
+    #   - name: MINIO_ACCESS_KEY
+    #     valueFrom:
+    #       secretKeyRef:
+    #         name: mmli-backend-minio
+    #         key: root-password
+    #   - name: MINIO_SECRET_ACCESS_KEY
+    #     valueFrom:
+    #       secretKeyRef:
+    #         name: mmli-backend-minio
+    #         key: root-user
+    #   - name: MINIO_URL
+    #     value: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
+    resources:
+      limits:
+        cpu: "4"
+        memory: 24Gi
+      requests:
+        cpu: "2"
+        memory: 12Gi
+  
   # Config for running CLEAN job
   clean:
     image: "moleculemaker/clean-image-amd64:latest"
@@ -179,10 +214,10 @@ kubernetes_jobs:
     # TODO: probably could adjust resource limits here
     resources:
       limits:
-        cpu: "1"
-        memory: "16Gi"
+        cpu: "64"
+        memory: "24Gi"
       requests:
-        cpu: "1"
+        cpu: "16"
         memory: "12Gi"
 
 external:

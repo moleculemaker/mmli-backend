@@ -154,6 +154,12 @@ class KubeEventWatcher:
             molli_frontend_url = app_config['molli_frontend_url']
             results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'MOLLI'
+        elif job_type == JobType.ACERETRO:
+            aceretro_frontend_url = app_config['aceretro_frontend_url']
+            results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ACERETRO'
+        else: 
+            raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 
         # Send email notification about success/failure
         if new_phase == JobStatus.COMPLETED and updated_job.email:
