@@ -6,7 +6,7 @@ router = APIRouter()
 @router.get("/smiles/draw", tags=['Shared'])
 async def draw_smiles(smiles: str):
     if type(smiles) != str: 
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=f"Input must be a single SMILES string. Got type: `{type(smiles)}` with SMILES = `{smiles}`")
     
     try:
         return draw_chemical_svg(smiles)
