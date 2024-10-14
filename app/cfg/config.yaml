@@ -45,19 +45,19 @@ kubernetes_jobs:
       mountPath: '/uws/jobs/aceretro/JOB_ID/out'
       subPath: 'uws/jobs/aceretro/JOB_ID/out'
       claimName: 'mmli-clean-job-weights'
-    env:
-      - name: MINIO_ACCESS_KEY
-        valueFrom:
-          secretKeyRef:
-            name: mmli-backend-minio
-            key: root-password
-      - name: MINIO_SECRET_ACCESS_KEY
-        valueFrom:
-          secretKeyRef:
-            name: mmli-backend-minio
-            key: root-user
-      - name: MINIO_URL
-        value: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu-tls"
+    # env:
+    #   - name: MINIO_ACCESS_KEY
+    #     valueFrom:
+    #       secretKeyRef:
+    #         name: mmli-backend-minio
+    #         key: root-password
+    #   - name: MINIO_SECRET_ACCESS_KEY
+    #     valueFrom:
+    #       secretKeyRef:
+    #         name: mmli-backend-minio
+    #         key: root-user
+    #   - name: MINIO_URL
+    #     value: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
     resources:
       limits:
         cpu: "4"

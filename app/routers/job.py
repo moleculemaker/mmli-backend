@@ -91,23 +91,27 @@ async def create_job(
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             
+            print("ACERETRO job: APP CONFIG", app_config)
+            
+            from config import MINIO_SERVER, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
+
+
             environment = [{
                 'name': 'MINIO_URL',
                 # 'value': app_config['minio']['apiBaseUrl']
-                'value': os.environ['MINIO_URL']
+                'value': MINIO_SERVER
             },
             {
                 'name': 'MINIO_ACCESS_KEY',
                 # 'value': app_config['minio']['accessKey']
-                'value': os.environ['MINIO_ACCESS_KEY']
+                'value': MINIO_ACCESS_KEY
             },
             {
                 'name': 'MINIO_SECRET_ACCESS_KEY',
                 # 'value': app_config['minio']['secretKey']
-                'value': os.environ['MINIO_SECRET_ACCESS_KEY']
+                'value': MINIO_SECRET_KEY
             }]
 
-            print("ACERETRO job: APP CONFIG", app_config)
             print("ACERETRO job: Environment vars", environment)
 
             # job_id is only param
