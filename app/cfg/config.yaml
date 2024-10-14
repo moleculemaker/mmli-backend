@@ -42,7 +42,7 @@ kubernetes_jobs:
   #     "job_info": "{\"smiles\": \"O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO\"}"
   #   }'
   aceretro:
-    image: "kastanday/aceretro:prod"
+    image: "kastanday/aceretro:slimer"
     imagePullPolicy: "Always"
     # command: "python entrypoint.py" # defined in job.py
     volumes:
@@ -61,6 +61,27 @@ kubernetes_jobs:
       requests:
         cpu: "2"
         memory: 12Gi
+  
+  aceretro-smiles-to-svg:
+    image: "kastanday/aceretro:slimer"
+    imagePullPolicy: "Always"
+    # command: "python entrypoint.py" # defined in job.py
+    volumes:
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/in'
+      subPath: 'uws/jobs/aceretro/JOB_ID/in'
+      claimName: 'mmli-clean-job-weights'
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/out'
+      subPath: 'uws/jobs/aceretro/JOB_ID/out'
+      claimName: 'mmli-clean-job-weights'
+    resources:
+      limits:
+        cpu: "1"
+        memory: 6Gi
+      requests:
+        cpu: "1"
+        memory: 6Gi
 
   # Config for running CLEAN job
   clean:
