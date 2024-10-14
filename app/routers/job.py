@@ -1,4 +1,5 @@
 import base64
+import os
 import json
 import re
 import time
@@ -92,15 +93,18 @@ async def create_job(
             
             environment = [{
                 'name': 'MINIO_URL',
-                'value': app_config['minio']['apiBaseUrl']
+                # 'value': app_config['minio']['apiBaseUrl']
+                'value': os.environ['MINIO_URL']
             },
             {
                 'name': 'MINIO_ACCESS_KEY',
-                'value': app_config['minio']['accessKey']
+                # 'value': app_config['minio']['accessKey']
+                'value': os.environ['MINIO_ACCESS_KEY']
             },
             {
                 'name': 'MINIO_SECRET_ACCESS_KEY',
-                'value': app_config['minio']['secretKey']
+                # 'value': app_config['minio']['secretKey']
+                'value': os.environ['MINIO_SECRET_ACCESS_KEY']
             }]
 
             print("ACERETRO job: APP CONFIG", app_config)
