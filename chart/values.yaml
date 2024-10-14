@@ -69,6 +69,7 @@ config:
   somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+  aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -100,6 +101,37 @@ config:
     fromName: "no-reply-ALPHASYNTHESIS"
 
   kubernetes_jobs:
+  # ACERetro backend
+  # Example usage:
+  # curl -X POST https://mmli.kastan.ai/aceretro/jobs \
+  #   -H "Content-Type: application/json" \
+  #   -d '{
+  #     "job_id": "123",
+  #     "email": "user@gmail.com",
+  #     "job_info": "{\"smiles\": \"O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO\"}"
+  #   }'
+  aceretro:
+    image: "kastanday/aceretro:prod"
+    imagePullPolicy: "Always"
+    # command: "python entrypoint.py" # defined in job.py
+    volumes:
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/in'
+      subPath: 'uws/jobs/aceretro/JOB_ID/in'
+      claimName: 'mmli-clean-job-weights'
+    - name: 'shared-storage'
+      mountPath: '/uws/jobs/aceretro/JOB_ID/out'
+      subPath: 'uws/jobs/aceretro/JOB_ID/out'
+      claimName: 'mmli-clean-job-weights'
+    resources:
+      limits:
+        cpu: "4"
+        memory: 12Gi
+      requests:
+        cpu: "2"
+        memory: 12Gi
+
+
     # Config for running CLEAN job
     clean:
       image: "moleculemaker/clean-image-amd64:latest"

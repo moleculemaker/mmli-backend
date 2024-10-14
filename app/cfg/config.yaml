@@ -56,8 +56,8 @@ kubernetes_jobs:
       claimName: 'mmli-clean-job-weights'
     resources:
       limits:
-        cpu: "64"
-        memory: 24Gi
+        cpu: "4"
+        memory: 12Gi
       requests:
         cpu: "2"
         memory: 12Gi
