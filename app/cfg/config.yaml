@@ -32,15 +32,6 @@ molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
 aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
-  # ACERetro backend
-  # Example usage:
-  # curl -X POST https://mmli.kastan.ai/aceretro/jobs \
-  #   -H "Content-Type: application/json" \
-  #   -d '{
-  #     "job_id": "123",
-  #     "email": "user@gmail.com",
-  #     "job_info": "{\"smiles\": \"O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO\"}"
-  #   }'
   aceretro:
     image: "kastanday/aceretro:slimer"
     imagePullPolicy: "Always"
@@ -54,6 +45,19 @@ kubernetes_jobs:
       mountPath: '/uws/jobs/aceretro/JOB_ID/out'
       subPath: 'uws/jobs/aceretro/JOB_ID/out'
       claimName: 'mmli-clean-job-weights'
+    env:
+      - name: MINIO_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: mmli-backend-minio
+            key: root-password
+      - name: MINIO_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: mmli-backend-minio
+            key: root-user
+      - name: MINIO_URL
+        value: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu-tls"
     resources:
       limits:
         cpu: "4"
