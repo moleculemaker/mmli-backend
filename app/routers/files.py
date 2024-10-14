@@ -56,7 +56,7 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
     
     if bucket_name == JobType.ACERETRO:
-        print("Getting CHEMSCRAPER job result")
+        print("Getting ACERETRO job result")
         return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
     
     elif bucket_name == JobType.MOLLI:

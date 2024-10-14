@@ -91,11 +91,7 @@ async def create_job(
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             
-            print("ACERETRO job: APP CONFIG", app_config)
-            
             from config import MINIO_SERVER, MINIO_ACCESS_KEY, MINIO_SECRET_KEY
-
-
             environment = [{
                 'name': 'MINIO_URL',
                 # 'value': app_config['minio']['apiBaseUrl']
@@ -117,17 +113,8 @@ async def create_job(
                 'value': False # HARD CODED, like everywhere else in this repo
             }]
 
-            print("ACERETRO job: Environment vars", environment)
-
-            # job_id is only param
             command = f"python entrypoint.py --job_id {job_id}"
-            try:
-                log.debug(f"------- Creating Kubernetes job[{job_type}]: " + job_id)
-                # kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
-            except Exception as ex:
-                log.error("Failed to create Job: " + str(ex))
-                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
-
+            # Job is created at end of function
         
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
@@ -172,7 +159,6 @@ async def create_job(
                 'value': somn_project_dir
             }]
         
-        # TODO: support NOVOSTOIC job types
         elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
             if service.ensure_bucket_exists(job_type):
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
@@ -189,9 +175,6 @@ async def create_job(
             # Run a Kubernetes Job with the given image + command + environment
             try:
                 log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-
-                # TODO: DANGER -- THIS IS PROBABLY A BAD DOUBLE CALL TO `create_job`
-                # kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
             except Exception as ex:
                 log.error("Failed to create Job: " + str(ex))
                 raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
