@@ -57,6 +57,7 @@ config:
   somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
+  aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
