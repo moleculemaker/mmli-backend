@@ -60,6 +60,7 @@ config:
   somn_frontend_url: "https://somn.platform.moleculemaker.org"
   clean_frontend_url: "https://clean.platform.moleculemaker.org"
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
+  aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
 
 
 postgresql:
