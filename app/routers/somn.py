@@ -15,12 +15,13 @@ router = APIRouter()
 class CheckReactionSiteResponse(BaseModel):
     reaction_site_idxes: List[int]
     has_chiral: bool
+    num_heavy_atoms: int
     svg: str
 
 @router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
 async def check_reaction_sites(smiles: str, role: Literal['el', 'nuc']):
     try:
-        reactionSiteIdxes, _, has_chiral = SomnService.check_user_input_substrates(smiles, role)
+        reactionSiteIdxes, _, has_chiral, num_heavy_atoms = SomnService.check_user_input_substrates(smiles, role)
     except SomnException as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -40,6 +41,7 @@ async def check_reaction_sites(smiles: str, role: Literal['el', 'nuc']):
     return {
         "reaction_site_idxes": reactionSiteIdxes,
         "has_chiral": has_chiral,
+        "num_heavy_atoms": num_heavy_atoms,
         "svg": draw_chemical_svg(smiles, 
                              width=450,
                              height=300,

@@ -45,6 +45,32 @@ class SomnService:
         return False
     
     @staticmethod
+    def get_num_heavy_atoms(mol: pb.Molecule):
+        """
+        Count the number of (non-Hydrogen) heavy atoms
+
+        Params:
+            mol (class 'openbabel.pybel.Molecule') - pybel.molecule object read from the SMILES String 
+
+        Returns:
+            cntHeavyAtoms (int) - number of heavy atoms in the molecule
+        """
+
+        # Remove Hs
+        mol.removeh()
+
+        # Count atoms
+        myVec=mol.atoms
+
+        # Get number of non-H atoms
+        cntHeavyAtoms=len(myVec)
+
+        # Add back Hs for further processing
+        mol.addh()
+
+        return cntHeavyAtoms
+    
+    @staticmethod
     def ob_test(smiles: str):
         """
         Generate 3D coordinates for a molecule from its SMILES string using OpenBabel.
@@ -53,12 +79,13 @@ class SomnService:
             smiles (str): SMILES representation of the molecule
             
         Returns:
-            tuple[str, bool]: A tuple containing:
+            tuple[str, bool, int]: A tuple containing:
                 - The molecule in MOL2 format with 3D coordinates
                 - Boolean indicating if the molecule has chiral centers
+                - Number of heavy atoms
                 
         Raises:
-            SomnException: If 3D coordinate generation fails
+            SomnException: If SMILES string is invalid or 3D coordinate generation fails
         """
         try:
             obmol = pb.readstring("smi", smiles)
@@ -70,11 +97,14 @@ class SomnService:
         try:            
             # this step may fail, so we know SOMN cannot compute on the input
             obmol.make3D() 
-            
-            return obmol.write("mol2"), SomnService.has_chiral(obmol)
-            
         except Exception as e:
             raise SomnException(f"Unable to generate 3D coordinates for {smiles}")
+        
+        return (
+            obmol.write("mol2"), 
+            SomnService.has_chiral(obmol), 
+            SomnService.get_num_heavy_atoms(obmol)
+        )
     
     @staticmethod
     def validate_and_update_config(job_config: dict):
@@ -186,7 +216,7 @@ class SomnService:
 
         # add ob_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        (mol2, has_chiral) = SomnService.ob_test(user_input)
+        (mol2, has_chiral, num_heavy_atoms) = SomnService.ob_test(user_input)
 
         # generate rdkit mol using mol2 because rdkit
         # might have issues generating mol from smiles directly
@@ -212,7 +242,7 @@ class SomnService:
                 raise SomnException("No nitrogens detected in nucleophile!")
             
             indices = get_amine_ref_ns(mol,nitrogens)
-            return (indices, mol2, has_chiral)
+            return (indices, mol2, has_chiral, num_heavy_atoms)
 
         elif role.startswith('el'):
             if len(bromides) + len(chlorides) == 0:
@@ -222,9 +252,9 @@ class SomnService:
                 chl_idxes = check_halides_aromatic(mol,chlorides)
                 brm_idxes = check_halides_aromatic(mol,bromides)
 
-                return (chl_idxes + brm_idxes, mol2, has_chiral)
+                return (chl_idxes + brm_idxes, mol2, has_chiral, num_heavy_atoms)
             
             except Exception as e:
                 raise e
 
-        return ([], "", has_chiral)
+        return ([], "", has_chiral, num_heavy_atoms)
