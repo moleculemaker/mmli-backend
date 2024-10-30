@@ -17,6 +17,7 @@ from services.email_service import EmailService
 from typing import List, Literal
 from rdkit import Chem
 from openbabel import pybel as pb
+from openbabel import openbabel as ob
 
 class SomnException(Exception):
     pass
@@ -25,7 +26,40 @@ class SomnService:
     somn_frontend_baseURL = os.environ.get("SOMN_FRONTEND_URL")
     
     @staticmethod
-    def gen3d_test(smiles: str):
+    def has_chiral(mol: pb.Molecule):
+        '''
+        Check if the molecule has any chiral centers (so we can prompt warning/info message) on front-end
+
+        Parameters:
+            mol (class 'openbabel.pybel.Molecule') - pybel.molecule object read from the SMILES String
+        
+        Returns:
+            Bool - True: has stereochemistry, False: no stereochemistry 
+        '''
+        m = mol.OBMol
+        for genericdata in m.GetAllData(ob.StereoData):
+            stereodata = ob.toStereoBase(genericdata)
+            stereotype = stereodata.GetType()
+            if (stereotype):
+                return True
+        return False
+    
+    @staticmethod
+    def ob_test(smiles: str):
+        """
+        Generate 3D coordinates for a molecule from its SMILES string using OpenBabel.
+        
+        Parameters:
+            smiles (str): SMILES representation of the molecule
+            
+        Returns:
+            tuple[str, bool]: A tuple containing:
+                - The molecule in MOL2 format with 3D coordinates
+                - Boolean indicating if the molecule has chiral centers
+                
+        Raises:
+            SomnException: If 3D coordinate generation fails
+        """
         try:            
             obmol = pb.readstring("smi", smiles)
             obmol.addh()
@@ -33,21 +67,19 @@ class SomnService:
             # this step may fail, so we know SOMN cannot compute on the input
             obmol.make3D() 
             
-            return obmol.write("mol2")
+            return obmol.write("mol2"), SomnService.has_chiral(obmol)
             
         except Exception as e:
             raise SomnException(f"Unable to generate 3D coordinates for {smiles}")
     
     @staticmethod
     def validate_and_update_config(job_config: dict):
-        el_mol_str = SomnService.gen3d_test(job_config['el'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['el'], 'el')
+        reaction_sites, el_mol_str, _ = SomnService.check_user_input_substrates(job_config['el'], 'el')
         
         if len(reaction_sites) > 1:
             job_config['el'] = el_mol_str
             
-        nuc_mol_str = SomnService.gen3d_test(job_config['nuc'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['nuc'], 'nuc')
+        reaction_sites, nuc_mol_str, _ = SomnService.check_user_input_substrates(job_config['nuc'], 'nuc')
         
         if len(reaction_sites) > 1:
             job_config['nuc'] = nuc_mol_str
@@ -86,9 +118,21 @@ class SomnService:
     @staticmethod
     def check_user_input_substrates(user_input, role: str):
         """
-        Verifies user input substrate, and if verification is successful, returns reaction sites if multiple.
-        If everything is "normal", i.e., the user doesn't need to tell us more information, then it returns 0.
-        If NONE are found for halides or reactive nitrogens, then this returns None.
+        Verifies user input substrate and returns reaction site indices and chirality information.
+
+        Parameters:
+            user_input (str): SMILES string of the input molecule
+            role (str): Role of the molecule - either 'el' for electrophile or 'nuc' for nucleophile
+
+        Returns:
+            tuple: A tuple containing:
+                - list[int]: List of atom indices for reaction sites
+                - a mol2 string of the molecule with 3D coordinates
+                - bool: True if molecule has chiral centers, False otherwise
+
+        Raises:
+            SomnException: If no valid reaction sites are found or if invalid molecule type
+            Exception: For other validation errors
         """
 
         def get_amine_ref_ns(mol, ref_atom_idxes: List) -> List:
@@ -136,13 +180,13 @@ class SomnService:
                     retVals.append(idx)
             return retVals
 
-        # add gen3d_test here to prevent the user from 
+        # add ob_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        obmol = SomnService.gen3d_test(user_input)
+        (mol2, has_chiral) = SomnService.ob_test(user_input)
 
-        # generate rdkit mol using obmol because rdkit
+        # generate rdkit mol using mol2 because rdkit
         # might have issues generating mol from smiles directly
-        mol = Chem.MolFromMol2Block(obmol, sanitize=False, removeHs=False)
+        mol = Chem.MolFromMol2Block(mol2, sanitize=False, removeHs=False)
 
         bromides = get_atoms_by_symbol(mol, symbol="Br")
         chlorides = get_atoms_by_symbol(mol, symbol="Cl")
@@ -164,7 +208,7 @@ class SomnService:
                 raise SomnException("No nitrogens detected in nucleophile!")
             
             indices = get_amine_ref_ns(mol,nitrogens)
-            return indices
+            return (indices, mol2, has_chiral)
 
         elif role.startswith('el'):
             if len(bromides) + len(chlorides) == 0:
@@ -174,9 +218,9 @@ class SomnService:
                 chl_idxes = check_halides_aromatic(mol,chlorides)
                 brm_idxes = check_halides_aromatic(mol,bromides)
 
-                return chl_idxes + brm_idxes
+                return (chl_idxes + brm_idxes, mol2, has_chiral)
             
             except Exception as e:
                 raise e
 
-        return []
+        return ([], "", has_chiral)
