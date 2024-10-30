@@ -60,10 +60,14 @@ class SomnService:
         Raises:
             SomnException: If 3D coordinate generation fails
         """
-        try:            
+        try:
             obmol = pb.readstring("smi", smiles)
-            obmol.addh()
-            
+        except Exception as e:
+            raise SomnException(f"Invalid SMILES string: {smiles}")
+        
+        obmol.addh()
+        
+        try:            
             # this step may fail, so we know SOMN cannot compute on the input
             obmol.make3D() 
             
