@@ -1,7 +1,5 @@
 import io
 import os
-import time
-import asyncio
 import json
 
 from fastapi import HTTPException
@@ -9,10 +7,8 @@ import pandas as pd
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from models.sqlmodel.models import Job
-from models.enums import JobStatus
 
 from services.minio_service import MinIOService
-from services.email_service import EmailService
 
 from typing import List, Literal
 from rdkit import Chem
@@ -25,9 +21,12 @@ class SomnService:
     somn_frontend_baseURL = os.environ.get("SOMN_FRONTEND_URL")
     
     @staticmethod
-    def gen3d_test(smiles: str):
+    def gen3d_test(
+        user_input: str, 
+        input_type: Literal['smi', 'cml', 'cdxml']
+    ):
         try:            
-            obmol = pb.readstring("smi", smiles)
+            obmol = pb.readstring(input_type, user_input)
             obmol.addh()
             
             # this step may fail, so we know SOMN cannot compute on the input
@@ -36,21 +35,25 @@ class SomnService:
             return obmol.write("mol2")
             
         except Exception as e:
-            raise SomnException(f"Unable to generate 3D coordinates for {smiles}")
+            raise SomnException(f"Unable to generate 3D coordinates for {user_input}")
     
     @staticmethod
     def validate_and_update_config(job_config: dict):
-        el_mol_str = SomnService.gen3d_test(job_config['el'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['el'], 'el')
+        el_mol_str = SomnService.gen3d_test(job_config['el'], job_config['el_input_type'])
+        reaction_sites = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
         
-        if len(reaction_sites) > 1:
-            job_config['el'] = el_mol_str
+        if len(reaction_sites) > 1 or \
+            job_config['el_input_type'] == 'cdxml' or \
+            job_config['el_input_type'] == 'cml':
+                job_config['el'] = el_mol_str
             
-        nuc_mol_str = SomnService.gen3d_test(job_config['nuc'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['nuc'], 'nuc')
+        nuc_mol_str = SomnService.gen3d_test(job_config['nuc'], job_config['nuc_input_type'])
+        reaction_sites = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
         
-        if len(reaction_sites) > 1:
-            job_config['nuc'] = nuc_mol_str
+        if len(reaction_sites) > 1 or \
+            job_config['nuc_input_type'] == 'cdxml' or \
+            job_config['nuc_input_type'] == 'cml':
+                job_config['nuc'] = nuc_mol_str
             
         return job_config
     
@@ -84,7 +87,11 @@ class SomnService:
         return retVal
     
     @staticmethod
-    def check_user_input_substrates(user_input, role: str):
+    def check_user_input_substrates(
+        user_input, 
+        input_type: Literal['smi', 'cml', 'cdxml'], 
+        role: Literal['el', 'nuc']
+    ):
         """
         Verifies user input substrate, and if verification is successful, returns reaction sites if multiple.
         If everything is "normal", i.e., the user doesn't need to tell us more information, then it returns 0.
@@ -138,7 +145,7 @@ class SomnService:
 
         # add gen3d_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        obmol = SomnService.gen3d_test(user_input)
+        obmol = SomnService.gen3d_test(user_input, input_type)
 
         # generate rdkit mol using obmol because rdkit
         # might have issues generating mol from smiles directly

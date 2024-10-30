@@ -1,33 +1,29 @@
-from datetime import datetime
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from openbabel import pybel as pb
 
-from services.minio_service import MinIOService
-from services.email_service import EmailService
 from services.somn_service import SomnService, SomnException
 
-from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
-
-from models.somnRequestBody import SomnRequestBody
-from models.sqlmodel.db import get_session
-from models.sqlmodel.models import Job, JobType
+from models.sqlmodel.models import JobType
 
 from services.shared import draw_chemical_svg
 
-router = APIRouter()
+router = APIRouter()  
 
 class CheckReactionSiteResponse(BaseModel):
     reaction_site_idxes: List[int]
     svg: str
 
 @router.get(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
-async def check_reaction_sites(smiles: str, role: Literal['el', 'nuc']):
+async def check_reaction_sites(
+    input: str, 
+    role: Literal['el', 'nuc'],
+    input_type: Literal['smi', 'cml', 'cdxml']
+):
     try:
-        reactionSiteIdxes = SomnService.check_user_input_substrates(smiles, role)
+        reaction_sites_idxes = SomnService.check_user_input_substrates(input, input_type, role)
     except SomnException as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -41,12 +37,17 @@ async def check_reaction_sites(smiles: str, role: Literal['el', 'nuc']):
         dopts.highlightRadius = .4
         dopts.prepareMolsBeforeDrawing=True
         dopts.fillHighlights=False
+        
+    if input_type == 'cdxml' or input_type == 'cml':
+        mol = pb.readstring(input_type, input)
+        input = mol.write('smi')
 
     return {
-        "reaction_site_idxes": reactionSiteIdxes,
-        "svg": draw_chemical_svg(smiles, 
-                             width=450,
-                             height=300,
-                             beforeDraw=beforeDraw, 
-                             highlightAtoms=reactionSiteIdxes)
+        "reaction_site_idxes": reaction_sites_idxes,
+        "smiles": input,
+        "svg": draw_chemical_svg(input, 
+                                 width=450,
+                                 height=300,
+                                 beforeDraw=beforeDraw, 
+                                 highlightAtoms=reaction_sites_idxes)
     }
