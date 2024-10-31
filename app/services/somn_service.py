@@ -17,6 +17,7 @@ from openbabel import pybel as pb
 import traceback
 
 log = get_logger(__name__)
+from openbabel import openbabel as ob
 
 class SomnException(Exception):
     pass
@@ -25,38 +26,102 @@ class SomnService:
     somn_frontend_baseURL = os.environ.get("SOMN_FRONTEND_URL")
     
     @staticmethod
-    def gen3d_test(
-        user_input: str, 
+    def has_chiral(mol: pb.Molecule):
+        '''
+        Check if the molecule has any chiral centers (so we can prompt warning/info message) on front-end
+
+        Parameters:
+            mol (class 'openbabel.pybel.Molecule') - pybel.molecule object read from the SMILES String
+        
+        Returns:
+            Bool - True: has stereochemistry, False: no stereochemistry 
+        '''
+        m = mol.OBMol
+        for genericdata in m.GetAllData(ob.StereoData):
+            stereodata = ob.toStereoBase(genericdata)
+            stereotype = stereodata.GetType()
+            if (stereotype):
+                return True
+        return False
+    
+    @staticmethod
+    def get_num_heavy_atoms(mol: pb.Molecule):
+        """
+        Count the number of (non-Hydrogen) heavy atoms
+
+        Params:
+            mol (class 'openbabel.pybel.Molecule') - pybel.molecule object read from the SMILES String 
+
+        Returns:
+            cntHeavyAtoms (int) - number of heavy atoms in the molecule
+        """
+
+        # Remove Hs
+        mol.removeh()
+
+        # Count atoms
+        myVec=mol.atoms
+
+        # Get number of non-H atoms
+        cntHeavyAtoms=len(myVec)
+
+        # Add back Hs for further processing
+        mol.addh()
+
+        return cntHeavyAtoms
+    
+    @staticmethod
+    def ob_test(
+        user_input: str,
         input_type: Literal['smi', 'cml', 'cdxml']
     ):
-        try:            
+        """
+        Generate 3D coordinates for a molecule from its SMILES string using OpenBabel.
+        
+        Parameters:
+            smiles (str): SMILES representation of the molecule
+            
+        Returns:
+            tuple[str, bool, int]: A tuple containing:
+                - The molecule in MOL2 format with 3D coordinates
+                - Boolean indicating if the molecule has chiral centers
+                - Number of heavy atoms
+                
+        Raises:
+            SomnException: If SMILES string is invalid or 3D coordinate generation fails
+        """
+        try:
             obmol = pb.readstring(input_type, user_input)
-            
-            # TODO: unless the input cdxml file already has hydrogens, addh won't work. 
-            # The failure of this step produces an incorrect smiles for further processing.
-            obmol.addh()
-            
+        except Exception as e:
+            raise SomnException(f"Invalid input [{input_type}]: {user_input}")
+        
+        # TODO: unless the input cdxml file already has hydrogens, addh won't work. 
+        # The failure of this step produces an incorrect smiles for further processing.
+        obmol.addh()
+        
+        try:            
             # this step may fail, so we know SOMN cannot compute on the input
             obmol.make3D() 
-            
-            return obmol.write("mol2")
-            
         except Exception as e:
             log.error(f"Unable to generate 3D coordinates {traceback.print_exc()}")
             raise SomnException(f"Unable to generate 3D coordinates for {user_input}")
+        
+        return (
+            obmol.write("mol2"), 
+            SomnService.has_chiral(obmol), 
+            SomnService.get_num_heavy_atoms(obmol)
+        )
     
     @staticmethod
     def validate_and_update_config(job_config: dict):
-        el_mol_str = SomnService.gen3d_test(job_config['el'], job_config['el_input_type'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
+        reaction_sites, el_mol_str, _ = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
         
         if len(reaction_sites) > 1 or \
             job_config['el_input_type'] == 'cdxml' or \
             job_config['el_input_type'] == 'cml':
                 job_config['el'] = el_mol_str
             
-        nuc_mol_str = SomnService.gen3d_test(job_config['nuc'], job_config['nuc_input_type'])
-        reaction_sites = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
+        reaction_sites, nuc_mol_str, _ = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
         
         if len(reaction_sites) > 1 or \
             job_config['nuc_input_type'] == 'cdxml' or \
@@ -101,9 +166,21 @@ class SomnService:
         role: Literal['el', 'nuc']
     ):
         """
-        Verifies user input substrate, and if verification is successful, returns reaction sites if multiple.
-        If everything is "normal", i.e., the user doesn't need to tell us more information, then it returns 0.
-        If NONE are found for halides or reactive nitrogens, then this returns None.
+        Verifies user input substrate and returns reaction site indices and chirality information.
+
+        Parameters:
+            user_input (str): SMILES string of the input molecule
+            role (str): Role of the molecule - either 'el' for electrophile or 'nuc' for nucleophile
+
+        Returns:
+            tuple: A tuple containing:
+                - list[int]: List of atom indices for reaction sites
+                - a mol2 string of the molecule with 3D coordinates
+                - bool: True if molecule has chiral centers, False otherwise
+
+        Raises:
+            SomnException: If no valid reaction sites are found or if invalid molecule type
+            Exception: For other validation errors
         """
 
         def get_amine_ref_ns(mol, ref_atom_idxes: List) -> List:
@@ -151,9 +228,9 @@ class SomnService:
                     retVals.append(idx)
             return retVals
 
-        # add gen3d_test here to prevent the user from 
+        # add ob_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        mol2 = SomnService.gen3d_test(user_input, input_type)
+        (mol2, has_chiral, num_heavy_atoms) = SomnService.ob_test(user_input, input_type)
 
         # generate rdkit mol using mol2 because rdkit
         # might have issues generating mol from smiles directly
@@ -179,7 +256,7 @@ class SomnService:
                 raise SomnException("No nitrogens detected in nucleophile!")
             
             indices = get_amine_ref_ns(mol,nitrogens)
-            return indices
+            return (indices, mol2, has_chiral, num_heavy_atoms)
 
         elif role.startswith('el'):
             if len(bromides) + len(chlorides) == 0:
@@ -189,9 +266,9 @@ class SomnService:
                 chl_idxes = check_halides_aromatic(mol,chlorides)
                 brm_idxes = check_halides_aromatic(mol,bromides)
 
-                return chl_idxes + brm_idxes
+                return (chl_idxes + brm_idxes, mol2, has_chiral, num_heavy_atoms)
             
             except Exception as e:
                 raise e
 
-        return []
+        return ([], "", has_chiral, num_heavy_atoms)

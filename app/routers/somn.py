@@ -1,6 +1,6 @@
-import json
 import re
 from typing import List, Literal
+from traceback import format_exc
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -25,6 +25,8 @@ class CheckReactionSiteRequest(BaseModel):
 class CheckReactionSiteResponse(BaseModel):
     reaction_site_idxes: List[int]
     smiles: str
+    has_chiral: bool
+    num_heavy_atoms: int
     svg: str
 
 @router.post(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
@@ -42,10 +44,12 @@ async def check_reaction_sites(
         input = re.sub(r' +', ' ', input)
     
     try:
-        reaction_sites_idxes = SomnService.check_user_input_substrates(input, input_type, role)
+        reactionSiteIdxes, _, has_chiral, num_heavy_atoms = SomnService.check_user_input_substrates(input, input_type, role)
     except SomnException as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        stack_trace = format_exc()
+        log.error(f"Error when checking reaction sites for {input}: {stack_trace}")
         raise HTTPException(status_code=400, detail=str('Invalid user input'))
     
     def beforeDraw(d2d):
@@ -62,11 +66,13 @@ async def check_reaction_sites(
         input = mol.write('smi').strip()
 
     return {
-        "reaction_site_idxes": reaction_sites_idxes,
+        "reaction_site_idxes": reactionSiteIdxes,
+        "has_chiral": has_chiral,
+        "num_heavy_atoms": num_heavy_atoms,
         "smiles": input,
         "svg": draw_chemical_svg(input, 
-                                 width=450,
-                                 height=300,
-                                 beforeDraw=beforeDraw, 
-                                 highlightAtoms=reaction_sites_idxes)
+                             width=450,
+                             height=300,
+                             beforeDraw=beforeDraw, 
+                             highlightAtoms=reactionSiteIdxes)
     }
