@@ -6,6 +6,7 @@ from fastapi import HTTPException
 import pandas as pd
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from config import get_logger
 from models.sqlmodel.models import Job
 
 from services.minio_service import MinIOService
@@ -13,6 +14,9 @@ from services.minio_service import MinIOService
 from typing import List, Literal
 from rdkit import Chem
 from openbabel import pybel as pb
+import traceback
+
+log = get_logger(__name__)
 
 class SomnException(Exception):
     pass
@@ -27,6 +31,9 @@ class SomnService:
     ):
         try:            
             obmol = pb.readstring(input_type, user_input)
+            
+            # TODO: unless the input cdxml file already has hydrogens, addh won't work. 
+            # The failure of this step produces an incorrect smiles for further processing.
             obmol.addh()
             
             # this step may fail, so we know SOMN cannot compute on the input
@@ -35,6 +42,7 @@ class SomnService:
             return obmol.write("mol2")
             
         except Exception as e:
+            log.error(f"Unable to generate 3D coordinates {traceback.print_exc()}")
             raise SomnException(f"Unable to generate 3D coordinates for {user_input}")
     
     @staticmethod
@@ -145,11 +153,11 @@ class SomnService:
 
         # add gen3d_test here to prevent the user from 
         # submitting a molecule that cannot be processed by SOMN
-        obmol = SomnService.gen3d_test(user_input, input_type)
+        mol2 = SomnService.gen3d_test(user_input, input_type)
 
-        # generate rdkit mol using obmol because rdkit
+        # generate rdkit mol using mol2 because rdkit
         # might have issues generating mol from smiles directly
-        mol = Chem.MolFromMol2Block(obmol, sanitize=False, removeHs=False)
+        mol = Chem.MolFromMol2Block(mol2, sanitize=False, removeHs=False)
 
         bromides = get_atoms_by_symbol(mol, symbol="Br")
         chlorides = get_atoms_by_symbol(mol, symbol="Cl")
