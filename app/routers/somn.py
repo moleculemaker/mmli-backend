@@ -3,11 +3,12 @@ from typing import List, Literal
 from traceback import format_exc
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from openbabel import pybel as pb
 
 from config import get_logger
-from services.somn_service import SomnService, SomnException
+from services.somn_service import SOMN_ERROR_TYPES, SomnService, SomnException
 
 from models.sqlmodel.models import JobType
 
@@ -28,8 +29,15 @@ class CheckReactionSiteResponse(BaseModel):
     has_chiral: bool
     num_heavy_atoms: int
     svg: str
+    
+class CheckReactionSiteResponseInvalid(BaseModel):
+    type: SOMN_ERROR_TYPES
+    message: str
 
-@router.post(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], response_model=CheckReactionSiteResponse)
+@router.post(f"/{JobType.SOMN}/all-reaction-sites", tags=['Somn'], responses={
+    200: { "model": CheckReactionSiteResponse },
+    400: { "model": CheckReactionSiteResponseInvalid }
+})
 async def check_reaction_sites(
     request: CheckReactionSiteRequest
 ):
@@ -46,11 +54,14 @@ async def check_reaction_sites(
     try:
         reactionSiteIdxes, _, has_chiral, num_heavy_atoms = SomnService.check_user_input_substrates(input, input_type, role)
     except SomnException as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(
+            status_code=400,
+            content=e.__dict__
+        )
     except Exception as e:
         stack_trace = format_exc()
         log.error(f"Error when checking reaction sites for {input}: {stack_trace}")
-        raise HTTPException(status_code=400, detail=str('Invalid user input'))
+        raise HTTPException(status_code=500, detail=str('Internal server error'))
     
     def beforeDraw(d2d):
         dopts = d2d.drawOptions()

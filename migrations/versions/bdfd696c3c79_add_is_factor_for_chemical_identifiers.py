@@ -1,7 +1,7 @@
 """add is_factor for chemical_identifiers
 
 Revision ID: bdfd696c3c79
-Revises: 30b240622d34
+Revises: 58fe2962368d
 Create Date: 2024-07-28 15:16:59.193857
 
 """
@@ -12,7 +12,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision = 'bdfd696c3c79'
-down_revision = '30b240622d34'
+down_revision = '58fe2962368d'
 branch_labels = None
 depends_on = None
 

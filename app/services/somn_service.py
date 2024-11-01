@@ -19,8 +19,24 @@ import traceback
 log = get_logger(__name__)
 from openbabel import openbabel as ob
 
-class SomnException(Exception):
-    pass
+SOMN_ERROR_TYPES = Literal[
+    'invalid_input', 
+    '3d_gen', 
+    'no_reactive_nitrogens', 
+    'no_br_or_cl_in_el', 
+    'no_nitrogens_in_nuc',
+    'br_in_nuc',
+    'cl_in_nuc',
+    'no_reaction_site'
+]
+
+class SomnException(BaseException):
+    type: SOMN_ERROR_TYPES
+    message: str
+    
+    def __init__(self, type: str, message: str):
+        self.type = type
+        self.message = message
 
 class SomnService:
     somn_frontend_baseURL = os.environ.get("SOMN_FRONTEND_URL")
@@ -93,10 +109,8 @@ class SomnService:
         try:
             obmol = pb.readstring(input_type, user_input)
         except Exception as e:
-            raise SomnException(f"Invalid input [{input_type}]: {user_input}")
-        
-        # TODO: unless the input cdxml file already has hydrogens, addh won't work. 
-        # The failure of this step produces an incorrect smiles for further processing.
+            raise SomnException(type="invalid_input", message=f"Invalid input [{input_type}]: {user_input}")
+
         obmol.addh()
         
         try:            
@@ -104,7 +118,7 @@ class SomnService:
             obmol.make3D() 
         except Exception as e:
             log.error(f"Unable to generate 3D coordinates {traceback.print_exc()}")
-            raise SomnException(f"Unable to generate 3D coordinates for {user_input}")
+            raise SomnException(type="3d_gen", message=f"Unable to generate 3D coordinates for {user_input}")
         
         return (
             obmol.write("mol2"), 
@@ -114,14 +128,14 @@ class SomnService:
     
     @staticmethod
     def validate_and_update_config(job_config: dict):
-        reaction_sites, el_mol_str, _ = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
+        reaction_sites, el_mol_str, _, _ = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
         
         if len(reaction_sites) > 1 or \
             job_config['el_input_type'] == 'cdxml' or \
             job_config['el_input_type'] == 'cml':
                 job_config['el'] = el_mol_str
             
-        reaction_sites, nuc_mol_str, _ = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
+        reaction_sites, nuc_mol_str, _, _ = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
         
         if len(reaction_sites) > 1 or \
             job_config['nuc_input_type'] == 'cdxml' or \
@@ -205,7 +219,7 @@ class SomnService:
             if len(ret_val) >= 1:
                 return ret_val
             
-            raise Exception("No reactive nitrogens detected in nucleophile!")
+            raise SomnException(type="no_reactive_nitrogens", message="No reactive nitrogens found")
             
         def check_halides_aromatic(rdkmol,halides):
             rdkatoms = [atom for atom in rdkmol.GetAtoms() if atom.GetIdx() in halides]
@@ -245,30 +259,36 @@ class SomnService:
             if len(bromides) != 0:
                 aromatic_halides = check_halides_aromatic(mol,bromides)
                 if any(idx in aromatic_halides for idx in bromides):
-                    raise SomnException("Bromides detected in nucleophile!")
+                    raise SomnException(type="br_in_nuc", message="Bromine found in nucleophile")
 
             if len(chlorides) != 0:
                 aromatic_halides = check_halides_aromatic(mol,bromides)
                 if any(idx in aromatic_halides for idx in chlorides):
-                    raise SomnException("Chlorides detected in nucleophile!")
+                    raise SomnException(type="cl_in_nuc", message="Chlorine found in nucleophile")
             
             if len(nitrogens) == 0:
-                raise SomnException("No nitrogens detected in nucleophile!")
+                raise SomnException(type="no_nitrogens_in_nuc", message="No nitrogens found in nucleophile")
             
             indices = get_amine_ref_ns(mol,nitrogens)
+            if not len(indices):
+                raise SomnException(type="no_reaction_site", message="No Reaction Site found")
+            
             return (indices, mol2, has_chiral, num_heavy_atoms)
 
         elif role.startswith('el'):
             if len(bromides) + len(chlorides) == 0:
-                raise SomnException("No Br or Cl sites detected in electrophile!")
+                raise SomnException(type="no_br_or_cl_in_el", message="No Br or Cl found in electrophile")
             
             try:
                 chl_idxes = check_halides_aromatic(mol,chlorides)
                 brm_idxes = check_halides_aromatic(mol,bromides)
+                
+                if not len(chl_idxes) and not len(brm_idxes):
+                    raise SomnException(type="no_reaction_site", message="No Reaction Site found")
 
                 return (chl_idxes + brm_idxes, mol2, has_chiral, num_heavy_atoms)
             
             except Exception as e:
                 raise e
 
-        return ([], "", has_chiral, num_heavy_atoms)
+        raise SomnException(type="invalid_input", message=f"Invalid input role: {role}")
