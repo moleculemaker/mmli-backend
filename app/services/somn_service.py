@@ -149,30 +149,32 @@ class SomnService:
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         job = await db.get(Job, job_id)
         job_info = json.loads(job.job_info)
-        file_name = f"{job_info['nuc_name']}_{job_info['el_name']}_processed.csv"
-        
-        csv_content = service.get_file(bucket_name, f"/{job_id}/out/{file_name}")
-        if csv_content is None:
-            filename = "results/" + job_id + "/" + job_id + ".csv"
-            raise HTTPException(status_code=404, detail=f"File {filename} not found")
-        
-        df = pd.read_csv(io.BytesIO(csv_content))
-        retVal = []
-        for index, row in df.iterrows():
-            data = {}
-            keys = row[0].split('_')
-            average = row['average']
-            stdev = row['stdev']
-            data['nuc_name'] = keys[0]
-            data['el_name'] = keys[1]
-            data['catalyst'] = int(keys[2])
-            data['solvent'] = int(keys[3])
-            data['base'] = keys[4]
-            data['yield'] = average
-            data['stdev'] = stdev
-            retVal.append(data)
+        ret_val = []
+        for info in job_info:
+            file_name = f"{info['nuc_name']}_{info['el_name']}_processed.csv"
             
-        return retVal
+            csv_content = service.get_file(bucket_name, f"/{job_id}/out/{file_name}")
+            if csv_content is None:
+                raise HTTPException(status_code=404, detail=f"File {file_name} not found")
+            
+            df = pd.read_csv(io.BytesIO(csv_content))
+            file_data = []
+            for _, row in df.iterrows():
+                data = {}
+                keys = row[0].split('_')
+                average = row['average']
+                stdev = row['stdev']
+                data['nuc_name'] = keys[0]
+                data['el_name'] = keys[1]
+                data['catalyst'] = int(keys[2])
+                data['solvent'] = int(keys[3])
+                data['base'] = keys[4]
+                data['yield'] = average
+                data['stdev'] = stdev
+                file_data.append(data)
+            ret_val.append(file_data)
+            
+        return ret_val
     
     @staticmethod
     def check_user_input_substrates(
