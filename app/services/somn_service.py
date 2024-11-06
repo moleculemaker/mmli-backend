@@ -127,20 +127,21 @@ class SomnService:
         )
     
     @staticmethod
-    def validate_and_update_config(job_config: dict):
-        reaction_sites, el_mol_str, _, _ = SomnService.check_user_input_substrates(job_config['el'], job_config['el_input_type'], 'el')
-        
-        if len(reaction_sites) > 1 or \
-            job_config['el_input_type'] == 'cdxml' or \
-            job_config['el_input_type'] == 'cml':
-                job_config['el'] = el_mol_str
+    def validate_and_update_config(job_config: List[dict]):
+        for config in job_config:
+            reaction_sites, el_mol_str, _, _ = SomnService.check_user_input_substrates(config['el'], config['el_input_type'], 'el')
             
-        reaction_sites, nuc_mol_str, _, _ = SomnService.check_user_input_substrates(job_config['nuc'], job_config['nuc_input_type'], 'nuc')
-        
-        if len(reaction_sites) > 1 or \
-            job_config['nuc_input_type'] == 'cdxml' or \
-            job_config['nuc_input_type'] == 'cml':
-                job_config['nuc'] = nuc_mol_str
+            if len(reaction_sites) > 1 or \
+                config['el_input_type'] == 'cdxml' or \
+                config['el_input_type'] == 'cml':
+                    config['el'] = el_mol_str
+                
+            reaction_sites, nuc_mol_str, _, _ = SomnService.check_user_input_substrates(config['nuc'], config['nuc_input_type'], 'nuc')
+            
+            if len(reaction_sites) > 1 or \
+                config['nuc_input_type'] == 'cdxml' or \
+                config['nuc_input_type'] == 'cml':
+                    config['nuc'] = nuc_mol_str
             
         return job_config
     

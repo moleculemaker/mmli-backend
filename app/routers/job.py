@@ -134,15 +134,16 @@ async def create_job(
                 "nuc_idx",
                 "el_idx"
             ])
-            writer.writerow([
-                job_config["reactant_pair_name"], 
-                job_config["nuc"],
-                job_config["el"], 
-                job_config["nuc_name"], 
-                job_config["el_name"],
-                job_config["nuc_idx"],
-                job_config["el_idx"]
-            ])
+            for config in job_config:
+                writer.writerow([
+                    config["reactant_pair_name"], 
+                    config["nuc"],
+                    config["el"], 
+                    config["nuc_name"], 
+                    config["el_name"],
+                    config["nuc_idx"],
+                    config["el_idx"]
+                ])
             
             upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
             if not upload_result:
