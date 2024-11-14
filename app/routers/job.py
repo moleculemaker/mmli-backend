@@ -120,8 +120,26 @@ async def create_job(
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
             
-            # validate user input
-            job_config = SomnService.validate_and_update_config(job_config)
+            # Generate unique name mappings
+            job_config, el_name_map = SomnService.generate_name_mapping(job_config, 'el')
+            job_config, nuc_name_map = SomnService.generate_name_mapping(job_config, 'nuc')
+            
+            # Update names from reference files
+            job_config, el_name_map = SomnService.update_names_from_reference(job_config, el_name_map, 'el')
+            job_config, nuc_name_map = SomnService.update_names_from_reference(job_config, nuc_name_map, 'nuc')
+            
+            # Serialize job_config, el_name_map, nuc_name_map
+            job_info = json.dumps({
+                'info': job_config,
+                'el_name_map': el_name_map,
+                'nuc_name_map': nuc_name_map
+            })
+            
+            # Process molecule inputs
+            for config in job_config:
+                config['el'] = SomnService.process_molecule_input(config, 'el')
+                config['nuc'] = SomnService.process_molecule_input(config, 'nuc')
+            
             
             file = io.StringIO()
             writer = csv.writer(file)
