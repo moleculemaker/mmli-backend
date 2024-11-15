@@ -294,7 +294,7 @@ class SomnService:
         
         if len(reaction_sites) > 1 or config[f'{mol_type}_input_type'] in ['cdxml', 'cml']:
             return mol_str
-        return SomnService.canonicalize_smiles(config[mol_type])
+        return config[mol_type]
     
     @staticmethod
     def generate_name_mapping(configs: List[dict], mol_type: Literal['el', 'nuc']) -> dict:
@@ -302,10 +302,13 @@ class SomnService:
         name_map = {}
         for config in configs:
             name_key = f'{mol_type}_name'
-            if config[name_key] not in name_map:
+            new_name = config[name_key]
+            if not new_name or not new_name in name_map:
                 new_name = str(uuid.uuid4()).replace('-', '')
-                name_map[config[name_key]] = new_name
-            config[name_key] = name_map[config[name_key]]
+                name_map[new_name] = config[name_key]
+                print(f'[{mol_type}] {config[name_key]} ----> {new_name}')
+                
+            config[name_key] = new_name
         return (configs, name_map)
     
     @staticmethod
@@ -449,7 +452,13 @@ class SomnService:
         for config in configs:
             if config[mol_type] in ref[mol_type]:
                 name_key = f'{mol_type}_name'
-                name_map[config[name_key]] = ref[mol_type][config[mol_type]]
+                user_input_name = name_map[config[name_key]]
+                existed_substituted_name = config[name_key]
+                
+                print(f'[{mol_type}:name-map] {existed_substituted_name} ----> {ref[mol_type][config[mol_type]]}')
+                name_map[ref[mol_type][config[mol_type]]] = user_input_name
+                del name_map[existed_substituted_name]
+                
                 config[name_key] = ref[mol_type][config[mol_type]]
                     
         return (configs, name_map)

@@ -120,22 +120,30 @@ async def create_job(
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
             
+            # Canonicalize SMILES and update names from reference files
+            for config in job_config:
+                if config['el_input_type'] == 'smi':
+                    config['el'] = SomnService.canonicalize_smiles(config['el'])
+                if config['nuc_input_type'] == 'smi':
+                    config['nuc'] = SomnService.canonicalize_smiles(config['nuc'])
+            
             # Generate unique name mappings
             job_config, el_name_map = SomnService.generate_name_mapping(job_config, 'el')
             job_config, nuc_name_map = SomnService.generate_name_mapping(job_config, 'nuc')
             
-            # Update names from reference files
             job_config, el_name_map = SomnService.update_names_from_reference(job_config, el_name_map, 'el')
             job_config, nuc_name_map = SomnService.update_names_from_reference(job_config, nuc_name_map, 'nuc')
             
-            # Serialize job_config, el_name_map, nuc_name_map
+            print('updated config: ', job_config, el_name_map, nuc_name_map)
+            
+            # job_info is automatically stored in Postgres to retain user input
             job_info = json.dumps({
                 'info': job_config,
                 'el_name_map': el_name_map,
                 'nuc_name_map': nuc_name_map
             })
             
-            # Process molecule inputs
+            # Some SMILESs fail to pass 3d generation test, so we process them as mol2 input
             for config in job_config:
                 config['el'] = SomnService.process_molecule_input(config, 'el')
                 config['nuc'] = SomnService.process_molecule_input(config, 'nuc')
