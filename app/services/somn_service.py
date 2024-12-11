@@ -455,10 +455,11 @@ class SomnService:
                 user_input_name = name_map[config[name_key]]
                 existed_substituted_name = config[name_key]
                 
-                print(f'[{mol_type}:name-map] {existed_substituted_name} ----> {ref[mol_type][config[mol_type]]}')
-                name_map[ref[mol_type][config[mol_type]]] = user_input_name
+                new_name = f'pr-{ref[mol_type][config[mol_type]]}'
+                print(f'[{mol_type}:name-map] {existed_substituted_name} ----> {new_name}')
+                name_map[new_name] = user_input_name
                 del name_map[existed_substituted_name]
                 
-                config[name_key] = ref[mol_type][config[mol_type]]
+                config[name_key] = new_name
                     
         return (configs, name_map)
