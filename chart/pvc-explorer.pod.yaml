@@ -12,6 +12,8 @@ spec:
       volumeMounts:
       - mountPath: "/app/data"
         name: data
+      - mountPath: "/nfs"
+        name: nfs
   volumes:
     - name: data
       persistentVolumeClaim:
@@ -23,3 +25,7 @@ spec:
 
         # staging
         claimName: mmli-clean-job-weights
+    - name: nfs
+      nfs:
+        path: /taiga/ncsa/radiant/bbfp/mmli1/
+        server: taiga-nfs.ncsa.illinois.edu
