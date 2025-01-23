@@ -6,6 +6,7 @@ import time
 import uuid
 import csv
 import io
+import traceback
 
 from typing import List
 
@@ -237,6 +238,7 @@ async def create_job(
             kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
         except Exception as ex:
             log.error("Failed to create Job: " + str(ex))
+            log.error(traceback.format_exc())
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
     else:
