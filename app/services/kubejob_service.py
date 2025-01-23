@@ -553,7 +553,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
 
         # Include secrets, if necessary (e.g. ReactionMiner for HuggingFace API token)
         secrets = []
-        if 'secrets' in app_config['kubernetes_jobs'][job_type]
+        if 'secrets' in app_config['kubernetes_jobs'][job_type]:
             secrets = app_config['kubernetes_jobs'][job_type]['secrets']
 
         jobCompleteApiUrl = f'''{app_config['server']['protocol']}://{os.path.join(
