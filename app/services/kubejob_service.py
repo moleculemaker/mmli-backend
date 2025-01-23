@@ -551,6 +551,11 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             for volume in app_config['kubernetes_jobs'][job_type]['volumes']:
                 all_volumes.append(volume)
 
+        # Include secrets, if necessary (e.g. ReactionMiner for HuggingFace API token)
+        secrets = []
+        if 'secrets' in app_config['kubernetes_jobs'][job_type]
+            secrets = app_config['kubernetes_jobs'][job_type]['secrets']
+
         jobCompleteApiUrl = f'''{app_config['server']['protocol']}://{os.path.join(
             app_config['server']['hostName'],
             app_config['server']['basePath'],
@@ -595,6 +600,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             securityContext=app_config['kubernetes_jobs'][job_type]['securityContext'] if 'securityContext' in app_config['kubernetes_jobs'][job_type] else None,
             workingVolume=app_config['kubernetes_jobs']['defaults']['workingVolume'],
             volumes=all_volumes,
+            secrets=secrets,
             resources=app_config['kubernetes_jobs'][job_type]['resources'] if 'resources' in app_config['kubernetes_jobs'][job_type] else app_config['kubernetes_jobs']['defaults']['resources'],
             # apiToken=config['jwt']['hs256Secret'],
             apiToken='dummy',
