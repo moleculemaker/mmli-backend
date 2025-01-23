@@ -24,6 +24,7 @@ from models.sqlmodel.models import Job
 import sqlalchemy as db
 
 from services.email_service import EmailService
+from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
@@ -118,7 +119,9 @@ class KubeEventWatcher:
         #self.connection.run_sync(SQLModel.metadata.create_all)
         self.metadata = db.MetaData()
         self.jobs = []
+
         self.email_service = EmailService()
+        self.minio_service = MinIOService()
 
         self.stream = None
         self.logger.info('Starting KubeWatcher')
@@ -132,7 +135,7 @@ class KubeEventWatcher:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
-                job_type_name = 'NovoStoic'
+                job_type_name = 'novoStoic'
             elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
                 results_url = f'{novostoic_frontend_url}/overall-stoichiometry/result/{updated_job.job_id}'
                 job_type_name = 'OptStoic'
@@ -157,13 +160,22 @@ class KubeEventWatcher:
         elif job_type == JobType.ACERETRO:
             aceretro_frontend_url = app_config['aceretro_frontend_url']
             results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'ACERETRO'
+            job_type_name = 'ACERetro'
         elif job_type == JobType.REACTIONMINER:
             reactionminer_frontend_url = app_config['reactionminer_frontend_url']
             results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'REACTIONMINER'
+            job_type_name = 'ReactionMiner'
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
+
+        # Check if email has already been sent
+        # if so, file should exist in MinIO
+        job_id = updated_job.job_id
+        minio_bucket_name = job_type
+        minio_check_path = f'{job_id}/email-sent'
+        if self.minio_service.check_file_exists(minio_bucket_name, minio_check_path):
+            log.debug(f'Skipped sending email for {job_id}: email has already been sent for this job')
+            return
 
         # Send email notification about success/failure
         if new_phase == JobStatus.COMPLETED and updated_job.email:
@@ -171,6 +183,9 @@ class KubeEventWatcher:
                 self.email_service.send_email(updated_job.email,
                                               f'''Result for your {job_type_name} Job ({updated_job.job_id}) is ready''',
                                               f'''The result for your {job_type_name} Job is available at {results_url}''')
+
+                # Create (success) confirmation file in MinIO since email was sent
+                self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'success')
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')
         elif new_phase == JobStatus.ERROR and updated_job.email:
@@ -178,8 +193,12 @@ class KubeEventWatcher:
                 self.email_service.send_email(updated_job.email,
                                               f'''{job_type_name} Job ({updated_job.job_id}) failed''',
                                               f'''An error occurred in computing the result for your {job_type_name} job.''')
+
+                # Create (error) confirmation file in MinIO since email was sent
+                self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
             except Exception as e:
                 log.error(f'Failed to send email notification on failure: {str(e)}')
+
 
     def run(self):
         # Ignore kube-system namespace
