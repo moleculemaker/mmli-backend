@@ -23,10 +23,10 @@ class ReactionMinerService:
     @staticmethod
     async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         """
-        Inputs stored in Minio:  /{job_id}/in/input.json    Bucket name: reactionminer
-        Outputs stored in Minio: /{job_id}/out/output.json  Bucket name: reactionminer
+        Inputs stored in Minio:  /{job_id}/in/[name].pdf    Bucket name: reactionminer
+        Outputs stored in Minio: /{job_id}/out/[name].json  Bucket name: reactionminer
         """
-        filepath = f"/{job_id}/out/output.json"
+        filepath = f"/{job_id}/out/"
         content = service.get_file(bucket_name, filepath)
         if content is None:
             raise HTTPException(status_code=404, detail=f"File {filepath} not found")
