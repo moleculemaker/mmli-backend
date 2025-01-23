@@ -195,6 +195,18 @@ config:
           name: 'shared-storage'
           subPath: 'uws/jobs/reactionminer/.cache'
           claimName: 'mmli-clean-job-weights'
+
+      # Create a secret named HuggingFace API token
+      # We use a SealedSecret in staging + prod for this
+      #
+      # Format:
+      #   apiVersion: v1
+      #   kind: Secret
+      #   metadata:
+      #     name: huggingface-token
+      #     namespace: <namespace>
+      #   data:
+      #     token: YOUR_API_TOKEN
       secrets:
         - mountPath: '/root/.cache/token'
           name: 'token'

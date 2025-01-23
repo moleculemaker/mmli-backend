@@ -130,6 +130,13 @@ kubernetes_jobs:
         name: 'shared-storage'
         subPath: 'uws/jobs/reactionminer/.cache'
         claimName: 'mmli-clean-job-weights'
+
+    # Create a secret named HuggingFace API token
+    # Format:
+    #   apiVersion: v1
+    #   kind: Secret
+    #   data:
+    #     token: YOUR_API_TOKEN
     secrets:
       - mountPath: '/root/.cache/token'
         name: 'token'

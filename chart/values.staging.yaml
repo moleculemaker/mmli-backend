@@ -178,3 +178,17 @@ extraDeploy:
         namespace: staging
   
   
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: huggingface-token
+    namespace: staging
+  spec:
+    encryptedData:
+      token: AgBE0ecVZ0V62syvL9U4GhV7AhdJqovR7AYATpyfIZFRkVZ0LTfvx5dl0r/CFvcP/xB11g7EYCWEbqqKHXGPDTPnDnbHttGWsUKT2pmem9vSjWoOIODyyEH7YjrwySAkwdq+633n2A+csta90nPq9X3ZELUjSZY9tpuG/KIE3XdHaR6marOx7TqpgmraMh+I920XfGynOJ0nG4Sv8XOoIwKmZ8S/EPW63whz+6/eKwCbFcPq1LFChTO52/fpUi1YaeZZbMp2H0UwPa9CSWHJxdLeshauYCecBm2T2kMi2CFSASU+3AZNwlCzlWUn9xbIfuJGi98IT2+07jC08eJ/38aqpKCC71jE+L9oCiAs0KBZHb/dy0Q4n+kvPbk5kEUYOLm94U1H5etVZRAA4Fij0SjXV4zTL63zTDEGnQXBlbCAw1wC/s/LtvhNlipK4UNlL2yuIBsN2H0y7+18fD+Tm4ezvlCVvqsZ0H6/17khZc8+5GtUaf1GM+9+XJCn0hes8eReNhrS0WYepBEL+masXt/Pj+F6aZio0oReWdAP1jZTVroMs4eswku4CdXpSbYbquYws/wr14SfnakarQr0CxWknF3fOHmNZyjo0QUvKyxNzOD4ulzV6XHe49ItQfbnJUzfTuhhVX2y8Xw51IdELFzHvFdcdLogYw314mStMjUyF0xgEfvKqihr/ZYtb4P7rf4gbeSZ/xNynK1pNkLJyR43rQYiiRS1xVNxt0wbEXy5ZymCfG0W
+    template:
+      metadata:
+        creationTimestamp: null
+        name: huggingface-token
+        namespace: staging
