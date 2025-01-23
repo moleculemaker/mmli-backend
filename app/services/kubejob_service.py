@@ -158,6 +158,10 @@ class KubeEventWatcher:
             aceretro_frontend_url = app_config['aceretro_frontend_url']
             results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'ACERETRO'
+        elif job_type == JobType.REACTIONMINER:
+            reactionminer_frontend_url = app_config['reactionminer_frontend_url']
+            results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'REACTIONMINER'
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 

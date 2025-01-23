@@ -48,6 +48,20 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    reactionminer:
+      # Override Grobid server host for production
+      env:
+        - name: HF_TOKEN_PATH
+          value: '/root/.cache/token'
+        - name: GROBID_SERVER
+          value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
+      # Run ReactionMiner on GPU node
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
@@ -61,6 +75,7 @@ config:
   clean_frontend_url: "https://clean.platform.moleculemaker.org"
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
+  reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
 
 
 postgresql:

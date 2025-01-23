@@ -52,6 +52,18 @@ spec:
         - name: server-secret
           secret:
             secretName: "{{ releaseName }}-secrets"
+        {%- for sec in secrets %}
+        - name: "{{ sec.name }}"
+          secret:
+            secretName: "{{ sec.secretName }}"
+            {%- if sec.items %}
+            items:
+              {%- for item in sec.items %}
+              - key: "{{ item.name }}"
+                path: "{{ item.path }}"
+              {%- endfor %}
+            {%- endif %}
+        {%- endfor %}
         # Volume to host job data
         - name: "shared-storage"
           persistentVolumeClaim:
@@ -156,6 +168,12 @@ spec:
             mountPath: "{{ volume.mountPath | replace('JOB_ID',jobId) }}"
             subPath: "{{ volume.subPath | replace('JOB_ID',jobId) }}"
             readOnly: {{ volume.readOnly }}
+        {%- endfor %}
+        {%- for sec in secrets %}
+        - name: "{{ sec }}"
+          mountPath: "{{ sec.mountPath }}"
+          readOnly: true
+          subPath: "{{ sec.subPath }}"
         {%- endfor %}
       containers:
       - name: post-job

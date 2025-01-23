@@ -23,6 +23,7 @@ from services.somn_service import SomnService
 from services.minio_service import MinIOService
 from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
+from services.reactionminer_service import ReactionMinerService
 
 
 from typing import Optional
@@ -82,6 +83,9 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
         print("Getting novostoic-dgpredictor job result")
         return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.REACTIONMINER:
+        return await ReactionMinerService.resultPostProcess(bucket_name, job_id, service, db)
 
     elif bucket_name == JobType.SOMN:
         return await SomnService.resultPostProcess(bucket_name, job_id, service, db)

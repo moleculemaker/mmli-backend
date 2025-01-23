@@ -108,6 +108,38 @@ kubernetes_jobs:
         subPath: 'weights'
         claimName: 'mmli-clean-job-weights'
 
+  # Config for running ReactionMiner job
+  reactionminer:
+    image: "moleculemaker/reactionminer:latest"
+    imagePullPolicy: "Always"
+    env:
+    - name: HF_TOKEN_PATH
+      value: '/root/.cache/token'
+    - name: GROBID_SERVER
+      value: 'localhost'
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/workspace/10test/'
+        subPath: 'uws/jobs/reactionminer/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/workspace/extraction/results_filtered/'
+        subPath: 'uws/jobs/reactionminer/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+      - mountPath: '/root/.cache/huggingface/hub'
+        name: 'shared-storage'
+        subPath: 'uws/jobs/reactionminer/.cache'
+        claimName: 'mmli-clean-job-weights'
+    secrets:
+      - mountPath: '/root/.cache/token'
+        name: 'token'
+        subPath: 'token'
+        readOnly: 'true'
+        secretName: huggingface-token
+        items:
+        - key: token
+          path: token
+
   # Config for running SOMN job
   somn:
     image: "ianrinehart/somn:1.1"

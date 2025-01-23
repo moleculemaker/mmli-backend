@@ -115,7 +115,9 @@ async def create_job(
 
             command = f"python entrypoint.py --job_id {job_id}"
             # Job is created at end of function
-        
+        elif job_type == JobType.REACTIONMINER:
+            # TODO: configure + launch the job
+            log.debug('Running ReactionMiner...')
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))

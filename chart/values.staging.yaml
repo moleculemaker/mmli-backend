@@ -42,6 +42,14 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    # Run on GPU node
+    reactionminer:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
@@ -58,6 +66,7 @@ config:
   clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
+  reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
