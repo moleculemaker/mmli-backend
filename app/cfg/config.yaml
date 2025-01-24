@@ -143,9 +143,13 @@ kubernetes_jobs:
         subPath: 'token'
         readOnly: 'true'
         secretName: huggingface-token
-        items:
-        - key: token
-          path: token
+        # "itemDict" takes the place of "items":
+        # For example:
+        # items:
+        # - key: token
+        #   path: token
+        itemDict:
+          token: token
 
   # Config for running SOMN job
   somn:
