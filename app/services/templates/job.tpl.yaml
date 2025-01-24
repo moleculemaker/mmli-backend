@@ -170,7 +170,7 @@ spec:
             readOnly: {{ volume.readOnly }}
         {%- endfor %}
         {%- for sec in secrets %}
-          - name: "{{ sec }}"
+          - name: "{{ sec.name }}"
             mountPath: "{{ sec.mountPath }}"
             readOnly: true
             subPath: "{{ sec.subPath }}"
