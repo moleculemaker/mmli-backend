@@ -143,13 +143,11 @@ kubernetes_jobs:
         subPath: 'token'
         readOnly: 'true'
         secretName: huggingface-token
-        # "itemDict" takes the place of "items":
-        # For example:
-        # items:
-        # - key: token
-        #   path: token
-        itemDict:
-          token: token
+        # "itemList" takes the place of "items"
+        # This should avoid overlap with the built-in items() function
+        itemList:
+          - key: token
+            path: token
 
   # Config for running SOMN job
   somn:
