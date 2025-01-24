@@ -32,8 +32,7 @@ class MinIOService:
     def upload_file(self, bucket_name, object_name, file_content):
         # If file_content is a string, first convert to a byte stream
         if isinstance(file_content, str):
-            file_content_bytes = file_content.encode('utf-8')
-            file_content = io.BytesIO(file_content_bytes)
+            file_content = file_content.encode('utf-8')
 
         try:
             # Upload file to the specified bucket
