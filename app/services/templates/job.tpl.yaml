@@ -58,7 +58,7 @@ spec:
             secretName: "{{ sec.secretName }}"
             {%- if sec.itemDict %}
             items:
-              {%- for secretItemKey, secretItemPath in sec.itemDict.items()%}
+              {%- for secretItemKey, secretItemPath in sec.itemDict.items() %}
               - key: "{{ secretKey }}"
                 path: "{{ secretPath }}"
               {%- endfor %}
