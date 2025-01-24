@@ -1,3 +1,4 @@
+import json
 import os
 import time
 
@@ -29,14 +30,14 @@ class ReactionMinerService:
         Outputs stored in Minio: /{job_id}/out/[name].json  Bucket name: reactionminer
         """
         folder_path = f"/{job_id}/out/"
-        files = service.list_files(bucket_name, folder_path)
+        objects = service.list_files(bucket_name, folder_path)
         log.info('Files found: ' + str(files))
 
         # Iterate over folder and add all contents to a dictionary
         content = {}
-        for file_path in files:
-            file_name = os.path.basename(file_path).split('/')[-1]
-            content[file_name] = service.get_file(bucket_name, file_path)
+        for obj in objects:
+            file_name = os.path.basename(obj.object_name).split('/')[-1]
+            content[file_name] = json.loads(service.get_file(bucket_name=bucket_name, object_name=obj.object_name))
 
         # Return the dictionary if it has contents
         if not content:
