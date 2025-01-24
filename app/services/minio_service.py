@@ -30,6 +30,7 @@ class MinIOService:
             log.error("Error: ", err)
 
     def upload_file(self, bucket_name, object_name, file_content):
+        # If file_content is a string, first convert to a byte stream
         if isinstance(file_content, str):
             file_content_bytes = file_content.encode('utf-8')
             file_content = io.BytesIO(file_content_bytes)
@@ -48,11 +49,6 @@ class MinIOService:
         except S3Error as err:
             log.error("Error: ", err)
             return False
-
-    def upload_file_from_str(self, bucket_name, object_name, contents):
-        value_as_bytes = contents.encode('utf-8')
-        value_as_a_stream = io.BytesIO(value_as_bytes)
-        self.upload_file()
 
     def list_files(self, bucket_name, path, recursive=False):
         return self.client.list_objects(bucket_name, prefix=path, recursive=recursive)
