@@ -145,6 +145,8 @@ class KubeEventWatcher:
             elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
                 results_url = f'{novostoic_frontend_url}/thermodynamical-feasibility/result/{updated_job.job_id}'
                 job_type_name = 'dGPredictor'
+            else:
+                raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {JobType}")
         elif job_type == JobType.SOMN:
             somn_frontend_url = app_config['somn_frontend_url']
             results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
@@ -168,37 +170,45 @@ class KubeEventWatcher:
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 
+        job_id = updated_job.job_id
+
+        # Send email notification about success/failure
+        if new_phase == JobStatus.COMPLETED and updated_job.email and self.should_send_email(job_type, job_id):
+            try:
+                self.email_service.send_email(updated_job.email,
+                                              f'''Result for your {job_type_name} Job ({job_id}) is ready''',
+                                              f'''The result for your {job_type_name} Job is available at {results_url}''')
+                self.mark_email_as_sent(job_type, job_id, success=True)
+            except Exception as e:
+                log.error(f'Failed to send email notification on success: {str(e)}')
+        elif new_phase == JobStatus.ERROR and updated_job.email and self.should_send_email(job_type, job_id):
+            try:
+                self.email_service.send_email(updated_job.email,
+                                              f'''{job_type_name} Job ({job_id}) failed''',
+                                              f'''An error occurred in computing the result for your {job_type_name} job.''')
+                self.mark_email_as_sent(job_type, job_id, success=False)
+            except Exception as e:
+                log.error(f'Failed to send email notification on failure: {str(e)}')
+
+    def should_send_email(self, job_type, job_id):
         # Check if email has already been sent
         # if so, file should exist in MinIO
-        job_id = updated_job.job_id
         minio_bucket_name = job_type
         minio_check_path = f'{job_id}/email-sent'
         if self.minio_service.check_file_exists(minio_bucket_name, minio_check_path):
             log.debug(f'Skipped sending email for {job_id}: email has already been sent for this job')
-            return
+            return False
+        return True
 
-        # Send email notification about success/failure
-        if new_phase == JobStatus.COMPLETED and updated_job.email:
-            try:
-                self.email_service.send_email(updated_job.email,
-                                              f'''Result for your {job_type_name} Job ({updated_job.job_id}) is ready''',
-                                              f'''The result for your {job_type_name} Job is available at {results_url}''')
-
-                # Create (success) confirmation file in MinIO since email was sent
-                self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'success')
-            except Exception as e:
-                log.error(f'Failed to send email notification on success: {str(e)}')
-        elif new_phase == JobStatus.ERROR and updated_job.email:
-            try:
-                self.email_service.send_email(updated_job.email,
-                                              f'''{job_type_name} Job ({updated_job.job_id}) failed''',
-                                              f'''An error occurred in computing the result for your {job_type_name} job.''')
-
-                # Create (error) confirmation file in MinIO since email was sent
-                self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
-            except Exception as e:
-                log.error(f'Failed to send email notification on failure: {str(e)}')
-
+    def mark_email_as_sent(self, job_type, job_id, success):
+        minio_bucket_name = job_type
+        minio_check_path = f'{job_id}/email-sent'
+        if success:
+            # Job completed successfully, email was sent indicating success
+            self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'success')
+        else:
+            # Job failed with an error, email was sent indicating error
+            self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
 
     def run(self):
         # Ignore kube-system namespace
