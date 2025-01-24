@@ -31,7 +31,6 @@ class ReactionMinerService:
         """
         folder_path = f"/{job_id}/out/"
         objects = service.list_files(bucket_name, folder_path)
-        log.info('Files found: ' + str(files))
 
         # Iterate over folder and add all contents to a dictionary
         content = {}
