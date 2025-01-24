@@ -52,6 +52,10 @@ spec:
         - name: server-secret
           secret:
             secretName: "{{ releaseName }}-secrets"
+        # Volume to host job data
+        - name: "shared-storage"
+          persistentVolumeClaim:
+            claimName: "{{ workingVolume.claimName }}"
         {%- for sec in secrets %}
         - name: "{{ sec.name }}"
           secret:
@@ -64,10 +68,6 @@ spec:
               {%- endfor %}
             {%- endif %}
         {%- endfor %}
-        # Volume to host job data
-        - name: "shared-storage"
-          persistentVolumeClaim:
-            claimName: "{{ workingVolume.claimName }}"
       initContainers:
       - name: init
         image: moleculemaker/mmli-backend:kubejob
