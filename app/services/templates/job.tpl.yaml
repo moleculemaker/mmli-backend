@@ -56,7 +56,7 @@ spec:
         - name: "{{ sec.name }}"
           secret:
             secretName: "{{ sec.secretName }}"
-            {%- if sec.itemDict %}
+            {%- if sec.itemList %}
             items:
               {%- for secretItem in sec.itemList %}
               - key: "{{ secretItem.key }}"
@@ -170,10 +170,10 @@ spec:
             readOnly: {{ volume.readOnly }}
         {%- endfor %}
         {%- for sec in secrets %}
-        - name: "{{ sec }}"
-          mountPath: "{{ sec.mountPath }}"
-          readOnly: true
-          subPath: "{{ sec.subPath }}"
+          - name: "{{ sec }}"
+            mountPath: "{{ sec.mountPath }}"
+            readOnly: true
+            subPath: "{{ sec.subPath }}"
         {%- endfor %}
       containers:
       - name: post-job
