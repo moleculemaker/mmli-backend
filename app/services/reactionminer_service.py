@@ -1,8 +1,10 @@
+import os
 import time
 
 from fastapi import HTTPException
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from config import log
 from models.enums import JobStatus
 from services.minio_service import MinIOService
 
@@ -26,8 +28,18 @@ class ReactionMinerService:
         Inputs stored in Minio:  /{job_id}/in/[name].pdf    Bucket name: reactionminer
         Outputs stored in Minio: /{job_id}/out/[name].json  Bucket name: reactionminer
         """
-        filepath = f"/{job_id}/out/"
-        content = service.get_file(bucket_name, filepath)
-        if content is None:
-            raise HTTPException(status_code=404, detail=f"File {filepath} not found")
+        folder_path = f"/{job_id}/out/"
+        files = service.list_files(bucket_name, folder_path)
+        log.info('Files found: ' + str(files))
+
+        # Iterate over folder and add all contents to a dictionary
+        content = {}
+        for file_path in files:
+            file_name = os.path.basename(file_path).split('/')[-1]
+            content[file_name] = service.get_file(bucket_name, file_path)
+
+        # Return the dictionary if it has contents
+        if not content:
+            raise HTTPException(status_code=404, detail=f"No output files were found")
+
         return content

@@ -44,6 +44,9 @@ class MinIOService:
         except S3Error as err:
             log.error("Error: ", err)
             return False
+
+    def list_files(self, bucket_name, path, recursive=False):
+        return self.client.list_objects(bucket_name, prefix=path, recursive=recursive)
         
     def get_file_urls(self, bucket_name, path):
         try:
