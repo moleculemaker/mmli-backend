@@ -1,5 +1,6 @@
 import glob
 import sys
+import traceback
 
 from kubernetes import watch, client, config as kubeconfig
 from kubernetes.client.rest import ApiException
@@ -298,6 +299,7 @@ class KubeEventWatcher:
                 continue
             except Exception as e:
                 self.logger.error('Unknown exception - KubeWatcher reconnecting to Kube API: %s' % str(e))
+                self.logger.error(traceback.format_exc())
                 if k8s_event_stream:
                     k8s_event_stream.close()
                 k8s_event_stream = None
