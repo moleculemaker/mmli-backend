@@ -259,9 +259,9 @@ class KubeEventWatcher:
                     new_phase = None
                     if conditions is None:
                         new_phase = JobStatus.PROCESSING
-                    elif len(conditions) > 0 and conditions[0].type == 'Complete':
+                    elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
                         new_phase = JobStatus.COMPLETED
-                    elif status.failed > 0:
+                    elif status.failed is not None and status.failed > 0:
                         new_phase = JobStatus.ERROR
                     else:
                         self.logger.info(f'>> Skipped job update: {job_id}-> {new_phase}')
