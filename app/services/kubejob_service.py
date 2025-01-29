@@ -1,5 +1,6 @@
 import glob
 import sys
+import traceback
 
 from kubernetes import watch, client, config as kubeconfig
 from kubernetes.client.rest import ApiException
@@ -291,9 +292,9 @@ class KubeEventWatcher:
                     new_phase = None
                     if conditions is None:
                         new_phase = JobStatus.PROCESSING
-                    elif len(conditions) > 0 and conditions[0].type == 'Complete':
+                    elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
                         new_phase = JobStatus.COMPLETED
-                    elif status.failed > 0:
+                    elif status.failed is not None and status.failed > 0:
                         new_phase = JobStatus.ERROR
                     else:
                         self.logger.info(f'>> Skipped job update: {job_id}-> {new_phase}')
@@ -331,6 +332,7 @@ class KubeEventWatcher:
                 continue
             except Exception as e:
                 self.logger.error('Unknown exception - KubeWatcher reconnecting to Kube API: %s' % str(e))
+                self.logger.error(traceback.format_exc())
                 if k8s_event_stream:
                     k8s_event_stream.close()
                 k8s_event_stream = None
