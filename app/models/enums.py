@@ -10,6 +10,7 @@ class JobType(str, Enum):
     NOVOSTOIC_PATHWAYS = 'novostoic-pathways'
     NOVOSTOIC_ENZRANK = 'novostoic-enzrank'
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
+    REACTIONMINER = 'reactionminer'
     SOMN = 'somn'
     DEFAULT = 'defaults'
 

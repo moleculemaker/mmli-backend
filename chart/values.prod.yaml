@@ -48,6 +48,20 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    reactionminer:
+      # Override Grobid server host for production
+      env:
+        - name: HF_TOKEN_PATH
+          value: '/root/.cache/token'
+        - name: GROBID_SERVER
+          value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
+      # Run ReactionMiner on GPU node
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
@@ -61,6 +75,7 @@ config:
   clean_frontend_url: "https://clean.platform.moleculemaker.org"
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
+  reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
 
 
 postgresql:
@@ -169,4 +184,19 @@ extraDeploy:
       metadata:
         creationTimestamp: null
         name: mmli-backend-minio
+        namespace: alphasynthesis
+
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: huggingface-token
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      token: AgAhPH0i7ydR8tC2Fa9OG0N3FCeWJnyM7HvymD3n8+K+yarLgl2vvZDlINTKktMKgmmSg9l1SYW8zqwVA+Wy1tOJ1CMBX5u52JK27YgCYsCh79ZTQFTSK45JbIYyPfxmTAqAxqo83gAWyGH+R+cpylrB0EcPINJEzPnZ6s0biy/NVmgq07V0c91Xcum41JWLCnPm5d2JufR6jQsgTAk4RFzH7RJ8cVVGtI1POCqcklF3YwGM+R4esl2AMZzB9lfcRAvlYTYn9Vy39qDvFAuxdOwKMwTXOXSl/Z4GC1V2YGf1V8JxLE0Kumqxg938Gw7dOGNiYWlE/PmSm2bjPximaGqj6UjoaqyINIcFAS3Q36ZzjwAiABzLxTueBPf6LYico+pX4tw0dAsfJGBxCumYs8wUpP/UC++lqPv2LUxM3WIgiBtOEbTEA23XD4mcdK8z4wKjRxY6zFzNdXrARWwGna9Wj1DVYyy+HKJgXkeKHmSGmx22wEJtohWDPitY9JHHgD2QapGOj/67howwxQOHfn/PqbBwGCxvKTh6XoCbHx1tQCD8HT0NybJENSLuh4qtVtWMmVkPljQKGPrb9kHhp2l/MrGsE3+HJUZvoKoOeuyRYfTPDCxvxQgD/a9w7f9QeGyQVCkEplndQC4reuEbhfaQuOT0lkx0U/Dd5fX+KXCtOgdj8XRRrvll76v66nXlrmyuGb5NlO6tJVIJzm3Op74IOznSrHx55JnjYouoQBm8QNURoZXe
+    template:
+      metadata:
+        creationTimestamp: null
+        name: huggingface-token
         namespace: alphasynthesis

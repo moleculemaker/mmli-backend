@@ -56,6 +56,18 @@ spec:
         - name: "shared-storage"
           persistentVolumeClaim:
             claimName: "{{ workingVolume.claimName }}"
+        {%- for sec in secrets %}
+        - name: "{{ sec.name }}"
+          secret:
+            secretName: "{{ sec.secretName }}"
+            {%- if sec.itemList %}
+            items:
+              {%- for secretItem in sec.itemList %}
+              - key: "{{ secretItem.key }}"
+                path: "{{ secretItem.path }}"
+              {%- endfor %}
+            {%- endif %}
+        {%- endfor %}
       initContainers:
       - name: init
         image: moleculemaker/mmli-backend:kubejob
@@ -156,6 +168,12 @@ spec:
             mountPath: "{{ volume.mountPath | replace('JOB_ID',jobId) }}"
             subPath: "{{ volume.subPath | replace('JOB_ID',jobId) }}"
             readOnly: {{ volume.readOnly }}
+        {%- endfor %}
+        {%- for sec in secrets %}
+          - name: "{{ sec.name }}"
+            mountPath: "{{ sec.mountPath }}"
+            readOnly: true
+            subPath: "{{ sec.subPath }}"
         {%- endfor %}
       containers:
       - name: post-job
