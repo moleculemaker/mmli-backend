@@ -181,7 +181,7 @@ config:
       - name: HF_TOKEN_PATH
         value: '/root/.cache/token'
       - name: GROBID_SERVER
-        value: 'mmli-grobid.staging.svc.cluster.local'
+        value: 'mmli-grobid-staging.staging.svc.cluster.local'
       volumes:
         - name: 'shared-storage'
           mountPath: '/workspace/10test/'
