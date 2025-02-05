@@ -54,6 +54,8 @@ origins = [
     "https://novostoic.frontend.mmli1.ncsa.illinois.edu",
     "https://somn.frontend.staging.mmli1.ncsa.illinois.edu",
     "https://somn.frontend.mmli1.ncsa.illinois.edu",
+    "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu",
+    "https://openenzymedb.platform.moleculemaker.org",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 
