@@ -55,6 +55,8 @@ origins = [
     "https://novostoic.frontend.mmli1.ncsa.illinois.edu",
     "https://somn.frontend.staging.mmli1.ncsa.illinois.edu",
     "https://somn.frontend.mmli1.ncsa.illinois.edu",
+    "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://reactionminer.frontend.mmli1.ncsa.illinois.edu",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 
