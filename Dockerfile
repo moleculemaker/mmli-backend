@@ -1,5 +1,5 @@
 # Start from Python 3.10 in the /code directory
-FROM condaforge/mambaforge:24.1.2-0
+FROM --platform=linux/amd64 condaforge/mambaforge:24.1.2-0
 WORKDIR /code
 
 # Set noninteractive installation and timezone
@@ -20,7 +20,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
 ENV PATH=$PATH:$JAVA_HOME/bin
 
 # Install conda dependencies first
-RUN mamba install -y lz4 openbabel
+RUN mamba install -y openbabel
 
 # Install PIP dependencies
 COPY ./requirements.txt /code/requirements.txt
