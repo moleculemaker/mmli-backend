@@ -8,6 +8,10 @@ rdkit==2023.3.3
 requests==2.31.0
 kubernetes==31.0.0
 
+# For ReactionMiner
+python-terrier==0.13.0
+safetensors==0.5.2
+
 # Pin dependencies to specific versions
 # NumPy 2.0.0 is not backwards compatible
 numpy==1.26.4

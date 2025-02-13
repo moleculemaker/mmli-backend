@@ -54,10 +54,10 @@ services:
     volumes:
       - ./app:/code/app
       - ./migrations:/code/migrations
-      - /home/kastan/.kube/config:/opt/kubeconfig
-      - /home/kastan/.minikube/ca.crt:/home/kastan/.minikube/ca.crt
-      - /home/kastan/.minikube/profiles/minikube/client.crt:/home/kastan/.minikube/profiles/minikube/client.crt
-      - /home/kastan/.minikube/profiles/minikube/client.key:/home/kastan/.minikube/profiles/minikube/client.key
+      - $HOME/.kube/config:/opt/kubeconfig
+      - $HOME/.minikube/ca.crt:$HOME/.minikube/ca.crt
+      - $HOME/.minikube/profiles/minikube/client.crt:$HOME/.minikube/profiles/minikube/client.crt
+      - $HOME/.minikube/profiles/minikube/client.key:$HOME/.minikube/profiles/minikube/client.key
 
 networks:
   mmli-net:
