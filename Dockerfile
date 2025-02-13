@@ -19,10 +19,12 @@ RUN apt-get update && apt-get install -y \
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
 ENV PATH=$PATH:$JAVA_HOME/bin
 
+# Install conda dependencies first
+RUN mamba install -y lz4 openbabel
+
 # Install PIP dependencies
 COPY ./requirements.txt /code/requirements.txt
 RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
-RUN mamba install openbabel
 
 # Copy in the source code
 COPY ./app /code/app
