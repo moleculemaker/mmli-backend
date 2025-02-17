@@ -47,11 +47,11 @@ class ReactionMinerService:
     @staticmethod
     def search_reactionminer(smi_search: str, text_search: str):
         root_path = os.path.dirname(os.path.abspath(__file__))
-        par_path = os.path.join(root_path, 'reactionminer_search/indexing_data_susuki/tsv_files/Pars.tsv')
-        smi_path = os.path.join(root_path, 'reactionminer_search/indexing_data_susuki/tsv_files/Par_SMI.tsv')
-        par2smi_path = os.path.join(root_path, 'reactionminer_search/indexing_data_susuki/tsv_files/Pars2SMI.tsv')
-        par2img_path = os.path.join(root_path, 'reactionminer_search/indexing_data_susuki/tsv_files/Par_Imgs.tsv')
-        smi2name_path = os.path.join(root_path, 'reactionminer_search/indexing_data_susuki/tsv_files/Par_SMI_Names.tsv')
+        par_path = os.path.join(root_path, 'reactionminer_search/indexing_data_suzuki/tsv_files_full/Pars.tsv')
+        smi_path = os.path.join(root_path, 'reactionminer_search/indexing_data_suzuki/tsv_files_full/Par_SMI.tsv')
+        par2smi_path = os.path.join(root_path, 'reactionminer_search/indexing_data_suzuki/tsv_files_full/Pars2SMI.tsv')
+        par2img_path = os.path.join(root_path, 'reactionminer_search/indexing_data_suzuki/tsv_files_full/Par_Imgs.tsv')
+        smi2name_path = os.path.join(root_path, 'reactionminer_search/indexing_data_suzuki/tsv_files_full/Par_SMI_Names.tsv')
 
         try:
             # Text Only Search

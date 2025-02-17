@@ -209,9 +209,9 @@ def txt_eval(par_path, par2smi_path, par2img_path, smi2name_path, smi_path,
                         ], columns=['qid', 'query'])
 
     # Now generate the Main Index
-    indexer = pt.IterDictIndexer(index_store_path + '/pd_index', overwrite=True, verbose=True, 
+    indexer = pt.IterDictIndexer('./index_store/pd_index', overwrite=True, verbose=True, 
                                  stemmer=None, stopwords=None, tokeniser='UTFTokeniser',
-                                 meta={'docno':20, 'text':8192, 'Page':3, 'Docno':50,
+                                 meta={'docno':20, 'r_avail':5, 'text':8192, 'Page':3, 'Docno':50,
                                        'x1':5, 'y1':5, 'x2':5, 'y2':5})
     # Convert index df to Dict
     indexref = indexer.index(map_document(df))
@@ -219,7 +219,7 @@ def txt_eval(par_path, par2smi_path, par2img_path, smi2name_path, smi_path,
 
     # Perform retrieval
     br = pt.BatchRetrieve(index, wmodel='BM25', num_results=topk,
-                          metadata=['docno', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2'])
+                          metadata=['docno', 'r_avail', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2'])
     results = br.transform(txt_qs)
     
     # Load the par2smi and par2img dfs
@@ -241,9 +241,9 @@ def txt_eval(par_path, par2smi_path, par2img_path, smi2name_path, smi_path,
 
     # Transform results into the form required and get the images required
     if not mm:
-        results = results[['docno', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2']]
+        results = results[['docno', 'r_avail', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2']]
     else:
-        results = results[['docno', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2', 'score']]
+        results = results[['docno', 'r_avail', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2', 'score']]
     img_results = pd.DataFrame(columns=['docno', 'Page', 'Name', 'SMI', 'x1', 'y1', 'x2', 'y2'])
 
     for _,row in results.iterrows():
@@ -269,14 +269,14 @@ def do_sub_search(index_smi, smi_qs, par2smis, df, topk=1000):
     sub_search = RDKitSubStructureSearch(index_smi)
     smi_results, qids = sub_search.transform(smi_qs)
     # Get the relevant paragraphs per query
-    smipar_df = pd.DataFrame(columns=['qid', 'docno', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2'])
+    smipar_df = pd.DataFrame(columns=['qid', 'r_avail', 'docno', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2'])
     for qid in tqdm(qids, total=len(qids), desc='Populating Pars for SMI Queries: '):
         qid_smis = smi_results.loc[smi_results['qid'] == qid]
         for _, row in qid_smis.iterrows():
             smi_id = row['docno']
             par_id = par2smis.loc[par2smis['IDX_SMI'] == smi_id, 'IDX_Par'].tolist()[0]
             par_row = df.loc[df['docno'] == par_id]
-            smipar_df = pd.concat([smipar_df, pd.DataFrame([{'qid':qid, 'docid': par_row.iloc[0]['docno'], 
+            smipar_df = pd.concat([smipar_df, pd.DataFrame([{'qid':qid, 'r_avail': par_row.iloc[0]['r_avail'], 
                                                                 'docno': par_row.iloc[0]['docno'], 'Page': par_row.iloc[0]['Page'],
                                                                 'Docno': par_row.iloc[0]['Docno'], 'text': par_row.iloc[0]['text'],
                                                                 'x1': par_row.iloc[0]['x1'], 'y1': par_row.iloc[0]['y1'],
@@ -319,13 +319,13 @@ def do_tani_search(df_smi, smi_qs, par2smis, df, topk=20):
         cand_smis[qid] = list(map(str, cand_smi_ids))
 
     # Now compile the paragraph list
-    smipar_df = pd.DataFrame(columns=['qid', 'docno', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2', 'score'])
+    smipar_df = pd.DataFrame(columns=['qid', 'r_avail', 'docno', 'Page', 'Docno', 'text', 'x1', 'y1', 'x2', 'y2', 'score'])
     for qid in tqdm(cand_smis.keys(), total=len(cand_smis.keys()), desc='Populating Pars for SMI Queries: '):
         smi_ids = cand_smis[qid]
         for i, smi_id in enumerate(smi_ids):
             par_id = par2smis.loc[par2smis['IDX_SMI'] == smi_id, 'IDX_Par'].tolist()[0]
             par_row = df.loc[df['docno'] == par_id]
-            smipar_df = pd.concat([smipar_df, pd.DataFrame([{'qid':qid, 'docid': par_row.iloc[0]['docno'], 
+            smipar_df = pd.concat([smipar_df, pd.DataFrame([{'qid':qid, 'r_avail': par_row.iloc[0]['r_avail'], 
                                                                  'docno': par_row.iloc[0]['docno'], 'Page': par_row.iloc[0]['Page'],
                                                                  'Docno': par_row.iloc[0]['Docno'], 'text': par_row.iloc[0]['text'],
                                                                  'x1': par_row.iloc[0]['x1'], 'y1': par_row.iloc[0]['y1'],
@@ -359,7 +359,7 @@ def smi_eval(par_path, smi_path, par2smi_path, par2img_path, smi2name_path,
 
     # Convert the SMILES into a PyTerrier Index
     # Create and save the indexes
-    indexer_par = pt.IterDictIndexer(index_store_path + "/smi_index", tokeniser='identity', overwrite=True,
+    indexer_par = pt.IterDictIndexer("./index_store/smi_index", tokeniser='identity', overwrite=True,
                                      stemmer=None, stopwords=None, verbose=True,
                                      meta={'docno':20, 'text':400},
                                      properties={'max.term.length': '300'},
@@ -398,7 +398,7 @@ def smi_eval(par_path, smi_path, par2smi_path, par2img_path, smi2name_path,
 
     
     # Delete any repetitions and keep track of the number of them
-    results = results[['docno', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2', 'Repeat']]
+    results = results[['docno', 'r_avail', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2', 'Repeat']]
 
     # Load the par2smi and par2img dfs
     par2smi_df = pd.read_csv(par2smi_path, sep='\t')
@@ -471,7 +471,7 @@ def mm_eval(par_path, smi_path, par2smi_path, par2img_path, smi2name_path,
     smi_df[int_columns] = smi_df[int_columns].astype(str)
 
     # Transform results into the form required and get the images required
-    results = txt_reranked[['docno', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2']]
+    results = txt_reranked[['docno', 'r_avail', 'Docno', 'Page', 'text', 'x1', 'y1', 'x2', 'y2']]
     img_results = pd.DataFrame(columns=['docno', 'Page', 'Name', 'SMI', 'x1', 'y1', 'x2', 'y2'])
 
     for _,row in results.iterrows():
@@ -553,35 +553,56 @@ def split_mm_query(df, mode='txt'):
     return df
 
 
-def parse_args():
+def check_smi_validity(smi_q):
+    # Check for SMILES validity
+    # Set the queries (Split queries if Reaction SMARTS Given or multiple Strings)
+    raw_qs = re.split(r'\.{1,2}|>{1,2}|\s+', smi_q.strip())
+    mfpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048, includeChirality=True)
+    invalid = False
+    for id_q, q in enumerate(raw_qs):
+        try:
+            smi_mol = Chem.MolFromSmiles(q)
+            fp = mfpgen.GetFingerprint(smi_mol)
+        except:
+            invalid = True
+    return invalid
+
+
+def parse_args(txt_q='synthesis of fluorooxetan pyrimidine', smi_q='ClC1=NC=CC=N1'):
     parser = argparse.ArgumentParser(description='Argument parser for app')
-    parser.add_argument('--txt_q', type=str, default='synthesis of fluorooxetan pyrimidine')
-    parser.add_argument('--smi_q', type=str, default='ClC1=NC=CC=N1')
-    parser.add_argument('--par_path', type=str, default='indexing_data_susuki/tsv_files/Pars.tsv')
-    parser.add_argument('--smi_path', type=str, default='indexing_data_susuki/tsv_files/Par_SMI.tsv')
-    parser.add_argument('--par2smi_path', type=str, default='indexing_data_susuki/tsv_files/Pars2SMI.tsv')
-    parser.add_argument('--par2img_path', type=str, default='indexing_data_susuki/tsv_files/Par_Imgs.tsv')
-    parser.add_argument('--smi2name_path', type=str, default='indexing_data_susuki/tsv_files/Par_SMI_Names.tsv')
+    parser.add_argument('--par_path', type=str, default='indexing_data_suzuki/tsv_files_full/Pars.tsv')
+    parser.add_argument('--smi_path', type=str, default='indexing_data_suzuki/tsv_files_full/Par_SMI.tsv')
+    parser.add_argument('--par2smi_path', type=str, default='indexing_data_suzuki/tsv_files_full/Pars2SMI.tsv')
+    parser.add_argument('--par2img_path', type=str, default='indexing_data_suzuki/tsv_files_full/Par_Imgs.tsv')
+    parser.add_argument('--smi2name_path', type=str, default='indexing_data_suzuki/tsv_files_full/Par_SMI_Names.tsv')
     parser.add_argument('--out_dir', type=str, default='outputs')
 
     args = parser.parse_args()
-    smi_q = args.smi_q
-    txt_q = args.txt_q
-    
     # Text Only Search
-    if not len(smi_q):
+    if not len(smi_q) and len(txt_q):
         result, img_result = txt_eval(args.par_path, args.par2smi_path, args.par2img_path, 
                           args.smi2name_path, args.smi_path, txt_q=txt_q, topk=10)
     # SMILES Only Search
-    elif not len(txt_q):
-        result, img_result = smi_eval(args.par_path, args.smi_path, args.par2smi_path, 
-                        args.par2img_path, args.smi2name_path, 
-                        choice='tani', smi_q=smi_q)
+    elif not len(txt_q) and len(smi_q):
+        invalid = check_smi_validity(smi_q)
+        if invalid:
+            result, img_result = pd.DataFrame([{'result':'invalid-smiles'}]), pd.DataFrame([{'result':'invalid-smiles'}])
+        else:
+            result, img_result = smi_eval(args.par_path, args.smi_path, args.par2smi_path, 
+                            args.par2img_path, args.smi2name_path, 
+                            choice='tani', smi_q=smi_q)
     # Multi-modal Search
+    elif len(txt_q) and len(smi_q):
+        invalid = check_smi_validity(smi_q)
+        if invalid:
+            result, img_result = pd.DataFrame([{'result':'invalid-smiles'}]), pd.DataFrame([{'result':'invalid-smiles'}])
+        else:
+            result, img_result = mm_eval(args.par_path, args.smi_path, args.par2smi_path,
+                            args.par2img_path, args.smi2name_path, txt_q=txt_q, smi_q=smi_q,
+                            choice='sub', topk=10, fm='priority')
+    # Both Empty Invalid Search
     else:
-        result, img_result = mm_eval(args.par_path, args.smi_path, args.par2smi_path,
-                        args.par2img_path, args.smi2name_path, txt_q=txt_q, smi_q=smi_q,
-                        choice='sub', topk=10, fm='priority')
+        result, img_result = pd.DataFrame([{'result':'invalid-empty'}]), pd.DataFrame([{'result':'invalid-empty'}])
     
     # Save the results
     if not os.path.exists(args.out_dir):
@@ -596,4 +617,4 @@ def parse_args():
     
 
 if __name__ == '__main__':
-    result, img_result = parse_args()
+    result, img_result = parse_args(txt_q='Burke group', smi_q='')
