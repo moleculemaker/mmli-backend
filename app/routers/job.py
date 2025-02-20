@@ -138,8 +138,8 @@ async def create_job(
             job_config, el_name_map = SomnService.generate_name_mapping(job_config, 'el')
             job_config, nuc_name_map = SomnService.generate_name_mapping(job_config, 'nuc')
             
-            job_config, el_name_map = SomnService.update_names_from_reference(job_config, el_name_map, 'el')
-            job_config, nuc_name_map = SomnService.update_names_from_reference(job_config, nuc_name_map, 'nuc')
+            # job_config, el_name_map = SomnService.update_names_from_reference(job_config, el_name_map, 'el')
+            # job_config, nuc_name_map = SomnService.update_names_from_reference(job_config, nuc_name_map, 'nuc')
             
             print('updated config: ', job_config, el_name_map, nuc_name_map)
             
