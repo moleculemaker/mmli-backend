@@ -6,6 +6,7 @@ import time
 import uuid
 import csv
 import io
+import traceback
 
 from typing import List
 
@@ -71,6 +72,10 @@ async def create_job(
         command = ''
         environment = []
 
+        # Mount in secrets/volumes at runtime
+        volumes = []
+        secrets = []
+
         if job_type == JobType.DEFAULT:
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
@@ -115,7 +120,9 @@ async def create_job(
 
             command = f"python entrypoint.py --job_id {job_id}"
             # Job is created at end of function
-        
+        elif job_type == JobType.REACTIONMINER:
+            log.debug(f'Running ReactionMiner job: {job_id}')
+            environment = app_config['kubernetes_jobs']['reactionminer']['env']
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
@@ -258,6 +265,7 @@ async def create_job(
             kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
         except Exception as ex:
             log.error("Failed to create Job: " + str(ex))
+            log.error(traceback.format_exc())
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
     else:

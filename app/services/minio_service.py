@@ -30,6 +30,10 @@ class MinIOService:
             log.error("Error: ", err)
 
     def upload_file(self, bucket_name, object_name, file_content):
+        # If file_content is a string, first convert to a byte stream
+        if isinstance(file_content, str):
+            file_content = file_content.encode('utf-8')
+
         try:
             # Upload file to the specified bucket
             result = self.client.put_object(
@@ -44,6 +48,9 @@ class MinIOService:
         except S3Error as err:
             log.error("Error: ", err)
             return False
+
+    def list_files(self, bucket_name, path, recursive=False):
+        return self.client.list_objects(bucket_name, prefix=path, recursive=recursive)
         
     def get_file_urls(self, bucket_name, path):
         try:

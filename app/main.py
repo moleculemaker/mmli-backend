@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config import app_config, get_logger
-from routers import chemscraper, job, files, somn, novostoic, molli, shared
+from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.kubejob_service import KubeEventWatcher
@@ -43,6 +43,7 @@ app.include_router(novostoic.router)
 app.include_router(somn.router)
 app.include_router(molli.router)
 app.include_router(shared.router)
+app.include_router(reactionminer.router)
 
 origins = [
     "http://test.mydomain.com",
@@ -56,6 +57,8 @@ origins = [
     "https://somn.frontend.mmli1.ncsa.illinois.edu",
     "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu",
     "https://openenzymedb.platform.moleculemaker.org",
+    "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://reactionminer.frontend.mmli1.ncsa.illinois.edu",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 
