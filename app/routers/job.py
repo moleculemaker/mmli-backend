@@ -127,8 +127,34 @@ async def create_job(
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
             
-            # validate user input
-            job_config = SomnService.validate_and_update_config(job_config)
+            # Canonicalize SMILES and update names from reference files
+            for config in job_config:
+                if config['el_input_type'] == 'smi':
+                    config['el'] = SomnService.canonicalize_smiles(config['el'])
+                if config['nuc_input_type'] == 'smi':
+                    config['nuc'] = SomnService.canonicalize_smiles(config['nuc'])
+            
+            # Generate unique name mappings
+            job_config, el_name_map = SomnService.generate_name_mapping(job_config, 'el')
+            job_config, nuc_name_map = SomnService.generate_name_mapping(job_config, 'nuc')
+            
+            # job_config, el_name_map = SomnService.update_names_from_reference(job_config, el_name_map, 'el')
+            # job_config, nuc_name_map = SomnService.update_names_from_reference(job_config, nuc_name_map, 'nuc')
+            
+            print('updated config: ', job_config, el_name_map, nuc_name_map)
+            
+            # job_info is automatically stored in Postgres to retain user input
+            job_info = json.dumps({
+                'info': job_config,
+                'el_name_map': el_name_map,
+                'nuc_name_map': nuc_name_map
+            })
+            
+            # Some SMILESs fail to pass 3d generation test, so we process them as mol2 input
+            for config in job_config:
+                config['el'] = SomnService.process_molecule_input(config, 'el')
+                config['nuc'] = SomnService.process_molecule_input(config, 'nuc')
+            
             
             file = io.StringIO()
             writer = csv.writer(file)
@@ -141,15 +167,16 @@ async def create_job(
                 "nuc_idx",
                 "el_idx"
             ])
-            writer.writerow([
-                job_config["reactant_pair_name"], 
-                job_config["nuc"],
-                job_config["el"], 
-                job_config["nuc_name"], 
-                job_config["el_name"],
-                job_config["nuc_idx"],
-                job_config["el_idx"]
-            ])
+            for config in job_config:
+                writer.writerow([
+                    config["reactant_pair_name"], 
+                    config["nuc"],
+                    config["el"], 
+                    config["nuc_name"], 
+                    config["el_name"],
+                    config["nuc_idx"],
+                    config["el_idx"]
+                ])
             
             upload_result = service.upload_file(job_type, f"/{job_id}/in/example_request.csv", file.getvalue().encode('utf-8'))
             if not upload_result:
