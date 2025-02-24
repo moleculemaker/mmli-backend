@@ -1,6 +1,6 @@
 import csv
 import io
-
+import sys
 import uuid
 import zipfile
 from datetime import datetime
@@ -31,6 +31,8 @@ from typing import Optional
 router = APIRouter()
 
 log = get_logger(__name__)
+
+csv.field_size_limit(sys.maxsize)
 
 @router.post("/{bucket_name}/upload", tags=['Files'])
 async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", minio: MinIOService = Depends()):
@@ -142,16 +144,16 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
                     files_count += 1
             if requestBody.csv:
                 if requestBody.csv_filter == "full_table":
-                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + "-results.csv")
                     if csv_file_data is None:
-                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        filename = objectPathPrefix + requestBody.jobId + "-results.csv"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
-                    new_zip.writestr(requestBody.jobId + ".csv", csv_file_data)
+                    new_zip.writestr(requestBody.jobId + "-results.csv", csv_file_data)
                     files_count += 1
                 elif requestBody.csv_filter == "current_view":
-                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + ".csv")
+                    csv_file_data = service.get_file(bucket_name, objectPathPrefix + requestBody.jobId + "-results.csv")
                     if csv_file_data is None:
-                        filename = objectPathPrefix + requestBody.jobId + ".csv"
+                        filename = objectPathPrefix + requestBody.jobId + "-results.csv"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     csvfile = io.StringIO(csv_file_data.decode('utf-8'))
                     reader = csv.DictReader(csvfile)
@@ -161,7 +163,7 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
                     writer = csv.DictWriter(output_csv, fieldnames=reordered_rows[0].keys())
                     writer.writeheader()
                     writer.writerows(reordered_rows)
-                    new_zip.writestr(requestBody.jobId + ".csv", output_csv.getvalue())
+                    new_zip.writestr(requestBody.jobId + "-results.csv", output_csv.getvalue())
                     files_count += 1
 
         if files_count > 0:
