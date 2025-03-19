@@ -244,10 +244,8 @@ config:
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
       image: "moleculemaker/novostoic"
-      command: "python ./novostoic-job.py optstoic"
+      command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
-      #imagePullSecrets:
-      #  - regcred
       volumes:
         - name: 'shared-storage'
           mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
@@ -264,10 +262,8 @@ config:
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-pathways:
       image: "moleculemaker/novostoic"
-      command: "python ./novostoic-job.py pathways"
+      command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
-      #imagePullSecrets:
-      #  - regcred
       volumes:
         - name: 'shared-storage'
           mountPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
@@ -277,10 +273,8 @@ config:
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
       image: "moleculemaker/novostoic"
-      command: "python ./novostoic-job.py dgpredictor"
+      command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
-      #imagePullSecrets:
-      #  - regcred
       volumes:
         - name: 'shared-storage'
           mountPath: '/uws/jobs/novostoic-dgpredictor/JOB_ID/out'
@@ -290,10 +284,8 @@ config:
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
       image: "moleculemaker/novostoic"
-      command: "python ./novostoic-job.py enzrank"
+      command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
-      #imagePullSecrets:
-      #  - regcred
       volumes:
         - name: 'shared-storage'
           mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'

@@ -25,15 +25,21 @@ config:
     apiBaseUrl: "minioapi.mmli.fastapi.mmli1.ncsa.illinois.edu"
   kubernetes_jobs:
     novostoic-dgpredictor:
-      # TODO: Temporarily run on GPU node
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    novostoic-pathways:
-      # TODO: Temporarily run on GPU node
+      resources:
+        limits:
+          cpu: "1"
+          memory: 16Gi
+        requests:
+          cpu: "1"
+          memory: 12Gi
+    novostoic-enxrank:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -41,13 +47,21 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-optstoic:
-      # TODO: Temporarily run on GPU node
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+    novostoic-pathways:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
     reactionminer:
       # Override Grobid server host for production
       env:
