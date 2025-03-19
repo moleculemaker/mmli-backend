@@ -2,7 +2,11 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import rdDepictor
-from typing import Callable, Optional
+from rdkit.Chem import DataStructs
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar, Literal
+
+T = TypeVar('T')
+ValueOrError = Tuple[Literal[0], T] | Tuple[int, str]
 
 def draw_chemical_svg(id: str,
                   width: int = 300, 
@@ -64,3 +68,37 @@ def draw_chemical_svg(id: str,
     
     except Exception as e:
         raise Exception(f"Error processing input: {id}") from e
+    
+
+def get_similarity_score(query_smiles: str, smiles_list: List[str]) -> ValueOrError[Dict[str, float | str]]:
+    """
+    Get a similarity score for a query SMILES string against a list of SMILES strings.
+    
+    Args:
+        query_smiles (str): The query SMILES string.
+        smiles_list (List[str]): The list of SMILES strings to sort.
+        
+    Returns:
+        ValueOrError[Dict[str, float]]: A dictionary of SMILES strings and their similarity scores, or an exception message.
+        
+    Raises:
+        Exception: If the query SMILES string is invalid
+    """
+    try:
+        query_fp = Chem.RDKFingerprint(Chem.MolFromSmiles(query_smiles))
+    except Exception as e:
+        return (1, f"invalid query smiles: {query_smiles}")
+    
+    ret_val = {}
+    for smiles in smiles_list:
+        try:
+            fp = Chem.RDKFingerprint(Chem.MolFromSmiles(smiles))
+        except Exception as e:
+            ret_val[smiles] = "invalid smiles"
+            continue
+        
+        similarity = DataStructs.FingerprintSimilarity(query_fp, fp)
+        ret_val[smiles] = similarity
+        
+    return (0, ret_val)
+    
