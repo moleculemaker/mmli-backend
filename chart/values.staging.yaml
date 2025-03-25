@@ -19,14 +19,13 @@ analyzeIngress:
 config:
   kubernetes_jobs:
     novostoic-dgpredictor:
-      resources:
-        limits:
-          cpu: "1"
-          memory: 16Gi
-        requests:
-          cpu: "1"
-          memory: 12Gi
-    novostoic-enxrank:
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
+    novostoic-enzrank:
       resources:
         limits:
           cpu: "1"
@@ -48,6 +47,12 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
     novostoic-pathways:
       resources:
         limits:
@@ -56,7 +61,41 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    aceretro:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
     reactionminer:
+      resources:	
+        limits:	
+          cpu: "1"	
+          memory: 24Gi	
+        requests:	
+          cpu: "1"	
+          memory: 20Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
