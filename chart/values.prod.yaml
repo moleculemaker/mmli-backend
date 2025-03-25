@@ -25,6 +25,12 @@ config:
     apiBaseUrl: "minioapi.mmli.fastapi.mmli1.ncsa.illinois.edu"
   kubernetes_jobs:
     novostoic-dgpredictor:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -32,7 +38,7 @@ config:
         requests:
           cpu: "1"
           memory: 12Gi
-    novostoic-enxrank:
+    novostoic-enzrank:
       resources:
         limits:
           cpu: "1"
@@ -47,6 +53,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-optstoic:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -55,6 +67,12 @@ config:
           cpu: "1"
           memory: 8Gi
     novostoic-pathways:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -62,6 +80,27 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    aceretro:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
     reactionminer:
       # Override Grobid server host for production
       env:
