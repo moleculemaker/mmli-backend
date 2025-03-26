@@ -175,7 +175,7 @@ config:
 
     # Config for running ReactionMiner job
     reactionminer:
-      image: "moleculemaker/reactionminer:latest"
+      image: "moleculemaker/reactionminer:ReactionMiner_v2"
       imagePullPolicy: "Always"
       env:
       - name: HF_TOKEN_PATH
