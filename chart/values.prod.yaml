@@ -108,6 +108,8 @@ config:
           value: '/root/.cache/token'
         - name: GROBID_SERVER
           value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
+        - name: CHEMSCRAPER_BASE_URL	
+          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
       # Run ReactionMiner on GPU node
       nodeSelector:
         nvidia.com/gpu.present: "true"
