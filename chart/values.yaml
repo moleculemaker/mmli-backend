@@ -182,6 +182,8 @@ config:
         value: '/root/.cache/token'
       - name: GROBID_SERVER
         value: 'mmli-grobid-staging.staging.svc.cluster.local'
+      - name: CHEMSCRAPER_BASE_URL	
+        value: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"	
       volumes:
         - name: 'shared-storage'
           mountPath: '/workspace/10test/'
