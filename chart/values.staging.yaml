@@ -82,12 +82,12 @@ config:
         key: mmli.role  
         operator: Exists
     aceretro:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
     reactionminer:
       resources:	
         limits:	
