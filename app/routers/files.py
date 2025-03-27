@@ -115,8 +115,9 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
     return error_content
 
 
+# TODO: Refactor this to make it more generic?
 @router.post("/{bucket_name}/export-results", tags=['Files'])
-async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
+async def export_results(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if requestBody.jobId == "":
         raise HTTPException(status_code=404, detail="Invalid Job ID")
@@ -126,7 +127,7 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
         filename = f'chemscraper_{requestBody.jobId}.zip'
         with zipfile.ZipFile(filename, "w") as new_zip:
             if requestBody.cdxml:
-                pdf_filename = Path(requestBody.pdf_filename).stem
+                pdf_filename = Path(requestBody.input_filename).stem
                 if requestBody.cdxml_filter == "all_molecules":
                     object_path = objectPathPrefix + f"{pdf_filename}_full_cdxml/{pdf_filename}.cdxml"
                     cdxml_file_data = service.get_file(bucket_name, object_path)
