@@ -61,9 +61,9 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")
 def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOService = Depends()):
     bucket_name = "chemscraper"
-    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + "-results.csv")
     if csv_content is None:
-        filename = "results/" + job_id + "/" + job_id + ".csv"
+        filename = "results/" + job_id + "/" + job_id + "-results.csv"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     df = pd.read_csv(io.BytesIO(csv_content))
     # Check if sort_column exists in DataFrame

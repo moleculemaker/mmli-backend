@@ -4,6 +4,7 @@ import sys
 import uuid
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
@@ -125,19 +126,20 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
         filename = f'chemscraper_{requestBody.jobId}.zip'
         with zipfile.ZipFile(filename, "w") as new_zip:
             if requestBody.cdxml:
+                pdf_filename = Path(requestBody.pdf_filename).stem
                 if requestBody.cdxml_filter == "all_molecules":
-                    object_path = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
+                    object_path = objectPathPrefix + f"{pdf_filename}_full_cdxml/{pdf_filename}.cdxml"
                     cdxml_file_data = service.get_file(bucket_name, object_path)
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
+                        filename = objectPathPrefix + f"{pdf_filename}_full_cdxml/{pdf_filename}.cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
                 elif requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0:
                     cdxml_file_data = service.get_file(bucket_name,
-                                                       objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
+                                                       objectPathPrefix + f"{pdf_filename}_all_pages/Page_{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
+                        filename = objectPathPrefix + f"{pdf_filename}_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + "_Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml",
                                      cdxml_file_data)
