@@ -8,6 +8,7 @@ import csv
 import zipfile
 import time
 import pandas as pd
+from pathlib import Path
 from io import StringIO
 
 from config import get_logger, app_config
@@ -125,7 +126,8 @@ class ChemScraperService:
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    SVG = service.get_file(bucket_name, jobId + '/out/molecules/' + svg_filename)
+                    pdf_filename = Path(file_path).stem
+                    SVG = service.get_file(bucket_name, f'{jobId}/out/{pdf_filename}/{svg_filename}')
                     if SVG is None:
                         log.warning("SVG not found, generating using rdkit")
                         SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
