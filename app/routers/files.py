@@ -4,6 +4,7 @@ import sys
 import uuid
 import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import JSONResponse
@@ -12,6 +13,7 @@ from starlette.responses import FileResponse
 
 from config import get_logger
 from models.exportRequestBody import ExportRequestBody
+from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
@@ -26,7 +28,7 @@ from services.aceretro_service import ACERetroService
 from services.reactionminer_service import ReactionMinerService
 
 
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter()
 
@@ -114,8 +116,15 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
     return error_content
 
 
+# FIXME: Temporary workaround to force FastAPI to generate a model for Molecule
+@router.post("/{bucket_name}/exxample", tags=['Files'])
+async def delete_me() -> List[Molecule]:
+    raise HTTPException(status_code=501, detail="Not yet implemented")
+
+
+# TODO: Refactor this to make it more generic?
 @router.post("/{bucket_name}/export-results", tags=['Files'])
-async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
+async def export_results(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if requestBody.jobId == "":
         raise HTTPException(status_code=404, detail="Invalid Job ID")
@@ -125,19 +134,20 @@ async def analyze_documents(bucket_name: str, requestBody: ExportRequestBody, se
         filename = f'chemscraper_{requestBody.jobId}.zip'
         with zipfile.ZipFile(filename, "w") as new_zip:
             if requestBody.cdxml:
+                pdf_filename = Path(requestBody.input_filename).stem
                 if requestBody.cdxml_filter == "all_molecules":
-                    object_path = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
+                    object_path = objectPathPrefix + f"{pdf_filename}_full_cdxml/{pdf_filename}.cdxml"
                     cdxml_file_data = service.get_file(bucket_name, object_path)
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_full_cdxml/molecules.cdxml"
+                        filename = objectPathPrefix + f"{pdf_filename}_full_cdxml/{pdf_filename}.cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + ".cdxml", cdxml_file_data)
                     files_count += 1
                 elif requestBody.cdxml_filter == "single_page" and len(requestBody.cdxml_selected_pages) > 0:
                     cdxml_file_data = service.get_file(bucket_name,
-                                                       objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
+                                                       objectPathPrefix + f"{pdf_filename}_all_pages/Page_{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml")
                     if cdxml_file_data is None:
-                        filename = objectPathPrefix + "molecules_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
+                        filename = objectPathPrefix + f"{pdf_filename}_all_pages/Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml"
                         raise HTTPException(status_code=404, detail=f"File {filename} not found")
                     new_zip.writestr(requestBody.jobId + "_Page_" + f"{requestBody.cdxml_selected_pages[0]:03d}" + ".cdxml",
                                      cdxml_file_data)
