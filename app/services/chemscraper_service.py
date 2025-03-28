@@ -30,6 +30,7 @@ from models.sqlmodel.models import FlaggedMolecule
 
 log = get_logger(__name__)
 
+
 class ChemScraperService:
     chemscraper_api_baseURL = app_config['external']['chemscraper']['apiBaseUrl']
     chemscraper_frontend_baseURL = app_config['external']['chemscraper']['frontendBaseUrl']
@@ -127,6 +128,7 @@ class ChemScraperService:
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     pdf_filename = Path(file_path).stem
+                    log.info(f'Using file stem: {pdf_filename}')
                     obj_path = f'{jobId}/out/{pdf_filename}/{svg_filename}'
                     log.info(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
                     SVG = service.get_file(bucket_name, obj_path)
@@ -221,7 +223,6 @@ class ChemScraperService:
         if not upload_result:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
-
 
     async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
