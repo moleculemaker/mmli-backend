@@ -47,7 +47,7 @@ class ChemScraperService:
         await self.db.commit()
 
     @staticmethod
-    async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+    async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession) -> List[Molecule]:
         rdkitService = RDKitService()
         csv_filepath = job_id + "/out/" + job_id + "-results.csv"
         csv_content = service.get_file(bucket_name, csv_filepath)
