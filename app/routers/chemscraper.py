@@ -49,7 +49,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
             db.add(db_job)
             await db.commit()
         except Exception as e:
-            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occured.", "error_details": str(e)}
+            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occurred.", "error_details": str(e)}
             return JSONResponse(content=content, status_code=400) 
 
         filename = requestBody.fileList[0]

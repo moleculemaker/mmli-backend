@@ -127,8 +127,14 @@ class ChemScraperService:
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    pdf_filename = Path(file_path).stem
-                    log.info(f'Using file stem: {pdf_filename}')
+                    # FIXME: Remove this wrokaround in the future
+                    # FIXME: it shouldn't be needed once the file_path format is correct in the CSV
+                    pdf_filepath = file_path.split('detected=')[0].rstrip()
+                    log.debug(f'Using file stem: {pdf_filepath}')
+                    pdf_filename = Path(pdf_filepath).stem
+                    log.debug(f'Using file stem: {pdf_filename}')
+                    log.debug(f'Processing row:   doc_no={doc_no}   file_path={file_path}   page_no={page_no}   SMILE={SMILE}    X={minX}:{maxX}    Y={minY}:{maxY}')
+
                     obj_path = f'{jobId}/out/{pdf_filename}/{svg_filename}'
                     log.info(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
                     SVG = service.get_file(bucket_name, obj_path)
