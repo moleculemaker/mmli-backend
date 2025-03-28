@@ -120,7 +120,7 @@ class ChemScraperService:
                 doc_no, full_metadata = row[1], row[2]
 
                 # Parse full metadata into file_path, version, and stat counters
-                pattern = r"(?P<file_path>.+) detected=(?P<num_detected>.+) parsed=(?P<num_converted>.+) converted=(?P<num_converted>.+) version=(?P<version>.+)"
+                pattern = r"(?P<file_path>.+) detected=(?P<num_detected>.+) parsed=(?P<num_parsed>.+) converted=(?P<num_converted>.+) version=(?P<version>.+)"
                 match = re.match(pattern, row[2])
                 if match:
                     file_path = match.group('file_path')
@@ -132,9 +132,16 @@ class ChemScraperService:
                     #version = match.group('version')
 
             if row[0] == "P":
+                # Format: P	1	1000	1000
                 page_no = row[1]
 
+            # Ignored for now?
+            if row[0] == "FR":
+                # Format: FR	2	825	1950	1020	2056
+                continue
+
             if row[0] == "SMI":
+                # Format: SMI	1	COC(=O)C*	1609	1949	1810	2057
                 SMILE = row[2]
                 minX, minY, maxX, maxY = map(int, row[3:7])
                 if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
