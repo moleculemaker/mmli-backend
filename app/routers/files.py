@@ -13,6 +13,7 @@ from starlette.responses import FileResponse
 
 from config import get_logger
 from models.exportRequestBody import ExportRequestBody
+from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
@@ -27,7 +28,7 @@ from services.aceretro_service import ACERetroService
 from services.reactionminer_service import ReactionMinerService
 
 
-from typing import Optional
+from typing import Optional, List
 
 router = APIRouter()
 
@@ -113,6 +114,12 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
         filename = job_id + "/errors.txt"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
+
+
+# FIXME: Temporary workaround to force FastAPI to generate a model for Molecule
+@router.post("/{bucket_name}/exxample", tags=['Files'])
+async def delete_me() -> List[Molecule]:
+    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
 # TODO: Refactor this to make it more generic?
