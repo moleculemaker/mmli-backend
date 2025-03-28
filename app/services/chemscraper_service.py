@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List
 from fastapi import HTTPException
 import requests
@@ -115,7 +116,20 @@ class ChemScraperService:
             if not row:
                 continue
             if row[0] == "D":
-                doc_no, file_path = row[1], row[2]
+                # Format: D	1	/inputs/tmp_inpdfs/or100.09.tables.pdf detected=243 parsed=243 converted=243 version=0.4.3
+                doc_no, full_metadata = row[1], row[2]
+
+                # Parse full metadata into file_path, version, and stat counters
+                pattern = r"(?P<file_path>.+) detected=(?P<num_detected>.+) parsed=(?P<num_converted>.+) converted=(?P<num_converted>.+) version=(?P<version>.+)"
+                match = re.match(pattern, row[2])
+                if match:
+                    file_path = match.group('file_path')
+
+                    # TODO: the version + stat counters are currently unused
+                    #num_detected = match.group('num_detected')
+                    #num_parsed = match.group('num_parsed')
+                    #num_converted = match.group('num_converted')
+                    #version = match.group('version')
 
             if row[0] == "P":
                 page_no = row[1]
@@ -127,19 +141,15 @@ class ChemScraperService:
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    # FIXME: Remove this wrokaround in the future
-                    # FIXME: it shouldn't be needed once the file_path format is correct in the CSV
-                    pdf_filepath = file_path.split('detected=')[0].rstrip()
-                    log.debug(f'Using file stem: {pdf_filepath}')
-                    pdf_filename = Path(pdf_filepath).stem
-                    log.debug(f'Using file stem: {pdf_filename}')
                     log.debug(f'Processing row:   doc_no={doc_no}   file_path={file_path}   page_no={page_no}   SMILE={SMILE}    X={minX}:{maxX}    Y={minY}:{maxY}')
-
+                    pdf_filename = Path(file_path).stem
+                    log.debug(f'Using file stem: {pdf_filename}')
                     obj_path = f'{jobId}/out/{pdf_filename}/{svg_filename}'
-                    log.info(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
+
+                    log.debug(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
                     SVG = service.get_file(bucket_name, obj_path)
                     if SVG is not None:
-                        log.info('Using SVG from ChemScraper output!')
+                        log.debug('Using SVG from ChemScraper output!')
                     else:
                         log.warning("SVG not found, generating using rdkit")
                         SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
