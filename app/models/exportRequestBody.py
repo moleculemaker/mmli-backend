@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class ExportRequestBody(BaseModel):
     jobId: str
-    input_filename: Optional[str]
+    input_filename: str
     cdxml: bool
     cdxml_filter: str
     cdxml_selected_pages: List[int]
