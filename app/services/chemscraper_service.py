@@ -128,7 +128,9 @@ class ChemScraperService:
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     pdf_filename = Path(file_path).stem
                     SVG = service.get_file(bucket_name, f'{jobId}/out/{pdf_filename}/{svg_filename}')
-                    if SVG is None:
+                    if SVG is not None:
+                        log.info('Using SVG from ChemScraper output!')
+                    else:
                         log.warning("SVG not found, generating using rdkit")
                         SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
 
