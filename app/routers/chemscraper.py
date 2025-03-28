@@ -24,6 +24,7 @@ import io
 
 router = APIRouter()
 
+
 @router.post("/chemscraper/analyze", tags=['ChemScraper'])
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
@@ -57,6 +58,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+
 
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")
 def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOService = Depends()):
@@ -92,6 +94,7 @@ def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOSe
     # Return the IDs from each row as a list
     return df_sorted['id'].tolist()
 
+
 @router.post("/chemscraper/flag", tags=['ChemScraper'])
 async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends(get_session)):
     flagged_molecule = FlaggedMolecule(
@@ -109,6 +112,7 @@ async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends
     
     content = {"success_message": "Molecule Flag Successful"}
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
+
 
 @router.delete("/chemscraper/flag", tags=['ChemScraper'])
 async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncSession = Depends(get_session)):
