@@ -127,7 +127,9 @@ class ChemScraperService:
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
                     pdf_filename = Path(file_path).stem
-                    SVG = service.get_file(bucket_name, f'{jobId}/out/{pdf_filename}/{svg_filename}')
+                    obj_path = f'{jobId}/out/{pdf_filename}/{svg_filename}'
+                    log.info(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
+                    SVG = service.get_file(bucket_name, obj_path)
                     if SVG is not None:
                         log.info('Using SVG from ChemScraper output!')
                     else:
