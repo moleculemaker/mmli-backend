@@ -59,10 +59,14 @@ async def create_job(
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type == JobType.CHEMSCRAPER:
-        log.debug("Creating CHEMSCRAPER job")
+        raise HTTPException(status_code=501, detail=f"job_type={job_type} is not yet supported by the Jobs API")
+
+        # TODO: Create a simple job container for executing ChemScraper HTTP requests
+
+        #log.debug("Creating CHEMSCRAPER job")
         # runs as a background_task
-        command = 'N/A'
-        image_name = 'N/A'
+        #command = 'N/A'
+        #image_name = 'N/A'
     elif job_type in JobTypes:
         log.debug(f"Creating Kubernetes job: {job_type}")
         # runs in Kubernetes, read Docker image name from config

@@ -24,6 +24,7 @@ import io
 
 router = APIRouter()
 
+
 @router.post("/chemscraper/analyze", tags=['ChemScraper'])
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
@@ -48,7 +49,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
             db.add(db_job)
             await db.commit()
         except Exception as e:
-            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occured.", "error_details": str(e)}
+            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occurred.", "error_details": str(e)}
             return JSONResponse(content=content, status_code=400) 
 
         filename = requestBody.fileList[0]
@@ -58,12 +59,13 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
         content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
         return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
+
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")
 def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOService = Depends()):
     bucket_name = "chemscraper"
-    csv_content = service.get_file(bucket_name, "results/" + job_id + "/" + job_id + ".csv")
+    csv_content = service.get_file(bucket_name, f"{job_id}/out/{job_id}-results.csv")
     if csv_content is None:
-        filename = "results/" + job_id + "/" + job_id + ".csv"
+        filename = f"{job_id}/out/{job_id}-results.csv"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     df = pd.read_csv(io.BytesIO(csv_content))
     # Check if sort_column exists in DataFrame
@@ -92,6 +94,7 @@ def get_similarity_sorted_order(job_id: str, smile_string: str, service: MinIOSe
     # Return the IDs from each row as a list
     return df_sorted['id'].tolist()
 
+
 @router.post("/chemscraper/flag", tags=['ChemScraper'])
 async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends(get_session)):
     flagged_molecule = FlaggedMolecule(
@@ -109,6 +112,7 @@ async def flag_molecule(requestBody: FlaggedMolecule, db: AsyncSession = Depends
     
     content = {"success_message": "Molecule Flag Successful"}
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED) 
+
 
 @router.delete("/chemscraper/flag", tags=['ChemScraper'])
 async def delete_flagged_molecule(requestBody: FlaggedMoleculeDelete, db: AsyncSession = Depends(get_session)):

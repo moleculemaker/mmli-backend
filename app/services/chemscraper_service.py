@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import List
 from fastapi import HTTPException
 import requests
@@ -8,6 +9,7 @@ import csv
 import zipfile
 import time
 import pandas as pd
+from pathlib import Path
 from io import StringIO
 
 from config import get_logger, app_config
@@ -29,6 +31,7 @@ from models.sqlmodel.models import FlaggedMolecule
 
 log = get_logger(__name__)
 
+
 class ChemScraperService:
     chemscraper_api_baseURL = app_config['external']['chemscraper']['apiBaseUrl']
     chemscraper_frontend_baseURL = app_config['external']['chemscraper']['frontendBaseUrl']
@@ -46,7 +49,7 @@ class ChemScraperService:
         await self.db.commit()
 
     @staticmethod
-    async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+    async def resultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession) -> List[Molecule]:
         rdkitService = RDKitService()
         csv_filepath = job_id + "/out/" + job_id + "-results.csv"
         csv_content = service.get_file(bucket_name, csv_filepath)
@@ -113,20 +116,48 @@ class ChemScraperService:
             if not row:
                 continue
             if row[0] == "D":
-                doc_no, file_path = row[1], row[2]
+                # Format: D	1	/inputs/tmp_inpdfs/or100.09.tables.pdf detected=243 parsed=243 converted=243 version=0.4.3
+                doc_no, full_metadata = row[1], row[2]
+
+                # Parse full metadata into file_path, version, and stat counters
+                pattern = r"(?P<file_path>.+) detected=(?P<num_detected>.+) parsed=(?P<num_parsed>.+) converted=(?P<num_converted>.+) version=(?P<version>.+)"
+                match = re.match(pattern, row[2])
+                if match:
+                    file_path = match.group('file_path')
+
+                    # TODO: the version + stat counters are currently unused
+                    #num_detected = match.group('num_detected')
+                    #num_parsed = match.group('num_parsed')
+                    #num_converted = match.group('num_converted')
+                    #version = match.group('version')
 
             if row[0] == "P":
+                # Format: P	1	1000	1000
                 page_no = row[1]
 
+            # Ignored for now?
+            if row[0] == "FR":
+                # Format: FR	2	825	1950	1020	2056
+                continue
+
             if row[0] == "SMI":
+                # Format: SMI	1	COC(=O)C*	1609	1949	1810	2057
                 SMILE = row[2]
                 minX, minY, maxX, maxY = map(int, row[3:7])
                 if all([doc_no, file_path, page_no, SMILE, minX, minY, maxX, maxY]):
                     # Only molecules having all these fields available are processed
                     SMILE_LIST.append(SMILE)
                     svg_filename = f"Page_{page_no.zfill(3)}_No{row[1].zfill(3)}.svg"
-                    SVG = service.get_file(bucket_name, jobId + '/out/molecules/' + svg_filename)
-                    if SVG is None:
+                    log.debug(f'Processing row:   doc_no={doc_no}   file_path={file_path}   page_no={page_no}   SMILE={SMILE}    X={minX}:{maxX}    Y={minY}:{maxY}')
+                    pdf_filename = Path(file_path).stem
+                    log.debug(f'Using file stem: {pdf_filename}')
+                    obj_path = f'{jobId}/out/{pdf_filename}/{svg_filename}'
+
+                    log.debug(f'Attempting to read SVG from ChemScraper output: {bucket_name}/{obj_path}')
+                    SVG = service.get_file(bucket_name, obj_path)
+                    if SVG is not None:
+                        log.debug('Using SVG from ChemScraper output!')
+                    else:
                         log.warning("SVG not found, generating using rdkit")
                         SVG = rdkitService.renderSVGFromSMILE(smileString=SMILE)
 
@@ -215,7 +246,6 @@ class ChemScraperService:
         if not upload_result:
             raise HTTPException(status_code=500, detail="Unable to store CSV")
         return
-
 
     async def runChemscraperOnDocument(self, bucket_name: str, filename: str, objectPath: str, jobId: str, service: MinIOService, email_service: EmailService):
         # Get Job Object
