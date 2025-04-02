@@ -19,15 +19,20 @@ analyzeIngress:
 config:
   kubernetes_jobs:
     novostoic-dgpredictor:
-      # TODO: Temporarily run on GPU node
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    novostoic-pathways:
-      # TODO: Temporarily run on GPU node
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
+    novostoic-enzrank:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -35,15 +40,62 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-optstoic:
-      # TODO: Temporarily run on GPU node
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
+    novostoic-pathways:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    aceretro:
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    # Run on GPU node
     reactionminer:
+      resources:	
+        limits:	
+          cpu: "1"	
+          memory: 24Gi	
+        requests:	
+          cpu: "1"	
+          memory: 20Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:

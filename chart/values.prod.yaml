@@ -25,15 +25,27 @@ config:
     apiBaseUrl: "minioapi.mmli.fastapi.mmli1.ncsa.illinois.edu"
   kubernetes_jobs:
     novostoic-dgpredictor:
-      # TODO: Temporarily run on GPU node
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    novostoic-pathways:
-      # TODO: Temporarily run on GPU node
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 16Gi
+        requests:
+          cpu: "1"
+          memory: 12Gi
+    novostoic-enzrank:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -41,7 +53,48 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-optstoic:
-      # TODO: Temporarily run on GPU node
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+    novostoic-pathways:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    aceretro:
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -55,6 +108,8 @@ config:
           value: '/root/.cache/token'
         - name: GROBID_SERVER
           value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
+        - name: CHEMSCRAPER_BASE_URL	
+          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
       # Run ReactionMiner on GPU node
       nodeSelector:
         nvidia.com/gpu.present: "true"
