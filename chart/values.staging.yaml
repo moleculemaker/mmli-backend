@@ -67,6 +67,18 @@ config:
       - effect: NoSchedule  
         key: mmli.role  
         operator: Exists
+    chemscraper:
+      env:
+        - name: LOG_LEVEL
+          value: DEBUG
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'http://chemscraper-services-staging.staging.svc.cluster.local:8000'
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     clean:
       nodeSelector:  
         ncsa.role: worker-job  
@@ -102,6 +114,7 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
