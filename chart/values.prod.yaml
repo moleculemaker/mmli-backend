@@ -24,6 +24,13 @@ config:
     server: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.mmli1.ncsa.illinois.edu"
   kubernetes_jobs:
+    defaults:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     novostoic-dgpredictor:
       nodeSelector:  
         ncsa.role: worker-job  
@@ -93,6 +100,13 @@ config:
       tolerations:  
       - effect: NoSchedule  
         key: mmli.role  
+        operator: Exists
+    somn:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     aceretro:
       nodeSelector:

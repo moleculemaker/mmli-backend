@@ -18,6 +18,13 @@ analyzeIngress:
 
 config:
   kubernetes_jobs:
+    defaults:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     novostoic-dgpredictor:
       nodeSelector:	
         ncsa.role: worker-job	
@@ -88,6 +95,13 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    somn:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     reactionminer:
       resources:	
         limits:	
