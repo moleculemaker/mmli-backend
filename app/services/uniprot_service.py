@@ -53,8 +53,10 @@ class UniprotRawResult(TypedDict):
     sequence: UniprotSequenceEntry
     extraAttributes: UniprotExtraAttributesEntry
     
+class UniprotRawResultWithStructure(UniprotRawResult):
+    url: str
 
-UniprotResultDict = dict[str, UniprotRawResult | None]
+UniprotResultDict = dict[str, UniprotRawResultWithStructure | None]
 
 class UniprotService:
     
@@ -70,10 +72,14 @@ class UniprotService:
         Returns:
             dict[accession, UniprotRawResult | None]: Dictionary of protein information dictionaries
         '''
-        results = UniProt.search(
+        rawResults = UniProt.search(
             query=' OR '.join(f'accession:{accession}' for accession in accessions), 
             fields=['gene_names', 'organism_name', 'lineage', 'protein_name', 'sequence'], 
             batch_size=10
         )
+        
+        results = list(rawResults)
+        for result in results:
+            result['url'] = f'https://alphafold.ebi.ac.uk/files/AF-{result["primaryAccession"]}-F1-model_v4.pdb'
         
         return {result['primaryAccession']: result for result in results}
