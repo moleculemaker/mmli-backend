@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from services.shared import draw_chemical_svg
+from services.uniprot_service import UniprotService, UniprotResultDict
 
 router = APIRouter()
 
@@ -10,6 +11,22 @@ async def draw_smiles(smiles: str):
     
     try:
         return draw_chemical_svg(smiles)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post(
+    "/uniprot/get-info-by-accessions", 
+    tags=['Shared'],
+    response_model=UniprotResultDict,
+    description="""
+    Get information about proteins by their accession numbers.
+    Uniprot search will return 400 if any of the accessions are invalid.
+    Returns a dictionary with the accession numbers as keys and the protein information as values.
+    """,
+)
+def get_info_by_accessions(accessions: list[str]):
+    try:
+        return UniprotService.get_info_by_accessions(accessions)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
