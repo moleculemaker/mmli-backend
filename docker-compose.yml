@@ -60,7 +60,7 @@ services:
 
 networks:
   mmli-net:
-    #external: true
+    external: true
     name: mmli-net
 
 volumes:
