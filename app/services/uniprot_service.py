@@ -37,12 +37,20 @@ class UniprotGeneEntry(TypedDict):
 class UniprotExtraAttributesEntry(TypedDict):
     uniParcId: str
     
+class UniprotSequenceEntry(TypedDict):
+    value: str
+    length: int
+    molWeight: int
+    crc64: str
+    md5: str
+    
 class UniprotRawResult(TypedDict):
     entryType: str
     primaryAccession: str
     organism: UniprotOrgansimEntry
     proteinDescription: UniprotProteinDescription
     genes: list[UniprotGeneEntry]
+    sequence: UniprotSequenceEntry
     extraAttributes: UniprotExtraAttributesEntry
     
 
@@ -64,7 +72,7 @@ class UniprotService:
         '''
         results = UniProt.search(
             query=' OR '.join(f'accession:{accession}' for accession in accessions), 
-            fields=['gene_names', 'organism_name', 'lineage', 'protein_name'], 
+            fields=['gene_names', 'organism_name', 'lineage', 'protein_name', 'sequence'], 
             batch_size=10
         )
         
