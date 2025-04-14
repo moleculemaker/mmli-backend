@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from services.kegg_service import KeggResultDict, KeggService
 from services.shared import draw_chemical_svg
 from services.uniprot_service import UniprotService, UniprotResultDict
 
@@ -27,6 +28,20 @@ async def draw_smiles(smiles: str):
 def get_info_by_accessions(accessions: list[str]):
     try:
         return UniprotService.get_info_by_accessions(accessions)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post(
+    "/kegg/get-info-by-ec-numbers",
+    tags=['Shared'],
+    response_model=KeggResultDict,
+    description="""
+    Get information about enzymes by their EC numbers.
+    """,
+)
+def get_info_by_ec_numbers(ec_numbers: list[str]):
+    try:
+        return KeggService.get_info_by_ec_numbers(ec_numbers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
