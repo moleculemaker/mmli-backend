@@ -1,11 +1,32 @@
-from typing import Dict
+import traceback
+from typing import Optional, TypeVar, TypedDict
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 from services.kegg_service import KeggResultDict, KeggService
-from services.shared import draw_chemical_svg, get_similarity_score
+from services.shared import (
+    ChemInfoAlgorithms,
+    convert_to_rdkit_mols, 
+    draw_chemical_svg, 
+    rdkit_get_cheminfo_algorithms_results, 
+)
 from services.uniprot_service import UniprotService, UniprotResultDict
+from config import get_logger
 
 router = APIRouter()
+
+log = get_logger(__name__)
+
+T = TypeVar('T')
+DictResponse = dict[str, T]
+
+class FragmentMatchResponseData(TypedDict):
+    matches: list[list[int]]
+    
+class ChemInfoResponse(TypedDict):
+    tanimoto: Optional[dict[str, float]]
+    fragment: Optional[dict[str, FragmentMatchResponseData]]
+    mcs: Optional[dict[str, float]]
+    errors: Optional[dict[str, str | dict[str, str]]]
 
 @router.get("/smiles/draw", tags=['Shared'])
 async def draw_smiles(smiles: str):
@@ -18,21 +39,83 @@ async def draw_smiles(smiles: str):
         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.post("/smiles/similarity", tags=['Shared'], response_model=Dict[str, float | str])
-async def get_similarity(
+@router.post("/rdkit/cheminfo-algorithms", 
+            tags=['Shared'], 
+            response_model=ChemInfoResponse)
+async def get_cheminfo_algorithms_results(
+    algorithms: list[ChemInfoAlgorithms] = Body(...),
     query_smiles: str = Body(...),
     smiles_list: list[str] = Body(...)
 ):
+    """
+    Run cheminformatics algorithms on a list of SMILES strings against a query SMILES string.
+    """
+    # Convert SMILES to molecules
+    smi_mol_dict, mol_smi_dict = convert_to_rdkit_mols(smiles_list + [query_smiles])
+    
+    # Validate query SMILES
+    query_mol = smi_mol_dict[query_smiles]
+    if query_mol is None:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"fail to process query SMILES string: {query_smiles}"
+        )
+        
+    # Format results for response
+    response = {
+        "errors": {},
+        "tanimoto": None,
+        "fragment": None,
+        "mcs": None,
+    }
+    
+    for smiles, mol in smi_mol_dict.items():
+        if mol is None:
+            response["errors"][smiles] = f"fail to process SMILES string: {smiles}"
     
     try:
-        err_code, ret_val = get_similarity_score(query_smiles, smiles_list)
-        if err_code != 0:
-            raise HTTPException(status_code=400, detail=ret_val)
-        else:
-            return ret_val
-
+        # Get results from cheminformatics algorithms
+        results = rdkit_get_cheminfo_algorithms_results(
+            algorithms, 
+            query_mol, 
+            [ v for k, v in smi_mol_dict.items() if k != query_smiles and v is not None ]
+        )
+        
+        if "tanimoto" in algorithms:
+            response["tanimoto"] = { 
+                mol_smi_dict[result["mol"]]: result["score"] for result in results["tanimoto"] if "error" not in result
+            }
+            response["errors"]["tanimoto"] = {
+                mol_smi_dict[result["mol"]]: result["error"] for result in results["tanimoto"] if "error" in result
+            }
+            
+        if "fragment" in algorithms:
+            response["fragment"] = { 
+                mol_smi_dict[result["mol"]]: {
+                    "matches": result["matches"], 
+                    # "svg": result["svg"] 
+                } for result in results["fragment"] if "error" not in result
+            }
+            response["errors"]["fragment"] = {
+                mol_smi_dict[result["mol"]]: result["error"] for result in results["fragment"] if "error" in result
+            }
+            
+        if "mcs" in algorithms:
+            response["mcs"] = { 
+                mol_smi_dict[result["mol"]]: result["score"] for result in results["mcs"] if "error" not in result
+            }
+            response["errors"]["mcs"] = {
+                mol_smi_dict[result["mol"]]: result["error"] for result in results["mcs"] if "error" in result
+            }
+            
+        return response
+        
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        log.error(f"Error processing cheminformatics algorithms: {str(e)}, {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error processing cheminformatics algorithms: {str(e)}"
+        )
     
 @router.post(
     "/uniprot/get-info-by-accessions", 
