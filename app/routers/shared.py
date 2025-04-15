@@ -1,6 +1,8 @@
+from typing import Dict
+
 from fastapi import APIRouter, HTTPException
 from services.kegg_service import KeggResultDict, KeggService
-from services.shared import draw_chemical_svg
+from services.shared import draw_chemical_svg, get_similarity_score
 from services.uniprot_service import UniprotService, UniprotResultDict
 
 router = APIRouter()
@@ -14,6 +16,23 @@ async def draw_smiles(smiles: str):
         return draw_chemical_svg(smiles)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/smiles/similarity", tags=['Shared'], response_model=Dict[str, float | str])
+async def get_similarity(
+    query_smiles: str = Body(...),
+    smiles_list: list[str] = Body(...)
+):
+    
+    try:
+        err_code, ret_val = get_similarity_score(query_smiles, smiles_list)
+        if err_code != 0:
+            raise HTTPException(status_code=400, detail=ret_val)
+        else:
+            return ret_val
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
 @router.post(
     "/uniprot/get-info-by-accessions", 
@@ -44,7 +63,7 @@ def get_info_by_ec_numbers(ec_numbers: list[str]):
         return KeggService.get_info_by_ec_numbers(ec_numbers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+    
 # TODO: implement the function
 # @router.get("/chemicals/info", tags=['Shared'])
 # async def get_chemical_info(ids: list[str]):
