@@ -1,11 +1,12 @@
 import logging
 import time
+from typing import Tuple, TypedDict
 
 from Bio.KEGG import REST
 from Bio.KEGG import Enzyme
-from typing import Tuple, TypedDict
 
 from services.uniprot_service import UniprotLookUpByECResult, UniprotService
+from utils.retry import retry
 
 log = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ KeggResultDict = dict[str, KeggRawResult | None]
 class KeggService:
     
     @staticmethod
+    @retry(max_retries=3, initial_delay=1.0, max_delay=10.0, backoff_factor=2.0)
     def get_info_by_ec_numbers(ec_numbers_input: list[str]) -> KeggResultDict:
         '''
         Get information about ec numbers. 

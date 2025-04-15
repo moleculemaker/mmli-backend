@@ -1,6 +1,7 @@
 import logging
 from Bio import UniProt
 from typing import TypedDict
+from utils.retry import retry
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class UniprotService:
     structure_url = 'https://alphafold.ebi.ac.uk/files/AF-{}-F1-model_v4.pdb'
     
     @staticmethod
+    @retry(max_retries=3, initial_delay=1.0, max_delay=10.0, backoff_factor=2.0)
     def get_info_by_accessions(accessions: list[str]) -> UniprotResultDict:
         '''
         Get information about proteins by their accession numbers.
@@ -91,6 +93,7 @@ class UniprotService:
         return {result['primaryAccession']: result for result in results}
     
     @staticmethod
+    @retry(max_retries=3, initial_delay=1.0, max_delay=10.0, backoff_factor=2.0)
     def find_uniprot_ids_for_ec_numbers(ec_number_inputs: list[str], limit: int = 10) -> dict[str, list[UniprotLookUpByECResult]]:
         """
         Get a representative UniProt ID for a given EC number.
@@ -100,7 +103,7 @@ class UniprotService:
             limit (int): The maximum number of results to return max 50
             
         Returns:
-            Optional[str]: The UniProt ID if found, None otherwise
+            dict[ec_number, list[UniprotLookUpByECResult]]: The UniProt ID if found, None otherwise
         """
         ec_numbers = list(set(ec_number_inputs))
         limit = min(limit, 50)
@@ -126,6 +129,7 @@ class UniprotService:
         return ret_val
     
     @staticmethod
+    @retry(max_retries=3, initial_delay=1.0, max_delay=10.0, backoff_factor=2.0)
     def get_ec_numbers_for_uniprot_ids(uniprot_ids: list[str]) -> dict[str, list[str]]:
         """
         Get EC numbers for a list of UniProt IDs.
