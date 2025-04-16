@@ -1,9 +1,10 @@
 import traceback
 from typing import Optional, TypeVar, TypedDict
-
 from fastapi import APIRouter, Body, HTTPException
+
 from services.shared import (
     ChemInfoAlgorithms,
+    ChemInfoAlgorithmsConfig,
     convert_to_rdkit_mols, 
     draw_chemical_svg, 
     rdkit_get_cheminfo_algorithms_results, 
@@ -43,8 +44,9 @@ async def draw_smiles(smiles: str):
             response_model=ChemInfoResponse)
 async def get_cheminfo_algorithms_results(
     algorithms: list[ChemInfoAlgorithms] = Body(...),
-    query_smiles: str = Body(...),
-    smiles_list: list[str] = Body(...)
+    query_smiles: str = Body("COC1=C(C=CC(=C1)CCN)O"),
+    smiles_list: list[str] = Body(["COc1ccc2c(c1OC)C(O)O[C@@H]2[C@H]1c2c(cc3c(c2OC)OCO3)CCN1C"]),
+    algorithm_config: Optional[ChemInfoAlgorithmsConfig] = Body(ChemInfoAlgorithmsConfig()),
 ):
     """
     Run cheminformatics algorithms on a list of SMILES strings against a query SMILES string.
@@ -77,7 +79,8 @@ async def get_cheminfo_algorithms_results(
         results = rdkit_get_cheminfo_algorithms_results(
             algorithms, 
             query_mol, 
-            [ v for k, v in smi_mol_dict.items() if k != query_smiles and v is not None ]
+            [ v for k, v in smi_mol_dict.items() if k != query_smiles and v is not None ],
+            algorithm_config
         )
         
         if "tanimoto" in algorithms:

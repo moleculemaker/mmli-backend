@@ -5,24 +5,69 @@ from rdkit.Chem import rdDepictor
 from rdkit.Chem import DataStructs
 from rdkit.Chem import rdFMCS
 from typing import Callable, List, Literal, Optional, Tuple, TypedDict
+from pydantic import BaseModel
 
+
+# ---------------------------------------------------------------------------- #
+#                                  Fragment                                    #
+# ---------------------------------------------------------------------------- #
+class FragmentMatchConfig(BaseModel):
+    uniquify: Optional[bool] = True
+    useChirality: Optional[bool] = False
+    useQueryQueryMatches: Optional[bool] = False
+    maxMatches: Optional[int] = 1000
+    
 class FragmentMatchResult(TypedDict):
     mol: Chem.Mol
     matches: list[list[int]]
-    # svg: str
     error: Optional[str]
+    
+    
+# ---------------------------------------------------------------------------- #
+#                                   MCS                                        #
+# ---------------------------------------------------------------------------- #
+class MCSConfig(BaseModel):
+    maximizeBonds: Optional[bool] = True
+    threshold: Optional[float] = 1.0
+    timeout: Optional[int] = 1
+    verbose: Optional[bool] = False
+    matchValences: Optional[bool] = False
+    ringMatchesRingOnly: Optional[bool] = False
+    completeRingsOnly: Optional[bool] = False
+    matchChiralTag: Optional[bool] = False
+    atomCompare: Optional[Chem.rdFMCS.AtomCompare] = Chem.rdFMCS.AtomCompare.CompareElements
+    bondCompare: Optional[Chem.rdFMCS.BondCompare] = Chem.rdFMCS.BondCompare.CompareOrderExact
+    ringCompare: Optional[Chem.rdFMCS.RingCompare] = Chem.rdFMCS.RingCompare.IgnoreRingFusion
+    seedSmarts: Optional[str] = ""
     
 class MCSResult(TypedDict):
     mol: Chem.Mol
     score: float
     error: Optional[str]
     
+    
+# ---------------------------------------------------------------------------- #
+#                                   Tanimoto                                   #
+# ---------------------------------------------------------------------------- #
+class TanimotoConfig(BaseModel):
+    fptype: Optional[Literal["rdkit", "layered", "maccs", "atompairs", "torsions"]] = "rdkit"
+    
 class TanimotoResult(TypedDict):
     mol: Chem.Mol
     score: float
     error: Optional[str]
     
+
+# ---------------------------------------------------------------------------- #
+#                                  ChemInfo                                    #
+# ---------------------------------------------------------------------------- #
 ChemInfoAlgorithms = Literal["tanimoto", "fragment", "mcs"]
+
+class ChemInfoAlgorithmsConfig(BaseModel):
+    tanimoto: Optional[TanimotoConfig] = TanimotoConfig()
+    fragment: Optional[FragmentMatchConfig] = FragmentMatchConfig()
+    mcs: Optional[MCSConfig] = MCSConfig()
+
 class ChemInfoResult(TypedDict):
     tanimoto: Optional[list[TanimotoResult]]
     fragment: Optional[list[FragmentMatchResult]]
@@ -116,7 +161,8 @@ def convert_to_rdkit_mols(smiles_list: list[str]) -> Tuple[SmilesMolDict, MolSmi
 def rdkit_get_cheminfo_algorithms_results(
     algorithms: list[ChemInfoAlgorithms],
     query_mol: Chem.Mol,
-    mols: list[Chem.Mol]
+    mols: list[Chem.Mol],
+    algorithm_config: ChemInfoAlgorithmsConfig = ChemInfoAlgorithmsConfig(),
 ) -> ChemInfoResult:
     """
     Get the results of the cheminfo algorithms for a query molecule against a list of molecules.
@@ -131,19 +177,20 @@ def rdkit_get_cheminfo_algorithms_results(
     """
     results = {}
     if "tanimoto" in algorithms:
-        results["tanimoto"] = rdkit_get_tanimoto_similarity_score_against(query_mol, mols)
+        results["tanimoto"] = rdkit_get_tanimoto_similarity_score_against(query_mol, mols, algorithm_config.tanimoto)
         
     if "fragment" in algorithms:
-        results["fragment"] = rdkit_get_fragment_matches_against(query_mol, mols)
+        results["fragment"] = rdkit_get_fragment_matches_against(query_mol, mols, algorithm_config.fragment)
         
     if "mcs" in algorithms:
-        results["mcs"] = rdkit_get_mcs_score_against(query_mol, mols)
+        results["mcs"] = rdkit_get_mcs_score_against(query_mol, mols, algorithm_config.mcs)
         
     return results
 
 def rdkit_get_tanimoto_similarity_score_against(
     query_mol: Chem.Mol, 
-    mols: List[Chem.Mol]
+    mols: List[Chem.Mol],
+    algorithm_config: TanimotoConfig = TanimotoConfig()
 ) -> List[TanimotoResult]:
     """
     Get a similarity score for a query molecule against a list of molecules.
@@ -160,12 +207,50 @@ def rdkit_get_tanimoto_similarity_score_against(
         ValueError: If the query SMILES string is invalid
     """
     
-    query_fp = Chem.RDKFingerprint(query_mol)
+     
+    def calcfp(mol: Chem.Mol, fptype="rdkit"):
+        """Calculate a molecular fingerprint.
+
+        Optional parameters:
+           fptype -- the fingerprint type (default is "rdkit"). See the
+                     fps variable for a list of of available fingerprint
+                     types.
+           opt -- a dictionary of options for fingerprints. Currently only used
+                  for radius and bitInfo in Morgan fingerprints.
+        """ 
+        fptype = fptype.lower()
+        if fptype == "rdkit":
+            fp = Chem.RDKFingerprint(mol)
+            
+        elif fptype == "layered":
+            fp = Chem.LayeredFingerprint(mol)
+            
+        elif fptype == "maccs":
+            fp = Chem.MACCSkeys.GenMACCSKeys(mol)
+            
+        elif fptype == "atompairs":
+            # Going to leave as-is. See Atom Pairs documentation.
+            fp = Chem.AtomPairs.Pairs.GetAtomPairFingerprintAsIntVect(mol)
+        elif fptype == "torsions":
+            # Going to leave as-is.
+            fp = Chem.AtomPairs.Torsions.GetTopologicalTorsionFingerprintAsIntVect(mol)
+            
+        # elif fptype == "morgan":
+        #     info = opt.bitInfo
+        #     radius = opt.radius
+        #     fp = Chem.rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, radius, bitInfo=info)
+            
+        else:
+            raise ValueError("%s is not a recognised RDKit Fingerprint type" % fptype)
+        
+        return fp
+    
+    query_fp = calcfp(query_mol, algorithm_config.fptype)
     
     ret_val = []
     for mol in mols:
         try:
-            fp = Chem.RDKFingerprint(mol)
+            fp = calcfp(mol, algorithm_config.fptype)
             similarity = DataStructs.FingerprintSimilarity(query_fp, fp)
             ret_val.append(TanimotoResult(mol=mol, score=similarity))
         except Exception as e:
@@ -176,7 +261,8 @@ def rdkit_get_tanimoto_similarity_score_against(
     
 def rdkit_get_fragment_matches_against(
     query_mol: Chem.Mol, 
-    mols: list[Chem.Mol]
+    mols: list[Chem.Mol],
+    algorithm_config: FragmentMatchConfig = FragmentMatchConfig()
 ) -> list[FragmentMatchResult]:
     """
     Get the fragments of the query molecule in the list of molecules.
@@ -199,18 +285,22 @@ def rdkit_get_fragment_matches_against(
     for mol in mols:
         try:
             if mol.HasSubstructMatch(query_mol):
-                matches = mol.GetSubstructMatches(query_mol)
-                # highlight_atoms = [atom_idx for match in matches for atom_idx in match] 
+                # GetSubstructMatches((Mol)self, 
+                #  (Mol)query[, 
+                #  (bool)uniquify=True[, 
+                #  (bool)useChirality=False[, 
+                #  (bool)useQueryQueryMatches=False[, 
+                #  (int)maxMatches=1000]]]]
+                # ) → object 
+                matches = mol.GetSubstructMatches(query_mol, **algorithm_config.dict())
                 ret_val.append(FragmentMatchResult(
                     mol=mol, 
                     matches=[list(m) for m in matches],
-                    # svg=rdkit_draw_mol_svg(mol, highlightAtoms=highlight_atoms)
                 ))
         except Exception as e:
             ret_val.append(FragmentMatchResult(
                 mol=mol, 
                 matches=[], 
-                # svg="", 
                 error=str(e)
             ))
     return ret_val
@@ -218,7 +308,8 @@ def rdkit_get_fragment_matches_against(
 
 def rdkit_get_mcs_score_against(
     query_mol: Chem.Mol, 
-    mols: list[Chem.Mol]
+    mols: list[Chem.Mol],
+    algorithm_config: MCSConfig = MCSConfig()
 ) -> List[MCSResult]:
     """
     Get the Maximum Common Substructure (MCS) score for a query molecule against a list of molecules.
@@ -238,11 +329,23 @@ def rdkit_get_mcs_score_against(
     for mol in mols:
         try:
             # Find MCS between query and current molecule
+            # rdkit.Chem.rdFMCS.FindMCS((AtomPairsParameters)mols[, 
+            #  (bool)maximizeBonds=True[, 
+            #  (float)threshold=1.0[, 
+            #  (int)timeout=3600[, 
+            #  (bool)verbose=False[, 
+            #  (bool)matchValences=False[, 
+            #  (bool)ringMatchesRingOnly=False[, 
+            #  (bool)completeRingsOnly=False[, 
+            #  (bool)matchChiralTag=False[, 
+            #  (AtomCompare)atomCompare=rdkit.Chem.rdFMCS.AtomCompare.CompareElements[, 
+            #  (BondCompare)bondCompare=rdkit.Chem.rdFMCS.BondCompare.CompareOrder[, 
+            #  (RingCompare)ringCompare=rdkit.Chem.rdFMCS.RingCompare.IgnoreRingFusion[, 
+            #  (str)seedSmarts='']]]]]]]]]]]]
+            # ) → MCSResult :
             mcs = rdFMCS.FindMCS(
                 [query_mol, mol],
-                completeRingsOnly=True,
-                bondCompare=rdFMCS.BondCompare.CompareOrderExact,
-                timeout=1
+                **algorithm_config.dict()
             )
                 
             # Calculate MCS score
@@ -258,13 +361,52 @@ def rdkit_get_mcs_score_against(
 
 
 # Testing
-if __name__ == "__main__":
-    query_smiles = "COC1=C(C=CC(=C1)CCN)O"
-    target_smiles = ["COc1ccc2c(c1OC)C(O)O[C@@H]2[C@H]1c2c(cc3c(c2OC)OCO3)CCN1C"]
+# if __name__ == "__main__":
+#     query_smiles = "COC1=C(C=CC(=C1)CCN)O"
+#     target_smiles = ["COc1ccc2c(c1OC)C(O)O[C@@H]2[C@H]1c2c(cc3c(c2OC)OCO3)CCN1C"]
     
-    query_mol = Chem.MolFromSmiles(query_smiles)
-    target_mols = [Chem.MolFromSmiles(smiles) for smiles in target_smiles]
+#     query_mol = Chem.MolFromSmiles(query_smiles)
+#     target_mols = [Chem.MolFromSmiles(smiles) for smiles in target_smiles]
     
-    print(rdkit_get_tanimoto_similarity_score_against(query_mol, target_mols))
-    print(rdkit_get_fragment_matches_against(query_mol, target_mols))
-    print(rdkit_get_mcs_score_against(query_mol, target_mols))
+#     print(rdkit_get_tanimoto_similarity_score_against(query_mol, target_mols))
+#     print(rdkit_get_fragment_matches_against(query_mol, target_mols))
+#     print(rdkit_get_mcs_score_against(query_mol, target_mols))
+    
+#     print(rdkit_get_tanimoto_similarity_score_against(
+#         query_mol=query_mol,
+#         mols=target_mols,
+#         algorithm_config=TanimotoConfig(
+#             fptype="rdkit",
+
+#         )
+#     ))
+#     print(rdkit_get_fragment_matches_against(
+#         query_mol=query_mol,
+#         mols=target_mols,
+#         algorithm_config=FragmentMatchConfig(
+#             uniquify=False,
+#             useChirality=True,
+#             useQueryQueryMatches=False,
+#             maxMatches=10,
+#         )
+#     ))
+    
+    
+#     print(rdkit_get_mcs_score_against(
+#         query_mol=query_mol,
+#         mols=target_mols,
+#         algorithm_config=MCSConfig(
+#             maximizeBonds=True,
+#             threshold=1.0,
+#             timeout=1,
+#             verbose=False,
+#             matchValences=False,
+#             ringMatchesRingOnly=True,
+#             completeRingsOnly=False,
+#             matchChiralTag=True,
+#             atomCompare=rdFMCS.AtomCompare.CompareElements,
+#             bondCompare=rdFMCS.BondCompare.CompareOrder,
+#             ringCompare=rdFMCS.RingCompare.IgnoreRingFusion,
+#             seedSmarts="",
+#         )
+#     ))
