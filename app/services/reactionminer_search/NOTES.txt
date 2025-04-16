@@ -1,8 +1,0 @@
-THESE FILES ARE ADAPTED FROM https://gitlab.com/dprl/reactionminer_search/-/tree/main/indexing
-
-once gets to phase 2 reactionminer, and a better integration strategy is found and tested, these files can be safely deleted.
-
-
-
-
-
