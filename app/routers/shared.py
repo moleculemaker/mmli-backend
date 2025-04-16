@@ -2,14 +2,12 @@ import traceback
 from typing import Optional, TypeVar, TypedDict
 
 from fastapi import APIRouter, Body, HTTPException
-from services.kegg_service import KeggResultDict, KeggService
 from services.shared import (
     ChemInfoAlgorithms,
     convert_to_rdkit_mols, 
     draw_chemical_svg, 
     rdkit_get_cheminfo_algorithms_results, 
 )
-from services.uniprot_service import UniprotService, UniprotResultDict
 from config import get_logger
 
 router = APIRouter()
@@ -21,7 +19,7 @@ DictResponse = dict[str, T]
 
 class FragmentMatchResponseData(TypedDict):
     matches: list[list[int]]
-    svg: str
+    # svg: str
     
 class ChemInfoResponse(TypedDict):
     tanimoto: Optional[dict[str, float]]
