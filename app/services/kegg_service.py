@@ -77,7 +77,8 @@ class KeggService:
         Returns:
             dict[ec_number, KeggRawResult | None]: Dictionary of EC number information dictionaries
         '''
-        BATCH_SIZE = 3 # KEGG API limit
+        BATCH_SIZE = 10 # Bio.KEGG max entries per request
+        RATE_LIMIT = 3 # requests per second
         all_records: list[Enzyme.Record] = []
         ec_numbers = list(set(ec_numbers_input))
         uniprot_limit = 3
@@ -95,7 +96,8 @@ class KeggService:
             all_records.extend(parsed_records)
             
             # Sleep for 1 second to avoid rate limiting
-            time.sleep(1)
+            if i % RATE_LIMIT == 0 and i != 0:
+                time.sleep(1)
             
         result_dict: KeggResultDict = {}
         
@@ -116,23 +118,23 @@ class KeggService:
                         })
             
             # Extract genes
-            # genes = []
-            # if hasattr(record, 'genes'):
-            #     for gene_entry in record.genes:
-            #         if len(gene_entry) >= 2:
-            #             organism = gene_entry[0]
-            #             gene_entries = []
+            genes = []
+            if hasattr(record, 'genes'):
+                for gene_entry in record.genes:
+                    if len(gene_entry) >= 2:
+                        organism = gene_entry[0]
+                        gene_entries = []
                         
-            #             for gene in gene_entry[1]:
-            #                 gene_entries.append({
-            #                     'id': gene,
-            #                     'url': f"https://www.kegg.jp/entry/{organism}+{gene}"
-            #                 })
-            #             genes.append({
-            #                 'organism': organism,
-            #                 'entries': gene_entries,
-            #                 'url': f"https://www.kegg.jp/entry/{organism}+{'+'.join(gene_entry[1])}"
-            #             })
+                        for gene in gene_entry[1]:
+                            gene_entries.append({
+                                'id': gene,
+                                'url': f"https://www.kegg.jp/entry/{organism}+{gene}"
+                            })
+                        genes.append({
+                            'organism': organism,
+                            'entries': gene_entries,
+                            'url': f"https://www.kegg.jp/entry/{organism}+{'+'.join(gene_entry[1])}"
+                        })
             
             # Create KeggRawResult object
             kegg_result = KeggRawResult(

@@ -21,6 +21,7 @@ DictResponse = dict[str, T]
 
 class FragmentMatchResponseData(TypedDict):
     matches: list[list[int]]
+    svg: str
     
 class ChemInfoResponse(TypedDict):
     tanimoto: Optional[dict[str, float]]
@@ -116,36 +117,37 @@ async def get_cheminfo_algorithms_results(
             status_code=500,
             detail=f"Error processing cheminformatics algorithms: {str(e)}"
         )
+  
+# it's available but currently not used  
+# @router.post(
+#     "/uniprot/get-info-by-accessions", 
+#     tags=['Shared'],
+#     response_model=UniprotResultDict,
+#     description="""
+#     Get information about proteins by their accession numbers.
+#     Uniprot search will return 400 if any of the accessions are invalid.
+#     Returns a dictionary with the accession numbers as keys and the protein information as values.
+#     """,
+# )
+# def get_info_by_accessions(accessions: list[str]):
+#     try:
+#         return UniprotService.get_info_by_accessions(accessions)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post(
-    "/uniprot/get-info-by-accessions", 
-    tags=['Shared'],
-    response_model=UniprotResultDict,
-    description="""
-    Get information about proteins by their accession numbers.
-    Uniprot search will return 400 if any of the accessions are invalid.
-    Returns a dictionary with the accession numbers as keys and the protein information as values.
-    """,
-)
-def get_info_by_accessions(accessions: list[str]):
-    try:
-        return UniprotService.get_info_by_accessions(accessions)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
-@router.post(
-    "/kegg/get-info-by-ec-numbers",
-    tags=['Shared'],
-    response_model=KeggResultDict,
-    description="""
-    Get information about enzymes by their EC numbers.
-    """,
-)
-def get_info_by_ec_numbers(ec_numbers: list[str]):
-    try:
-        return KeggService.get_info_by_ec_numbers(ec_numbers)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post(
+#     "/kegg/get-info-by-ec-numbers",
+#     tags=['Shared'],
+#     response_model=KeggResultDict,
+#     description="""
+#     Get information about enzymes by their EC numbers.
+#     """,
+# )
+# def get_info_by_ec_numbers(ec_numbers: list[str]):
+#     try:
+#         return KeggService.get_info_by_ec_numbers(ec_numbers)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
     
 # TODO: implement the function
 # @router.get("/chemicals/info", tags=['Shared'])
