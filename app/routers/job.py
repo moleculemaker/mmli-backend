@@ -266,7 +266,7 @@ async def create_job(
         elif job_type == JobType.OED_CHEMINFO:
             # Pass path to CORES/SUBS files into the container
             if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
