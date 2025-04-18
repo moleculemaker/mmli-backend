@@ -12,6 +12,7 @@ class JobType(str, Enum):
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
     REACTIONMINER = 'reactionminer'
     SOMN = 'somn'
+    OED_CHEMINFO = 'oed-cheminfo'
     DEFAULT = 'defaults'
 
     def __str__(self) -> str:

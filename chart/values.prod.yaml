@@ -131,6 +131,14 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    
+    oed-cheminfo:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
