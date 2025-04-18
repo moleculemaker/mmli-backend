@@ -226,7 +226,7 @@ kubernetes_jobs:
   # Config for running OED Cheminfo job
   oed-cheminfo:
     image: "moleculemaker/mmli-cheminfo-service"
-    command: "python ./main.py"
+    command: "python ./main.py --oed"
     imagePullPolicy: "Always"
     volumes:
       - name: 'shared-storage'
