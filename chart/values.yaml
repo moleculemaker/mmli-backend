@@ -131,6 +131,23 @@ config:
           cpu: "2"
           memory: 12Gi
 
+    # Config for running ChemScraper job
+    chemscraper:
+      image: moleculemaker/chemscraper-job:latest
+      imagePullPolicy: Always
+      env:
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu'
+      volumes:
+        - claimName: mmli-clean-job-weights
+          mountPath: /usr/app/inputs/
+          name: shared-storage
+          subPath: uws/jobs/chemscraper/JOB_ID/in
+        - claimName: mmli-clean-job-weights
+          mountPath: /usr/app/outputs/
+          name: shared-storage
+          subPath: uws/jobs/chemscraper/JOB_ID/out
+
     # Config for running CLEAN job
     clean:
       image: "moleculemaker/clean-image-amd64:latest"
