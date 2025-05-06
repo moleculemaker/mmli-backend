@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from config import app_config, get_logger
-from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer
+from routers import chemscraper, job, files, somn, novostoic, molli, shared
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.kubejob_service import KubeEventWatcher
