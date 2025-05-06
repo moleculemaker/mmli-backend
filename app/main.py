@@ -43,7 +43,6 @@ app.include_router(novostoic.router)
 app.include_router(somn.router)
 app.include_router(molli.router)
 app.include_router(shared.router)
-app.include_router(reactionminer.router)
 
 origins = [
     "http://test.mydomain.com",

@@ -4,12 +4,12 @@ from services.shared import draw_chemical_svg
 router = APIRouter()
 
 @router.get("/smiles/draw", tags=['Shared'])
-async def draw_smiles(smiles: str):
+async def draw_smiles(smiles: str, highlightAtoms: list[int] = []):
     if type(smiles) != str: 
         raise HTTPException(status_code=400, detail=f"Input must be a single SMILES string. Got type: `{type(smiles)}` with SMILES = `{smiles}`")
     
     try:
-        return draw_chemical_svg(smiles)
+        return draw_chemical_svg(smiles, highlightAtoms=highlightAtoms)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
