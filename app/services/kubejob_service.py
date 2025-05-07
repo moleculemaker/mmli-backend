@@ -168,6 +168,10 @@ class KubeEventWatcher:
             reactionminer_frontend_url = app_config['reactionminer_frontend_url']
             results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'ReactionMiner'
+        elif job_type == JobType.OED_CHEMINFO:
+            reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
+            results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
+            job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 
