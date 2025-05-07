@@ -140,6 +140,7 @@ config:
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
   reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu"
+  openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
