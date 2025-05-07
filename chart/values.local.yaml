@@ -22,6 +22,7 @@ controller:
   molli_frontend_url: "http://localhost:4200"
   aceretro_frontend_url: "http://localhost:4200"
   reactionminer_frontend_url: "http://localhost:4200"
+  openenzymedb_frontend_url: "http://localhost:4200"
 
 postgresql:
   enabled: true
