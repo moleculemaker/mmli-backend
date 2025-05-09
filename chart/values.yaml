@@ -70,6 +70,7 @@ config:
   clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
+  openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -292,6 +293,16 @@ config:
         - name: 'shared-storage'
           mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'
           subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+
+    oed-cheminfo:
+      image: "moleculemaker/mmli-cheminfo-service"
+      command: "python ./main.py --oed"
+      imagePullPolicy: "Always"
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
+          subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
 
     defaults:
