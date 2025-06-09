@@ -132,7 +132,18 @@ class KubeEventWatcher:
     def send_notification_email(self, updated_job, new_phase):
         job_type = updated_job.type
         job_type_name = 'Unknown'
-        if 'novostoic' in job_type:
+        if 'oed-' in job_type:
+            openenzymedb_frontend_url = app_config['openenzymedb_frontend_url']
+            if job_type == JobType.OED_DLKCAT:
+                results_url = f'{openenzymedb_frontend_url}/tools/dlkcat/result/{updated_job.job_id}'
+                job_type_name = 'OpenEnzymeDB DLKCat DeepLearning Approach'
+            elif job_type == JobType.OED_UNIKP:
+                results_url = f'{openenzymedb_frontend_url}/tools/unikp/result/{updated_job.job_id}'
+                job_type_name = 'OpenEnzymeDB UniKP'
+            elif job_type == JobType.OED_CATPRED:
+                results_url = f'{openenzymedb_frontend_url}/tools/catpred/result/{updated_job.job_id}'
+                job_type_name = 'OpenEnzymeDB CatPred'
+        elif 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'

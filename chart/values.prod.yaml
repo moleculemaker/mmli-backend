@@ -101,6 +101,27 @@ config:
       - effect: NoSchedule  
         key: mmli.role  
         operator: Exists
+    oed-dlkcat-dla:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-unikp:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-catpred:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
     somn:
       nodeSelector:
         ncsa.role: worker-job
@@ -145,6 +166,7 @@ config:
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
   reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
+  openenzymedb_frontend_url: "https://openenzymedb.platform.moleculemaker.org"
 
 
 postgresql:

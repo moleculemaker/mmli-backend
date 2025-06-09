@@ -127,6 +127,12 @@ async def create_job(
         elif job_type == JobType.REACTIONMINER:
             log.debug(f'Running ReactionMiner job: {job_id}')
             environment = app_config['kubernetes_jobs']['reactionminer']['env']
+
+        elif job_type == JobType.OED_DLKCAT or job_type == JobType.OED_UNIKP or job_type == JobType.OED_CATPRED:
+            # Example: "job_info": "{\"input_pairs\":[{\"name\":\"example\",\"sequence\":\"MEDIPDTSRPPLKYVK...\",\"type\":\"FASTA\",\"smiles\":\"OC1=CC=C(C[C@@H](C(O)=O)N)C=C1\"}]}"
+            log.debug(f'Running OpenEnzymeDB job: {job_type} - {job_id}')
+            environment = [{'OED_JOB_INFO': json.dumps(job_info)}]
+
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             job_config = json.loads(job_info.replace('\"', '"'))
