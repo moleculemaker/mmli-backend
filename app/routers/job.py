@@ -132,7 +132,8 @@ async def create_job(
             # Example: "job_info": "{\"input_pairs\":[{\"name\":\"example\",\"sequence\":\"MEDIPDTSRPPLKYVK...\",\"type\":\"FASTA\",\"smiles\":\"OC1=CC=C(C[C@@H](C(O)=O)N)C=C1\"}]}"
             log.debug(f'Running OpenEnzymeDB job: {job_type} - {job_id}')
             json_str = job_info.replace('\"', '"')
-            environment = [{'name': 'OED_JOB_INFO', 'value': json_str}]
+            json_obj = json.loads(json_str)
+            environment = [{'name': 'OED_JOB_INFO', 'value': json.dumps(json_obj)}]
 
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
