@@ -194,6 +194,12 @@ config:
       image: 'moleculemaker/oed-unikp'
       imagePullPolicy: 'Always'
       volumes:
+        - mountPath: /root/.cache/huggingface/hub
+          name: shared-storage
+          subPath: uws/jobs/oed-unikp/.cache
+        - mountPath: /usr/app/UniKP
+          name: shared-storage
+          subPath: uws/jobs/oed-unikp/.models
         - name: 'shared-storage'
           mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
           subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
@@ -202,6 +208,17 @@ config:
           mountPath: '/uws/jobs/oed-unikp/JOB_ID/out'
           subPath: 'uws/jobs/oed-unikp/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
+      secrets:
+        - mountPath: '/root/.cache/token'
+          name: 'token'
+          subPath: 'token'
+          readOnly: 'true'
+          secretName: huggingface-token
+          # "itemList" takes the place of "items"
+          # This should avoid overlap with the built-in items() function
+          itemList:
+            - key: token
+              path: token
 
 
     # Config for running OpenEnzymeDB CatPred job
