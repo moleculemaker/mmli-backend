@@ -132,11 +132,7 @@ async def create_job(
             # Example: "job_info": "{\"input_pairs\":[{\"name\":\"example\",\"sequence\":\"MEDIPDTSRPPLKYVK...\",\"type\":\"FASTA\",\"smiles\":\"OC1=CC=C(C[C@@H](C(O)=O)N)C=C1\"}]}"
             log.debug(f'Running OpenEnzymeDB job: {job_type} - {job_id}')
             log.debug(f'    job_info: {job_info}')
-            json_str = job_info.replace('\"', '"')
-            log.debug(f'    json_str: {json_str}')
-            json_obj = json.loads(json_str)
-            log.debug(f'    json_obj: {json_obj}')
-            environment = [{'name': 'OED_JOB_INFO', 'value': json.dumps(json_obj)}]
+            environment = [{'name': 'OED_JOB_INFO', 'value': job_info}]
             log.debug(f'    environment: {environment}')
 
         elif job_type == JobType.SOMN:
