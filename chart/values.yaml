@@ -236,6 +236,10 @@ config:
           mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
           subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
+        - mountPath: /data
+          name: shared-storage
+          subPath: uws/jobs/oed-unikp/.pretrained
+          claimName: 'mmli-clean-job-weights'
 
     # Config for running ReactionMiner job
     reactionminer:
