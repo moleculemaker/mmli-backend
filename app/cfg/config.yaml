@@ -109,6 +109,44 @@ kubernetes_jobs:
         subPath: 'weights'
         claimName: 'mmli-clean-job-weights'
 
+  # Config for running OpenEnzymeDB job(s)
+  oed-dlkcat:
+    image: 'moleculemaker/oed-dlkcat-dla'
+    imagePullPolicy: 'Always'
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/in'
+        subPath: 'uws/jobs/oed-dlkcat/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/out'
+        subPath: 'uws/jobs/oed-dlkcat/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+  oed-unikp:
+    image: 'moleculemaker/oed-unikp'
+    imagePullPolicy: 'Always'
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
+        subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-unikp/JOB_ID/out'
+        subPath: 'uws/jobs/oed-unikp/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+  oed-catpred:
+    image: 'moleculemaker/oed-catpred'
+    imagePullPolicy: 'Always'
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-catpred/JOB_ID/in'
+        subPath: 'uws/jobs/oed-catpred/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
+        subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+
   # Config for running ReactionMiner job
   reactionminer:
     image: "moleculemaker/reactionminer:latest"
