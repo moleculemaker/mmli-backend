@@ -135,7 +135,7 @@ async def create_job(
             job_config = json.loads(job_info.replace('\\"', '"'))
             log.debug(f'    job_config: {job_config}')
             job_config_str = json.dumps(job_config['input_pairs']).replace('"', '\\"')
-            environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info}]
+            environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info.replace('"', '\\"')}]
             log.debug(f'    environment: {environment}')
 
         elif job_type == JobType.SOMN:
