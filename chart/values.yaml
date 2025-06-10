@@ -197,9 +197,11 @@ config:
         - mountPath: /root/.cache/huggingface/hub
           name: shared-storage
           subPath: uws/jobs/oed-unikp/.cache
+          claimName: 'mmli-clean-job-weights'
         - mountPath: /usr/app/UniKP
           name: shared-storage
           subPath: uws/jobs/oed-unikp/.models
+          claimName: 'mmli-clean-job-weights'
         - name: 'shared-storage'
           mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
           subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
