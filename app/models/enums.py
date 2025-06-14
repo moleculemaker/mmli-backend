@@ -13,6 +13,9 @@ class JobType(str, Enum):
     REACTIONMINER = 'reactionminer'
     SOMN = 'somn'
     OED_CHEMINFO = 'oed-cheminfo'
+    OED_DLKCAT = 'oed-dlkcat'
+    OED_UNIKP = 'oed-unikp'
+    OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
 
     def __str__(self) -> str:

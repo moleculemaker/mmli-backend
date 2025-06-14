@@ -165,3 +165,4 @@ chart/charts/
 !app/cfg/secret.yaml
 
 */sql_app.db
+.idea/
