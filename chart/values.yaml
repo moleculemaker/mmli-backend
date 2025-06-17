@@ -236,9 +236,13 @@ config:
           mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
           subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
-        - mountPath: /data
+        - mountPath: /catpred_pipeline/data
           name: shared-storage
           subPath: uws/jobs/oed-catpred/.pretrained
+          claimName: 'mmli-clean-job-weights'
+        - mountPath: /catpred_pipeline/catpred/production_models
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
           claimName: 'mmli-clean-job-weights'
 
     # Config for running ReactionMiner job
