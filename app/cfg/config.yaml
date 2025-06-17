@@ -173,6 +173,9 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
         claimName: 'mmli-clean-job-weights'
+        name: shared-storage
+        subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
+        claimName: 'mmli-clean-job-weights'
   # Config for running ReactionMiner job
   reactionminer:
     image: "moleculemaker/reactionminer:latest"
