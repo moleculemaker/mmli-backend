@@ -165,7 +165,7 @@ kubernetes_jobs:
         mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
         subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
         claimName: 'mmli-clean-job-weights'
-      - mountPath: /data
+      - mountPath: /catpred_pipeline/data
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained
         claimName: 'mmli-clean-job-weights'
