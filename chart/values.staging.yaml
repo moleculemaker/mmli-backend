@@ -137,6 +137,13 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    oed-cheminfo:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"

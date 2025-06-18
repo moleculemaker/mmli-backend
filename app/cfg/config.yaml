@@ -291,6 +291,17 @@ kubernetes_jobs:
         subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
         claimName: 'mmli-clean-job-weights'
 
+  # Config for running OED Cheminfo job
+  oed-cheminfo:
+    image: "moleculemaker/mmli-cheminfo-service"
+    command: "python ./main.py --oed"
+    imagePullPolicy: "Always"
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
+        subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+
   defaults:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
     kubeconfig: "/opt/kubeconfig"

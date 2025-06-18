@@ -12,6 +12,7 @@ class JobType(str, Enum):
     NOVOSTOIC_DGPREDICTOR = 'novostoic-dgpredictor'
     REACTIONMINER = 'reactionminer'
     SOMN = 'somn'
+    OED_CHEMINFO = 'oed-cheminfo'
     OED_DLKCAT = 'oed-dlkcat'
     OED_UNIKP = 'oed-unikp'
     OED_CATPRED = 'oed-catpred'
