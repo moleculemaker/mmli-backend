@@ -26,6 +26,7 @@ from services.minio_service import MinIOService
 from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
 from services.reactionminer_service import ReactionMinerService
+from services.oed_service import OEDService
 
 
 from typing import Optional, List
@@ -93,6 +94,13 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
 
     elif bucket_name == JobType.SOMN:
         return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
+    
+    elif bucket_name == JobType.OED_CHEMINFO:
+        print("Getting oed-cheminfo job result")
+        return await OEDService.chemInfoResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.OED_DLKCAT or bucket_name == JobType.OED_UNIKP or bucket_name == JobType.OED_CATPRED:
+        return await OEDService.propertyPredictionResultPostProcess(bucket_name, job_id, service, db)
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)

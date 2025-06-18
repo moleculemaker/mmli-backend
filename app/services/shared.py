@@ -3,6 +3,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import Draw
 from rdkit.Chem import rdDepictor
 from typing import Callable, Optional
+import requests
 
 def draw_chemical_svg(id: str,
                   width: int = 300, 
@@ -64,3 +65,18 @@ def draw_chemical_svg(id: str,
     
     except Exception as e:
         raise Exception(f"Error processing input: {id}") from e
+        
+def get_iupac_name(smiles: str) -> str:
+    try:
+        url = f"https://cactus.nci.nih.gov/chemical/structure/{smiles}/iupac_name"
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.text
+        else:
+            return None
+    except Exception as e:
+        return None
+    
+# if __name__ == "__main__":
+#     print(get_iupac_name("CCO"))
+#     print(get_iupac_name("XYZ"))
