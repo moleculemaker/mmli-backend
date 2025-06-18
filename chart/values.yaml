@@ -70,6 +70,7 @@ config:
   clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
+  openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -171,6 +172,77 @@ config:
         - name: 'shared-storage'
           mountPath: '/root/.cache/torch/hub/checkpoints'
           subPath: 'weights'
+          claimName: 'mmli-clean-job-weights'
+
+
+    # Config for running OpenEnzymeDB DLKcat job
+    oed-dlkcat:
+      image: 'moleculemaker/oed-dlkcat-dla'
+      imagePullPolicy: 'Always'
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/in'
+          subPath: 'uws/jobs/oed-dlkcat/JOB_ID/in'
+          claimName: 'mmli-clean-job-weights'
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/out'
+          subPath: 'uws/jobs/oed-dlkcat/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+
+    # Config for running OpenEnzymeDB UniKP job
+    oed-unikp:
+      image: 'moleculemaker/oed-unikp'
+      imagePullPolicy: 'Always'
+      volumes:
+        - mountPath: /root/.cache/huggingface/hub
+          name: shared-storage
+          subPath: uws/jobs/oed-unikp/.cache
+          claimName: 'mmli-clean-job-weights'
+        - mountPath: /usr/app/UniKP
+          name: shared-storage
+          subPath: uws/jobs/oed-unikp/.models
+          claimName: 'mmli-clean-job-weights'
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
+          subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
+          claimName: 'mmli-clean-job-weights'
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-unikp/JOB_ID/out'
+          subPath: 'uws/jobs/oed-unikp/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+      secrets:
+        - mountPath: '/root/.cache/token'
+          name: 'token'
+          subPath: 'token'
+          readOnly: 'true'
+          secretName: huggingface-token
+          # "itemList" takes the place of "items"
+          # This should avoid overlap with the built-in items() function
+          itemList:
+            - key: token
+              path: token
+
+
+    # Config for running OpenEnzymeDB CatPred job
+    oed-catpred:
+      image: 'moleculemaker/oed-catpred'
+      imagePullPolicy: 'Always'
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-catpred/JOB_ID/in'
+          subPath: 'uws/jobs/oed-catpred/JOB_ID/in'
+          claimName: 'mmli-clean-job-weights'
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
+          subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+        - mountPath: /catpred_pipeline/data
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.pretrained
+          claimName: 'mmli-clean-job-weights'
+        - mountPath: /catpred_pipeline/catpred/production_models
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
           claimName: 'mmli-clean-job-weights'
 
     # Config for running ReactionMiner job
