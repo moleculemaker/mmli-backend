@@ -6,8 +6,10 @@ from io import StringIO
 import os
 
 from fastapi import HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from config import get_logger
+from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
