@@ -4,6 +4,7 @@ from enum import Enum
 class JobType(str, Enum):
     ACERETRO = 'aceretro'
     CLEAN = 'clean'
+    CLEANDB_MEPESM = 'cleandb-mepesm'
     CHEMSCRAPER = 'chemscraper'
     MOLLI = 'molli'
     NOVOSTOIC_OPTSTOIC= 'novostoic-optstoic'

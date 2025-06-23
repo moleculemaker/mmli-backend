@@ -138,6 +138,16 @@ async def create_job(
             environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info.replace('"', '\\"')}]
             log.debug(f'    environment: {environment}')
 
+        elif job_type == JobType.CLEANDB_MEPESM:
+            # Example: "job_info": "{\"sequence\":\"MEDIPDTSRPPLKYVK...\"}"
+            # OR       "job_info": "MEDIPDTSRPPLKYVK..."
+            log.debug(f'    job_info: {job_info}')
+            job_config = json.loads(job_info.replace('"', '\\"'))
+            log.debug(f'    job_config: {job_config}')
+            input_sequence = job_config['sequence'] if 'sequence' in job_config else job_info
+            environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': input_sequence }]
+            log.debug(f'    environment: {environment}')
+
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             json_str = job_info.replace('\"', '"')
