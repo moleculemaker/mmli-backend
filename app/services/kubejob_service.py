@@ -264,6 +264,7 @@ class KubeEventWatcher:
                     # Examine labels, ignore if not uws-job
                     # self.logger.debug('Event recv\'d: %s' % event)
                     labels = event['object'].metadata.labels
+                    self.logger.debug(f'Job Labels: {labels}')
 
                     if labels is None and len(required_labels) > 0:
                         self.logger.warning(
@@ -276,18 +277,10 @@ class KubeEventWatcher:
                             'WARNING: Skipping due to missing required label(s): ' + str(missing_labels))
                         continue
 
-                    # TODO: lookup associated userapp using resource name
-                    name = event['object'].metadata.name
-
-                    # Parse name into userapp_id + ssid
-                    segments = name.split('-')
-                    if len(segments) < 3:
-                        self.logger.warning('WARNING: Invalid number of segments -  JobName=%s' % name)
-                        continue
-
-                    # mmli-job-jobtype-jobid => we want last 2 segments
-                    job_id = segments[-1]
-                    job_type = segments[-2]
+                    # LEGACY: mmli-job-jobtype-jobid => we want last 2 segments
+                    # More Reliable: Read job_type and job_id from labels
+                    job_id = labels['jobId']
+                    job_type = labels['jobType']
 
                     type = event['type']
                     status = event['object'].status
