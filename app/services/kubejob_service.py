@@ -129,21 +129,12 @@ class KubeEventWatcher:
         self.thread.start()
         self.logger.info('Started KubeWatcher')
 
-    def send_notification_email(self, updated_job, new_phase):
-        job_type = updated_job.type
+    def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
-        if 'oed-' in job_type:
-            openenzymedb_frontend_url = app_config['openenzymedb_frontend_url']
-            if job_type == JobType.OED_DLKCAT:
-                results_url = f'{openenzymedb_frontend_url}/tools/dlkcat/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB DLKCat DeepLearning Approach'
-            elif job_type == JobType.OED_UNIKP:
-                results_url = f'{openenzymedb_frontend_url}/tools/unikp/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB UniKP'
-            elif job_type == JobType.OED_CATPRED:
-                results_url = f'{openenzymedb_frontend_url}/tools/catpred/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB CatPred'
-        elif 'novostoic' in job_type:
+        if job_type.startswith('oed-') or job_type.startswith('cleandb-'):
+            self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
+            return
+        if 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
@@ -329,10 +320,10 @@ class KubeEventWatcher:
                                 session.commit()
                                 session.flush()
                             else:
-                                self.logger.warning('"None" was encountered when fetching Job:', job_id)
+                                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
                                 self.logger.warning('Skipping database update...')
 
-                            self.send_notification_email(updated_job, new_phase)
+                            self.send_notification_email(job_id, job_type, updated_job, new_phase)
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
