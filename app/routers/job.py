@@ -143,7 +143,7 @@ async def create_job(
             # OR       "job_info": "MEDIPDTSRPPLKYVK..."
             try:
                 log.debug(f'    job_info: {job_info}')
-                job_config = json.loads(job_info.replace('"', '\\"'))
+                job_config = json.loads(job_info.replace('\\"', '"'))
                 log.debug(f'    job_config: {job_config}')
                 input_sequence = job_config['sequence']
                 log.debug(f'CLEANDB-MEPESM - Parsed job_info as JSON')
