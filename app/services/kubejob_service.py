@@ -173,7 +173,7 @@ class KubeEventWatcher:
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
 
         # OED & CLEANDB jobs are very fast - no need to send notification email
-        elif new_phase == JobStatus.COMPLETED and (job_type.startswith('oed-') or job_type.startswith('cleandb-')):
+        elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
             #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
             return
 
