@@ -147,10 +147,12 @@ async def create_job(
                 log.debug(f'    job_config: {job_config}')
                 input_sequence = job_config['sequence']
                 log.debug(f'CLEANDB-MEPESM - Parsed job_info as JSON')
-                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': input_sequence }]
-            except:
+                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': input_sequence}]
+            except Exception as e:
+                log.warning(f'WARNING: CLEANDB-MEPESM - Failed to parse job_info as JSON: {str(e)}')
+                traceback.format_exc()
                 log.warning(f'WARNING: CLEANDB-MEPESM - Falling back to treating job_info as a string')
-                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': job_info }]
+                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': job_info}]
 
             log.debug(f'    environment: {environment}')
 
