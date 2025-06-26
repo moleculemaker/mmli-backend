@@ -131,9 +131,6 @@ class KubeEventWatcher:
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
-        if job_type.startswith('oed-') or job_type.startswith('cleandb-'):
-            self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
-            return
         if 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
@@ -174,6 +171,12 @@ class KubeEventWatcher:
             reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
+
+        # OED & CLEANDB jobs are very fast - no need to send notification email
+        elif new_phase == JobStatus.COMPLETED and (job_type.startswith('oed-') or job_type.startswith('cleandb-')):
+            #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
+            return
+
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 
