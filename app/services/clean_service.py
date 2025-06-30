@@ -3,10 +3,13 @@ import csv
 import json
 import re
 from io import StringIO
+import os
 
 from fastapi import HTTPException
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from config import get_logger
+from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
@@ -83,6 +86,22 @@ class CleanService:
         command = f'''echo {encoded_data} | base64 -d > ./data/inputs/{job_id}.fasta && (((python CLEAN_infer_fasta.py --fasta_data {job_id} 2>&1 | tee $JOB_OUTPUT_DIR/log) && ls -al ./results/inputs/; mv ./results/inputs/{job_id}_maxsep.csv $JOB_OUTPUT_DIR/{job_id}_maxsep.csv) || (touch $JOB_OUTPUT_DIR/error && false))'''
 
         return command
+
+
+    @staticmethod
+    async def cleanDBMepEsmResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+        """
+        Outputs stored in Minio: /{job_id}/out/*  Bucket name: oed-*
+        """
+        folder_path = f"/{job_id}/out"
+
+        # Iterate over folder and add all contents to a dictionary
+        try:
+            json_contents = service.get_file(bucket_name=bucket_name, object_name=f'{folder_path}/mepesm-output.json')
+            return json.loads(json_contents)
+        except Exception as e:
+            raise HTTPException(status_code=404, detail=f"Failed to fetch output file: {str(e)}")
+
 
     @staticmethod
     async def cleanResultPostProcess(bucket_name, job_id, service, db):

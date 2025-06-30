@@ -129,21 +129,9 @@ class KubeEventWatcher:
         self.thread.start()
         self.logger.info('Started KubeWatcher')
 
-    def send_notification_email(self, updated_job, new_phase):
-        job_type = updated_job.type
+    def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
-        if 'oed-' in job_type:
-            openenzymedb_frontend_url = app_config['openenzymedb_frontend_url']
-            if job_type == JobType.OED_DLKCAT:
-                results_url = f'{openenzymedb_frontend_url}/tools/dlkcat/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB DLKCat DeepLearning Approach'
-            elif job_type == JobType.OED_UNIKP:
-                results_url = f'{openenzymedb_frontend_url}/tools/unikp/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB UniKP'
-            elif job_type == JobType.OED_CATPRED:
-                results_url = f'{openenzymedb_frontend_url}/tools/catpred/result/{updated_job.job_id}'
-                job_type_name = 'OpenEnzymeDB CatPred'
-        elif 'novostoic' in job_type:
+        if 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
@@ -183,6 +171,12 @@ class KubeEventWatcher:
             reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
+
+        # OED & CLEANDB jobs are very fast - no need to send notification email
+        elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
+            #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
+            return
+
         else: 
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
 
@@ -273,6 +267,7 @@ class KubeEventWatcher:
                     # Examine labels, ignore if not uws-job
                     # self.logger.debug('Event recv\'d: %s' % event)
                     labels = event['object'].metadata.labels
+                    self.logger.debug(f'Job Labels: {labels}')
 
                     if labels is None and len(required_labels) > 0:
                         self.logger.warning(
@@ -285,18 +280,10 @@ class KubeEventWatcher:
                             'WARNING: Skipping due to missing required label(s): ' + str(missing_labels))
                         continue
 
-                    # TODO: lookup associated userapp using resource name
-                    name = event['object'].metadata.name
-
-                    # Parse name into userapp_id + ssid
-                    segments = name.split('-')
-                    if len(segments) < 3:
-                        self.logger.warning('WARNING: Invalid number of segments -  JobName=%s' % name)
-                        continue
-
-                    # mmli-job-jobtype-jobid => we want last 2 segments
-                    job_id = segments[-1]
-                    job_type = segments[-2]
+                    # LEGACY: mmli-job-jobtype-jobid => we want last 2 segments
+                    # More Reliable: Read job_type and job_id from labels
+                    job_id = labels['jobId']
+                    job_type = labels['jobType']
 
                     type = event['type']
                     status = event['object'].status
@@ -329,10 +316,10 @@ class KubeEventWatcher:
                                 session.commit()
                                 session.flush()
                             else:
-                                self.logger.warning('"None" was encountered when fetching Job:', job_id)
+                                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
                                 self.logger.warning('Skipping database update...')
 
-                            self.send_notification_email(updated_job, new_phase)
+                            self.send_notification_email(job_id, job_type, updated_job, new_phase)
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))

@@ -152,6 +152,25 @@ config:
           claimName: 'mmli-clean-job-weights'
 
 
+    # Config for running CLEANDB MEP-ESM2 job
+    cleandb-mepesm:
+      image: 'moleculemaker/cleandb-mepesm2'
+      imagePullPolicy: 'Always'
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/in'
+          subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/in'
+          claimName: 'mmli-clean-job-weights'
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/out'
+          subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+        - mountPath: /root/.cache/torch/hub
+          name: shared-storage
+          subPath: uws/jobs/cleandb-mepesm/.hub
+          claimName: 'mmli-clean-job-weights'
+
+
     # Config for running MOLLI job
     molli:
       image: "ghcr.io/moleculemaker/molli:ncsa-workflow"

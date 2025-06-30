@@ -94,6 +94,13 @@ config:
       - effect: NoSchedule  
         key: mmli.role  
         operator: Exists
+    cleandb-mepesm:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
     molli:
       nodeSelector:  
         ncsa.role: worker-job  
