@@ -38,3 +38,10 @@ class RDKitService:
         bitVect2 = DataStructs.CreateFromBitString(bitString2)
         similarity = DataStructs.TanimotoSimilarity(bitVect1, bitVect2)
         return similarity
+
+    def canonicalize_smiles(self, smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol:
+            return Chem.MolToSmiles(mol, canonical=True)
+        else:
+            return None
