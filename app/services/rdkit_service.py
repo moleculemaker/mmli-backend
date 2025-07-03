@@ -44,4 +44,4 @@ class RDKitService:
         if mol:
             return Chem.MolToSmiles(mol, canonical=True)
         else:
-            return None
+            raise ValueError(f"Could not canonicalize SMILES: {smiles}")
