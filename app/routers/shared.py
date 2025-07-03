@@ -27,7 +27,7 @@ async def draw_smiles(
 async def canonicalize_smiles(
     smiles: str
 ):
-    if type(smiles) != str:
+    if not isinstance(smiles, str):
         raise HTTPException(status_code=400, detail=f"Input must be a single SMILES string. Got type: `{type(smiles)}` with SMILES = `{smiles}`")
 
     try:
