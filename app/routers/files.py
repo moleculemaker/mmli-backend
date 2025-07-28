@@ -128,12 +128,6 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
     return error_content
 
 
-# FIXME: Temporary workaround to force FastAPI to generate a model for Molecule
-@router.post("/{bucket_name}/exxample", tags=['Files'])
-async def delete_me() -> List[Molecule]:
-    raise HTTPException(status_code=501, detail="Not yet implemented")
-
-
 # TODO: Refactor this to make it more generic?
 @router.post("/{bucket_name}/export-results", tags=['Files'])
 async def export_results(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
