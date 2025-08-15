@@ -68,7 +68,8 @@ def draw_chemical_svg(id: str,
         
 def get_iupac_name(smiles: str) -> str:
     try:
-        url = f"https://cactus.nci.nih.gov/chemical/structure/{smiles}/iupac_name"
+        escaped_smiles = smiles.replace('#', '%23') # "Triple bonds in SMILES strings represented by ‘#’ have to be URL-escaped as ‘%23’"
+        url = f"https://cactus.nci.nih.gov/chemical/structure/{escaped_smiles}/iupac_name"
         response = requests.get(url)
         if response.status_code == 200:
             return response.text
