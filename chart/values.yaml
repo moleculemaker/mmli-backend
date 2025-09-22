@@ -22,6 +22,8 @@ sharedStorage:
 # https://artifacthub.io/packages/helm/bitnami/postgresql?modal=values
 postgresql:
   enabled: true
+  image:
+    repository: bitnamilegacy/postgresql
   autoschema: false
   hostname: ""
   auth:
@@ -41,6 +43,8 @@ postgresql:
 # https://artifacthub.io/packages/helm/bitnami/minio?modal=values
 minio:
   enabled: true
+  image:
+    repository: bitnamilegacy/minio
   apiIngress:
     enabled: true
     tls: false
