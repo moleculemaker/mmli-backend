@@ -351,6 +351,7 @@ kubernetes_jobs:
       runAsGroup: 0
       # fsGroup: 202
 
+    # TODO: update to use real config
     ez-specificity:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
       kubeconfig: "/opt/kubeconfig"
