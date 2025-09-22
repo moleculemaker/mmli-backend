@@ -457,15 +457,6 @@ config:
         runAsGroup: 0
         # fsGroup: 202
 
-      # TODO: probably could adjust resource limits here
-      resources:
-        limits:
-          cpu: "64"
-          memory: "24Gi"
-        requests:
-          cpu: "16"
-          memory: "12Gi"
-
   external:
     chemscraper:
       apiBaseUrl: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
