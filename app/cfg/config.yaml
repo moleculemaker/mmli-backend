@@ -351,35 +351,44 @@ kubernetes_jobs:
       runAsGroup: 0
       # fsGroup: 202
 
-    # TODO: update to use real config
-    ez-specificity:
-      # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-      kubeconfig: "/opt/kubeconfig"
-      # Namespace where this job should run
-      namespace: "mmli"
+    # TODO: probably could adjust resource limits here
+    resources:
+      limits:
+        cpu: "64"
+        memory: "24Gi"
+      requests:
+        cpu: "16"
+        memory: "12Gi"
 
-      # Example job image name + command combo
-      image: 'perl:5.34.0'
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+  # TODO: update to use correct image later
+  ez-specificity:
+    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
+    kubeconfig: "/opt/kubeconfig"
+    # Namespace where this job should run
+    namespace: "mmli"
 
-      ## Server working directory to store generated job data
-      workingVolume:
-        claimName: "mmli-clean-job-weights"
-        mountPath: "/uws"
-        subPath: "uws"
-      ## Central data volumes to be mounted in job containers
-      volumes: []
+    # Example job image name + command combo
+    image: 'perl:5.34.0'
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
 
-      ## Abort jobs after 3 days regardless of their behavior
-      activeDeadlineSeconds: 259200
-      ## Cleanup completed/failed jobs after 12 hours
-      ttlSecondsAfterFinished: 43200
-      ## Poll the log file for changes every `logFilePollingPeriod` seconds
-      logFilePollingPeriod: 300
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        # fsGroup: 202
+    ## Server working directory to store generated job data
+    workingVolume:
+      claimName: "mmli-clean-job-weights"
+      mountPath: "/uws"
+      subPath: "uws"
+    ## Central data volumes to be mounted in job containers
+    volumes: []
+
+    ## Abort jobs after 3 days regardless of their behavior
+    activeDeadlineSeconds: 259200
+    ## Cleanup completed/failed jobs after 12 hours
+    ttlSecondsAfterFinished: 43200
+    ## Poll the log file for changes every `logFilePollingPeriod` seconds
+    logFilePollingPeriod: 300
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      # fsGroup: 202
 
     # TODO: probably could adjust resource limits here
     resources:

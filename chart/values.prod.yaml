@@ -28,16 +28,23 @@ config:
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
+    ez-specificity:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     novostoic-dgpredictor:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -60,12 +67,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-optstoic:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -74,12 +81,12 @@ config:
           cpu: "1"
           memory: 8Gi
     novostoic-pathways:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
       resources:
         limits:
           cpu: "1"
@@ -88,12 +95,12 @@ config:
           cpu: "1"
           memory: 8Gi
     clean:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     cleandb-mepesm:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -102,12 +109,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     molli:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     oed-dlkcat-dla:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -133,9 +140,9 @@ config:
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     aceretro:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -147,11 +154,11 @@ config:
       # Override Grobid server host for production
       env:
         - name: HF_TOKEN_PATH
-          value: '/root/.cache/token'
+          value: "/root/.cache/token"
         - name: GROBID_SERVER
-          value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
-        - name: CHEMSCRAPER_BASE_URL	
-          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
+          value: "mmli-grobid.alphasynthesis.svc.cluster.local"
+        - name: CHEMSCRAPER_BASE_URL
+          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
       # Run ReactionMiner on GPU node
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -159,14 +166,14 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    
+
     oed-cheminfo:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
@@ -182,7 +189,6 @@ config:
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
   reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
   openenzymedb_frontend_url: "https://openenzymedb.platform.moleculemaker.org"
-
 
 postgresql:
   enabled: true
@@ -219,90 +225,88 @@ minio:
     existingSecret: "mmli-backend-minio"
 
 extraDeploy:
-# IP ratelimiting for prod JobMgr
-- apiVersion: traefik.io/v1alpha1
-  kind: Middleware
-  metadata:
-    name: chemscraper-analyze-ip-ratelimit
-  spec:
-    rateLimit:
-      average: 1
-      period: 120s
+  # IP ratelimiting for prod JobMgr
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: chemscraper-analyze-ip-ratelimit
+    spec:
+      rateLimit:
+        average: 1
+        period: 120s
 
-# Enable DecentCI backups
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: mmli-backend-backups
-    namespace: alphasynthesis
-    labels:  
-      app.kubernetes.io/name: decentci-backups
-      app.kubernetes.io/component: config
-  data:
-    backups: |
-      # TODO: Configure backups for MinIO?
-      #- backup-name: decentci-backups-mmli-backend-minio-files
+  # Enable DecentCI backups
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: mmli-backend-backups
+      namespace: alphasynthesis
+      labels:
+        app.kubernetes.io/name: decentci-backups
+        app.kubernetes.io/component: config
+    data:
+      backups: |
+        # TODO: Configure backups for MinIO?
+        #- backup-name: decentci-backups-mmli-backend-minio-files
 
-      - backup-name: decentci-backups-mmli-backend-db
-        schedule: "01 7 * * *"
-        database:
-          type: postgresql
-          host: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
-          auth:
-            username: mmli
-            database: mmli
-            passwordKey: postgres-password
-            existingSecret: mmli-backend-postgresql
-    global: |
-      enabled: true
-      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/mmli-backend
-      backup-nfs-server: taiga-nfs.ncsa.illinois.edu
+        - backup-name: decentci-backups-mmli-backend-db
+          schedule: "01 7 * * *"
+          database:
+            type: postgresql
+            host: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
+            auth:
+              username: mmli
+              database: mmli
+              passwordKey: postgres-password
+              existingSecret: mmli-backend-postgresql
+      global: |
+        enabled: true
+        backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/mmli-backend
+        backup-nfs-server: taiga-nfs.ncsa.illinois.edu
 
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: mmli-backend-postgresql
-    namespace: alphasynthesis
-  spec:
-    encryptedData:
-      password: AgAcDpEFjkpr4dSrQGjJtlL1W3z76pljqDsCrsNDzLhQRAjQJQeql9vG5zazAWSFRxxhO4jH8XATa0R7Nr+bHaBH3RsheposrMXUSazHsIVNkYqAnURZ/ZEIKU6lxxp/KdaeNyJ0ta1KOzUGq18pjFYMHTPVcBwRq0kqNn4fugJSlNWdPoqr1y9Dk8khXCHgj4f8D7+ypy5q5D4drYEwa2ASxeZPRixOlu9v1RHQPTncAiEpC+6o+Z0mjUPNdT2Ty63H2BFSqVxB355SJkSVbufmjEXhP/G6eE99ls1zA2fQce7mqTckmylXXE7a9BWM99dfyk/bCtKVtjD1HlD5jsUJ2GIjr8JUnJ6Uoodu2RF6uOQ5fJTXA51Ccqd69iqtHGgwk834da3TvnM7yZNoo5I1RH4SGqN/p+wj2lpPfjJ1OMbhTO4odQS21bgbxbBjj2BwGPAsEteywD3wiI8XUlWOObCJrZXLaxH0nca6UuFfvUL57IT+YModgHS6XAXf7C/KMc44KPWvG2e5ksKT1kzuicMjulQD4aBRKcYYmOvPv0NzzTSC2zisaOb+jeYg7hKvRkKRAZlXxNtrt0FF5S6u0oKS0odpBxb03LD6bnQ3NB3zvjODJGobkudlcJSlrDG4unubeDq2c5VJ60vt0O/shm39m6Lr8ECSR8aV2FmOrUgXcKQ/9l4kzN6IeihZe/477M6pho0X0A5zc0cHm2pS0xF87Ny1jA8BbS4vZENODA==
-      postgres-password: AgCuvYzQpG6cQZx7jxd+7f2/lhx/73Hf2j/Yi2JK267AOcteQdrIPESCgBoRjXnaQ3jj5MjgQLC09VtBPlVvXq/6RIomvhHvlE2PlI4QkqwgS4nCmWZp+IAQNb3DdG3L2B3PIf28u4sXW73eZYHnqPBzPtmwWDi1B542eRViuDY5nK1Ziu1IN03ZUVOJPVoe7XJLcevw7EGAZ5/aGXDQF5XlBK4Dliwr9WlWLxiMYRvo9wbcYHF0Ll6vC1I/U6rDR42ZcWK92Mkg3XZin5qxdCbyOxUuBbi5+9dFh4ovB7e+5oPJVNGpWGs017iEl+3ZrtJQD2nRS0GYWFlnl3u2R4O2yDpxlCJ10kc84IFRFHF17p9ZkWPY1E4T5fFlR/ctvBFCp3BhKB70zqzQdmiY6cywbTtf4IXuPbsqQ70m7RfRLTc7D4Qu0zbPbM7QPN+aDpJW+MK8Xp11ajhfcfflw5FkR5DYX6knH52Tl81E0YjAL5pCCMKZz8GbkNMHSgPn7VVoMJavG1qYG3pmEFLMs5CA0AWOKD/VaNWCJKCUe8v+h5DMcsHpAFYEkPIffYzKcWNNC8wdW1AWYftY54EfkSMpNdbB56ZVU8ORm02NtJ9paQiI0BgzSqMKIDL5DdA4EEbi+HXV8ePd0cA00bwo/y8epYcQ5nGfW8WUHxmI18mbFVaxs06ZKIy8mu49JF/c+UpJ38rSXlghKPiHLha2oR0BSAJmVH4LbFRb43TljMEIZg==
-    template:
-      metadata:
-        creationTimestamp: null
-        name: mmli-backend-postgresql
-        namespace: alphasynthesis
-  
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-postgresql
+      namespace: alphasynthesis
+    spec:
+      encryptedData:
+        password: AgAcDpEFjkpr4dSrQGjJtlL1W3z76pljqDsCrsNDzLhQRAjQJQeql9vG5zazAWSFRxxhO4jH8XATa0R7Nr+bHaBH3RsheposrMXUSazHsIVNkYqAnURZ/ZEIKU6lxxp/KdaeNyJ0ta1KOzUGq18pjFYMHTPVcBwRq0kqNn4fugJSlNWdPoqr1y9Dk8khXCHgj4f8D7+ypy5q5D4drYEwa2ASxeZPRixOlu9v1RHQPTncAiEpC+6o+Z0mjUPNdT2Ty63H2BFSqVxB355SJkSVbufmjEXhP/G6eE99ls1zA2fQce7mqTckmylXXE7a9BWM99dfyk/bCtKVtjD1HlD5jsUJ2GIjr8JUnJ6Uoodu2RF6uOQ5fJTXA51Ccqd69iqtHGgwk834da3TvnM7yZNoo5I1RH4SGqN/p+wj2lpPfjJ1OMbhTO4odQS21bgbxbBjj2BwGPAsEteywD3wiI8XUlWOObCJrZXLaxH0nca6UuFfvUL57IT+YModgHS6XAXf7C/KMc44KPWvG2e5ksKT1kzuicMjulQD4aBRKcYYmOvPv0NzzTSC2zisaOb+jeYg7hKvRkKRAZlXxNtrt0FF5S6u0oKS0odpBxb03LD6bnQ3NB3zvjODJGobkudlcJSlrDG4unubeDq2c5VJ60vt0O/shm39m6Lr8ECSR8aV2FmOrUgXcKQ/9l4kzN6IeihZe/477M6pho0X0A5zc0cHm2pS0xF87Ny1jA8BbS4vZENODA==
+        postgres-password: AgCuvYzQpG6cQZx7jxd+7f2/lhx/73Hf2j/Yi2JK267AOcteQdrIPESCgBoRjXnaQ3jj5MjgQLC09VtBPlVvXq/6RIomvhHvlE2PlI4QkqwgS4nCmWZp+IAQNb3DdG3L2B3PIf28u4sXW73eZYHnqPBzPtmwWDi1B542eRViuDY5nK1Ziu1IN03ZUVOJPVoe7XJLcevw7EGAZ5/aGXDQF5XlBK4Dliwr9WlWLxiMYRvo9wbcYHF0Ll6vC1I/U6rDR42ZcWK92Mkg3XZin5qxdCbyOxUuBbi5+9dFh4ovB7e+5oPJVNGpWGs017iEl+3ZrtJQD2nRS0GYWFlnl3u2R4O2yDpxlCJ10kc84IFRFHF17p9ZkWPY1E4T5fFlR/ctvBFCp3BhKB70zqzQdmiY6cywbTtf4IXuPbsqQ70m7RfRLTc7D4Qu0zbPbM7QPN+aDpJW+MK8Xp11ajhfcfflw5FkR5DYX6knH52Tl81E0YjAL5pCCMKZz8GbkNMHSgPn7VVoMJavG1qYG3pmEFLMs5CA0AWOKD/VaNWCJKCUe8v+h5DMcsHpAFYEkPIffYzKcWNNC8wdW1AWYftY54EfkSMpNdbB56ZVU8ORm02NtJ9paQiI0BgzSqMKIDL5DdA4EEbi+HXV8ePd0cA00bwo/y8epYcQ5nGfW8WUHxmI18mbFVaxs06ZKIy8mu49JF/c+UpJ38rSXlghKPiHLha2oR0BSAJmVH4LbFRb43TljMEIZg==
+      template:
+        metadata:
+          creationTimestamp: null
+          name: mmli-backend-postgresql
+          namespace: alphasynthesis
 
-  
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: mmli-backend-minio
-    namespace: alphasynthesis
-  spec:
-    encryptedData:
-      root-password: AgCG/7VjxMAxYQ1bgMPv5dokXPenhx7rfkN1I7j75wmsaMXj3FHRXCI7Q+l0aAhGK/KwIZhB2fmzQiY3WXuyFpXXf3TemD3lBJHZ4HaOBL1CbppvUykcygdxls8f3gVaRMOflvVMDlcMApAbbjK7bfuwzAfTgSa6e/o67uJZBxx/EqSiIhFw448M5PudKZGvdGjGgpD9awsHu4ZZHM/bGDKtfDFj4BYYq8pNfeS3//dBsZE97dHQ0kFWUYLszkFH2VEaNcH29H4oRIZXBBvIKELVcg0NnaQW6NgbiclC33M0Uw57KEICLJ3mhPyNlY2XNBcRYMImlaWxkc8XoDsXRtaaYJaXkm/9ujdbF3vkbMUjNhAIWArxZJEOXt7m+S+1tV0MpwfxIk8o+0U1R0SxGDKknW6ywqhTUjjT1DqhUSsPmghHEPxVABEJPF8ISV1igjO/tZdqeKoAc6vY+JGlo5vM+JtewyzE62953iAio0GOVoezvmQP267AU2RwmfFM+6zHvI2C6NdEsmZ/ZJW0l0gZoF7cPrg7ggpmzbNjQ3ZU6UGoVZjaaR5kU53zcX7vHIc/YIR+RDUCzaSHoZMuRewcTKY0mzXOJcArNxb8fklF2sqIiwZWi2MAbPShkfmcQQSV3gwmR9FQJHG+VoAbt1WPpVYHlRwA4I+L0w9h957NKjHILIh1Wn9UhL8NzCbrjrlLzYlbzYdK6un8ai+JhTD3tYSLK6uNiseP/fBsSYKY7g==
-      root-user: AgDBju+PkUEBDL57qFzqzWWFOF2q+iSRxDdEMGDraStRSNETsa3C4vhaDvyZIR2zR5mskzKp+1OtGogaB9vNVLKIfdOxJggrAlUOgHE6A53QuBUAigYsX3zxEqipetDiKV7xqXCnoljzzSpd8O/my/vFcTkvCcHBou9OLo8snzjs8DKmvmiJuheMtWXYoZEkxsJYH0m4yow4ovrUl5X++TfKmuzugTV0i/hDQ6lULs6W4sELwYoviB3Y3VdOyW/Lem/dCCgKAi2Q8eLjqdDeLgjN+ryIH3pNkBo78A3VOXi1JQEfjWXwyfQY2Q9PRZwl1yvFveP3dogKWL9TLhYkIDsDskMe2vZtsQEunisHALFgpMRRh11TLRUvX4bDobrWzBm+wfd961xFf2zLJ2nNdBKCFxtF6RS5fp9coLOul2n3FRIGnhU4ogn+zjkaB2yRllBhxhc9xWSsQw96fcCicOxp35IklsTpEDjhsAcVvUxoOPu26kZfatDFRkUCoLasxAfn2xOLuxPIbWZqbCXOm41bvRl4KA5ri+rgj1AjHHaUlK0v+JFoRp0Z0pStwD5fKaxXX1ts5jTMPSGVuPNlV+4Lmvl82EAGTsr2eytG9Zus89NW4vkdf7Yen2l+a3NtuJ9RqZwUm0Ev4zwll5H7d8i/Gy4P1ZidEshfpR9APxpP4hTny8l0I6te3bFklbqcgpY/3zlpjTIu//nsAybTIjB5aH+d5QGRbuVEfGVgNSVYHQ==
-    template:
-      metadata:
-        creationTimestamp: null
-        name: mmli-backend-minio
-        namespace: alphasynthesis
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-minio
+      namespace: alphasynthesis
+    spec:
+      encryptedData:
+        root-password: AgCG/7VjxMAxYQ1bgMPv5dokXPenhx7rfkN1I7j75wmsaMXj3FHRXCI7Q+l0aAhGK/KwIZhB2fmzQiY3WXuyFpXXf3TemD3lBJHZ4HaOBL1CbppvUykcygdxls8f3gVaRMOflvVMDlcMApAbbjK7bfuwzAfTgSa6e/o67uJZBxx/EqSiIhFw448M5PudKZGvdGjGgpD9awsHu4ZZHM/bGDKtfDFj4BYYq8pNfeS3//dBsZE97dHQ0kFWUYLszkFH2VEaNcH29H4oRIZXBBvIKELVcg0NnaQW6NgbiclC33M0Uw57KEICLJ3mhPyNlY2XNBcRYMImlaWxkc8XoDsXRtaaYJaXkm/9ujdbF3vkbMUjNhAIWArxZJEOXt7m+S+1tV0MpwfxIk8o+0U1R0SxGDKknW6ywqhTUjjT1DqhUSsPmghHEPxVABEJPF8ISV1igjO/tZdqeKoAc6vY+JGlo5vM+JtewyzE62953iAio0GOVoezvmQP267AU2RwmfFM+6zHvI2C6NdEsmZ/ZJW0l0gZoF7cPrg7ggpmzbNjQ3ZU6UGoVZjaaR5kU53zcX7vHIc/YIR+RDUCzaSHoZMuRewcTKY0mzXOJcArNxb8fklF2sqIiwZWi2MAbPShkfmcQQSV3gwmR9FQJHG+VoAbt1WPpVYHlRwA4I+L0w9h957NKjHILIh1Wn9UhL8NzCbrjrlLzYlbzYdK6un8ai+JhTD3tYSLK6uNiseP/fBsSYKY7g==
+        root-user: AgDBju+PkUEBDL57qFzqzWWFOF2q+iSRxDdEMGDraStRSNETsa3C4vhaDvyZIR2zR5mskzKp+1OtGogaB9vNVLKIfdOxJggrAlUOgHE6A53QuBUAigYsX3zxEqipetDiKV7xqXCnoljzzSpd8O/my/vFcTkvCcHBou9OLo8snzjs8DKmvmiJuheMtWXYoZEkxsJYH0m4yow4ovrUl5X++TfKmuzugTV0i/hDQ6lULs6W4sELwYoviB3Y3VdOyW/Lem/dCCgKAi2Q8eLjqdDeLgjN+ryIH3pNkBo78A3VOXi1JQEfjWXwyfQY2Q9PRZwl1yvFveP3dogKWL9TLhYkIDsDskMe2vZtsQEunisHALFgpMRRh11TLRUvX4bDobrWzBm+wfd961xFf2zLJ2nNdBKCFxtF6RS5fp9coLOul2n3FRIGnhU4ogn+zjkaB2yRllBhxhc9xWSsQw96fcCicOxp35IklsTpEDjhsAcVvUxoOPu26kZfatDFRkUCoLasxAfn2xOLuxPIbWZqbCXOm41bvRl4KA5ri+rgj1AjHHaUlK0v+JFoRp0Z0pStwD5fKaxXX1ts5jTMPSGVuPNlV+4Lmvl82EAGTsr2eytG9Zus89NW4vkdf7Yen2l+a3NtuJ9RqZwUm0Ev4zwll5H7d8i/Gy4P1ZidEshfpR9APxpP4hTny8l0I6te3bFklbqcgpY/3zlpjTIu//nsAybTIjB5aH+d5QGRbuVEfGVgNSVYHQ==
+      template:
+        metadata:
+          creationTimestamp: null
+          name: mmli-backend-minio
+          namespace: alphasynthesis
 
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: huggingface-token
-    namespace: alphasynthesis
-  spec:
-    encryptedData:
-      token: AgAhPH0i7ydR8tC2Fa9OG0N3FCeWJnyM7HvymD3n8+K+yarLgl2vvZDlINTKktMKgmmSg9l1SYW8zqwVA+Wy1tOJ1CMBX5u52JK27YgCYsCh79ZTQFTSK45JbIYyPfxmTAqAxqo83gAWyGH+R+cpylrB0EcPINJEzPnZ6s0biy/NVmgq07V0c91Xcum41JWLCnPm5d2JufR6jQsgTAk4RFzH7RJ8cVVGtI1POCqcklF3YwGM+R4esl2AMZzB9lfcRAvlYTYn9Vy39qDvFAuxdOwKMwTXOXSl/Z4GC1V2YGf1V8JxLE0Kumqxg938Gw7dOGNiYWlE/PmSm2bjPximaGqj6UjoaqyINIcFAS3Q36ZzjwAiABzLxTueBPf6LYico+pX4tw0dAsfJGBxCumYs8wUpP/UC++lqPv2LUxM3WIgiBtOEbTEA23XD4mcdK8z4wKjRxY6zFzNdXrARWwGna9Wj1DVYyy+HKJgXkeKHmSGmx22wEJtohWDPitY9JHHgD2QapGOj/67howwxQOHfn/PqbBwGCxvKTh6XoCbHx1tQCD8HT0NybJENSLuh4qtVtWMmVkPljQKGPrb9kHhp2l/MrGsE3+HJUZvoKoOeuyRYfTPDCxvxQgD/a9w7f9QeGyQVCkEplndQC4reuEbhfaQuOT0lkx0U/Dd5fX+KXCtOgdj8XRRrvll76v66nXlrmyuGb5NlO6tJVIJzm3Op74IOznSrHx55JnjYouoQBm8QNURoZXe
-    template:
-      metadata:
-        creationTimestamp: null
-        name: huggingface-token
-        namespace: alphasynthesis
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: huggingface-token
+      namespace: alphasynthesis
+    spec:
+      encryptedData:
+        token: AgAhPH0i7ydR8tC2Fa9OG0N3FCeWJnyM7HvymD3n8+K+yarLgl2vvZDlINTKktMKgmmSg9l1SYW8zqwVA+Wy1tOJ1CMBX5u52JK27YgCYsCh79ZTQFTSK45JbIYyPfxmTAqAxqo83gAWyGH+R+cpylrB0EcPINJEzPnZ6s0biy/NVmgq07V0c91Xcum41JWLCnPm5d2JufR6jQsgTAk4RFzH7RJ8cVVGtI1POCqcklF3YwGM+R4esl2AMZzB9lfcRAvlYTYn9Vy39qDvFAuxdOwKMwTXOXSl/Z4GC1V2YGf1V8JxLE0Kumqxg938Gw7dOGNiYWlE/PmSm2bjPximaGqj6UjoaqyINIcFAS3Q36ZzjwAiABzLxTueBPf6LYico+pX4tw0dAsfJGBxCumYs8wUpP/UC++lqPv2LUxM3WIgiBtOEbTEA23XD4mcdK8z4wKjRxY6zFzNdXrARWwGna9Wj1DVYyy+HKJgXkeKHmSGmx22wEJtohWDPitY9JHHgD2QapGOj/67howwxQOHfn/PqbBwGCxvKTh6XoCbHx1tQCD8HT0NybJENSLuh4qtVtWMmVkPljQKGPrb9kHhp2l/MrGsE3+HJUZvoKoOeuyRYfTPDCxvxQgD/a9w7f9QeGyQVCkEplndQC4reuEbhfaQuOT0lkx0U/Dd5fX+KXCtOgdj8XRRrvll76v66nXlrmyuGb5NlO6tJVIJzm3Op74IOznSrHx55JnjYouoQBm8QNURoZXe
+      template:
+        metadata:
+          creationTimestamp: null
+          name: huggingface-token
+          namespace: alphasynthesis
