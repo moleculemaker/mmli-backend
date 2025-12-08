@@ -2,6 +2,7 @@ import json
 import os
 
 from fastapi import HTTPException
+from app.models.enums import JobType
 from models.sqlmodel.models import Job
 from services.minio_service import MinIOService
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -37,26 +38,20 @@ class OEDService:
         return data
 
     @staticmethod
-    async def propertyPredictionResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
+    async def propertyPredictionResultPostProcess(bucket_name: str, job_id: str, service: MinIOService):
         """
         Outputs stored in Minio: /{job_id}/out/*  Bucket name: oed-*
         """
-        folder_path = f"/{job_id}/out/"
-        objects = service.list_files(bucket_name, folder_path)
-
-        # Iterate over folder and add all contents to a dictionary
-        content = {}
-        for obj in objects:
-            file_name = obj.object_name
-            if file_name.endswith('.json'):
-                content[file_name] = json.loads(service.get_file(bucket_name=bucket_name, object_name=obj.object_name))
-            elif file_name.endswith('.csv'):
-                content[file_name] = service.get_file(bucket_name=bucket_name, object_name=obj.object_name)
-            else:
-                log.warning(f'Skipping unrecognized file extension: ' + str(file_name))
-
-        # Return the dictionary if it has contents
+        
+        filename_map = {
+            JobType.OED_DLKCAT: "dlkcat-output.json",
+            JobType.OED_UNIKP: "unikp-output.json",
+            JobType.OED_CATPRED: "catpred-output.json",
+        }
+        
+        content = service.get_file(bucket_name, f"{job_id}/out/{filename_map[JobType.OED_DLKCAT]}")
         if not content:
-            raise HTTPException(status_code=404, detail=f"No output files were found")
-
-        return content
+            return HTTPException(status_code=404, detail=f"File {filename_map[JobType.OED_DLKCAT]} not found")
+        
+        return json.loads(content)
+        
