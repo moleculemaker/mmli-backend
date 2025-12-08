@@ -47,7 +47,7 @@ class OEDService:
         # Iterate over folder and add all contents to a dictionary
         content = {}
         for obj in objects:
-            file_name = os.path.basename(obj.object_name).split('/')[-1]
+            file_name = obj.object_name
             if file_name.endswith('.json'):
                 content[file_name] = json.loads(service.get_file(bucket_name=bucket_name, object_name=obj.object_name))
             elif file_name.endswith('.csv'):
