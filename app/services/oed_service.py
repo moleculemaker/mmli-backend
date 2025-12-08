@@ -49,9 +49,9 @@ class OEDService:
             JobType.OED_CATPRED: "catpred-output.json",
         }
         
-        content = service.get_file(bucket_name, f"{job_id}/out/{filename_map[JobType.OED_DLKCAT]}")
+        content = service.get_file(bucket_name, f"{job_id}/out/{filename_map[bucket_name]}")
         if not content:
-            return HTTPException(status_code=404, detail=f"File {filename_map[JobType.OED_DLKCAT]} not found")
+            return HTTPException(status_code=404, detail=f"File {filename_map[bucket_name]} not found")
         
         return json.loads(content)
         
