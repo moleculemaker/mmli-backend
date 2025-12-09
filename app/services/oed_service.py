@@ -2,7 +2,7 @@ import json
 import os
 
 from fastapi import HTTPException
-from app.models.enums import JobType
+from models.enums import JobType
 from models.sqlmodel.models import Job
 from services.minio_service import MinIOService
 from sqlmodel.ext.asyncio.session import AsyncSession
