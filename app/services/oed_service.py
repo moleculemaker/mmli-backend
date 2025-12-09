@@ -42,7 +42,7 @@ class OEDService:
         Outputs stored in Minio: /{job_id}/out/*  Bucket name: oed-*
         """
         folder_path = f"{job_id}/out/"
-        objects = service.list_files(bucket_name, folder_path, True)
+        objects = service.list_files(bucket_name, folder_path, recursive=True)
 
         # Iterate over folder and add all contents to a dictionary
         content = {}
