@@ -306,3 +306,22 @@ extraDeploy:
         creationTimestamp: null
         name: huggingface-token
         namespace: alphasynthesis
+
+# References Postgres and Minio secrets
+# Update this and reseal if either of those credentials need to change
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-secrets
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      secret.yaml: AgCAC4+qIkEPtUJsLRXPQcgG0D5vaBhrexovlF4F8Hzn11qtgBIb+PWCfqDtWCFNwWIW2svhxo2+z3LiOrDQv00C6aTTYGQ0aKYRpqBHI6yXVcV9rzv8ow9sK11XtOjOJvqVc9Vz/lSIDePZQ8zLtfwz+zDjvr+8LINNUhmF6iJg/DP+hE5t61VuBb28Z8sKxuUt/Lgs0LlxtmqwjVOhWmc0L6wmOpoeH3UMEUK+BafC5VjRqgDC+Fsl/dV5LvBlQ7x3lYIshD8RsnOrv3JUobvbfBAXS4LOTWtew5rVD6CThkdSumYuji4LHtcsxNwXTfrCMn/mYck7tmOmKFKmZ7woI5zCGrirlH3w0Q1XZFJ7CuOHn4NTUzlbBureExeoM7cd2XNt1HP+tXrhQxf5txBSax+jCjNW70tVEdXFGEAk1iZ6S1Ri2dxkBAnCFlTlC/CdG+ryxrJJEcspjgZ5RbUcZuNMtb8CR4LNVQT1g1pZ7tI+BvMGS9l8ttKgosh6wopGhEdoFWLDkRSgxYhcGcq7ilSOp8cM5DzT4oTdEhw2Qh2tH/u+i6r7Hz17F7yNTZmYu0RYohFrBg8QQ4hlHJjiEOu4xK+u0iaHlD8oJ5cc0Zf/7j9HqpJT9/sRAKHfh1RzERnPc2abvI4GxiMu0KE44Zl6gTI0OHZaRWFvys6prIe97sPYTa6cEX9ZZpIFT63vY9lWEkZTkkSjadgyN0/49TZ7mMAruCzTWXMKRc5LTquYfgIgMxGz/xB70GkLpwFaqxWI6DwTUDFvGqXWngoIaIugRctxvvdaMte0TNlxsrFHFxMHj9kfFxt3u6xFDU0YFKmarbxzKOw7rdzArzS53pNZ5pfeIojmZqdPKoP+bT9Ju77BdhFM7FwFahCD6nuntxJKQzmDlEgPPMUUlxULAD2ssvfcsl5JrjJB7cc3hQCzTHf0QfQQkOzVxMkZvxCEmygXxKL77vEQQnVBVBmmQGEScatMloApD+kVWXiGE+3V/yteQi5ICOyentWzFMfPI5VcoJRwBlwUOlNxka8AfLtnOwC+l6tdHaoEsZAhMUV2mLsHYobEwhF0gN8tm7Vn/EFUq59kv6NBIfBQmxmSLmrYtNOlPCYNyq3Lng==
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-secrets
+        namespace: alphasynthesis
+      type: Opaque
+
