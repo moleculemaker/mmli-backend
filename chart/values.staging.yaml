@@ -294,3 +294,21 @@ extraDeploy:
         creationTimestamp: null
         name: huggingface-token
         namespace: staging
+
+# References Postgres and Minio secrets
+# Update this and reseal if either of those credentials need to change
+- apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  creationTimestamp: null
+  name: mmli-backend-staging-secrets
+  namespace: staging
+spec:
+  encryptedData:
+    secret.yaml: AgBeOTpZxZNbQ4qIX/CVF7uG5N60z22Wts4oeOBlhVWFHxU/n6mji/ZbM4OiE6uwoV8G8emK6wAnJN/Q9HrTdCm+sQqD8hUuoDymEEJbfmUQQgeQE1NXnqhMZ6PcY/mbyrUyxEb8BcmlcQDad/1wsIzTac0mf5qbHeol85oZ9mJoShm3+WEwtXlMiKYHxfcQMjlCXYw5vNtVJmaH3pb5/HGeqXSwrFoeLrJKkYjCNakUpM85UxhppuZrW8ByqfYTwJdCoYAltgKpzIPzHStJcA8w7F1bqxjxuusr7ZJkD7sJ8j3Q7PTTGw7xOTHyQ5LTU1DlefSoeZVSIPZntR6Bi/Z7Lv7FoWvdmFqCG4VcOsxwUYVfzJ453cyvncH2WdwJTlBGVhQ3cBTOLQvFFIhdm2eMNdVtukG9I5K6zgZqPkzy2j2Yk4lnHjDeOtxyrTUoZUlE+deTz/QQUEeGJa9xSu3SRil3gy8VBUVVVpv8Yw+K+7ds5UWGAWhcMlepkiTViwvDlfDGnsREKFgx6fuDNfXuCNzNE+KrzTG9CrE4mW2HP4aJl4UJXeTGB1935siDRae66hSaQRwlG7msWFHVs9+wZMrklWDs9ggmoxCxPIWSOz/qgwEkskQQccnr/1HVivuJt1AX0iERRe7yBJMM5KQQBMMJsq5iFbpJoujAu8raybTx33tUMfqCigdMAS0KfTj24ZXBMdcGWEWLk9t1E2bPVAXnRAVCNwhO1Q/sTE/hf1JNk840WJWOWs4FlBqQhRwyK1Z8zCoVlL8DTB+rIBDjJGn2BRCpuVYCiP5rrtsVlV36gfl6YXxYTKWhrkvGVLgsUAAuHs7t0+v+fTUQEze5EW+nmBNSoZ0U9wGjc6FSRaNjW/NnP6OHC3BqzqZ9FwXj9x4UJJXPGJ+G/5ujdN84VYOOkPOR7NclcL0R2MMBS9mRSGW+Z6H1HbOJynXKxE/tiLWyeMjM9WBc1/6CKgBwZatRV/ePnyHXSpju3zQ8I5dOtVpVZvfnjZixNEpNkpwAuMfllRctXTHgbLGusPiUWyL6AJts2sLyTRS3W36sPgF+vRikUV3yffJQRlxdNFRLWQCRUVORx+4zqZISYFIzbsgHQSpwC1tU2e3gG0s=
+  template:
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-staging-secrets
+      namespace: staging
+    type: Opaque
