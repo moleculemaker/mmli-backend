@@ -78,6 +78,10 @@ def get_iupac_name(smiles: str) -> str:
     except Exception as e:
         return None
     
-# if __name__ == "__main__":
-#     print(get_iupac_name("CCO"))
-#     print(get_iupac_name("XYZ"))
+    
+def is_valid_pdb_file(file_content: bytes) -> bool:
+    try:
+        mol = Chem.MolFromPDBBlock(file_content)
+        return mol is not None
+    except Exception as e:
+        return False
