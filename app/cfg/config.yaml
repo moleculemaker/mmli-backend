@@ -41,11 +41,11 @@ kubernetes_jobs:
     - name: 'shared-storage'
       mountPath: '/uws/jobs/aceretro/JOB_ID/in'
       subPath: 'uws/jobs/aceretro/JOB_ID/in'
-      claimName: 'mmli-clean-job-weights'
+      claimName: 'mmli-shared-job-data'
     - name: 'shared-storage'
       mountPath: '/uws/jobs/aceretro/JOB_ID/out'
       subPath: 'uws/jobs/aceretro/JOB_ID/out'
-      claimName: 'mmli-clean-job-weights'
+      claimName: 'mmli-shared-job-data'
     # env:
     #   - name: MINIO_ACCESS_KEY
     #     valueFrom:
@@ -66,7 +66,7 @@ kubernetes_jobs:
       requests:
         cpu: "2"
         memory: 12Gi
-  
+
   # Config for running CLEAN job
   clean:
     image: "moleculemaker/clean-image-amd64:latest"
@@ -76,15 +76,15 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/app/data/inputs'
         subPath: 'uws/jobs/clean/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/app/results/inputs'
         subPath: 'output'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/root/.cache/torch/hub/checkpoints'
         subPath: 'weights'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
 
   # Config for running CLEANDB MEP-ESM2 job
@@ -95,15 +95,15 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/in'
         subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/out'
         subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: /root/.cache/torch/hub
         name: shared-storage
         subPath: uws/jobs/cleandb-mepesm/.hub
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
 
   # Config for running MOLLI job
@@ -118,15 +118,15 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/app/data/inputs'
         subPath: 'input'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/app/results/inputs'
         subPath: 'output'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/root/.cache/torch/hub/checkpoints'
         subPath: 'weights'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
 
   # Config for running OpenEnzymeDB job(s)
@@ -137,11 +137,11 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/in'
         subPath: 'uws/jobs/oed-dlkcat/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/out'
         subPath: 'uws/jobs/oed-dlkcat/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
   oed-unikp:
     image: 'moleculemaker/oed-unikp'
     imagePullPolicy: 'Always'
@@ -149,19 +149,19 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
         subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-unikp/JOB_ID/out'
         subPath: 'uws/jobs/oed-unikp/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: /root/.cache/huggingface/hub
         name: shared-storage
         subPath: uws/jobs/oed-unikp/.cache
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: /usr/app/UniKP
         name: shared-storage
         subPath: uws/jobs/oed-unikp/.models
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
     secrets:
       - mountPath: '/root/.cache/token'
         name: 'token'
@@ -180,22 +180,22 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-catpred/JOB_ID/in'
         subPath: 'uws/jobs/oed-catpred/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
         subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: /catpred_pipeline/data
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: /catpred_pipeline/catpred/production_models
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
   # Config for running ReactionMiner job
   reactionminer:
     image: "moleculemaker/reactionminer:latest"
@@ -209,15 +209,15 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/workspace/10test/'
         subPath: 'uws/jobs/reactionminer/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/workspace/extraction/results_filtered/'
         subPath: 'uws/jobs/reactionminer/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - mountPath: '/root/.cache/huggingface/hub'
         name: 'shared-storage'
         subPath: 'uws/jobs/reactionminer/.cache'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
     # Create a secret named HuggingFace API token
     # Format:
@@ -253,11 +253,11 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/somn/JOB_ID/in'
         subPath: 'uws/jobs/somn/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/uws/jobs/somn/JOB_ID/out'
         subPath: 'uws/jobs/somn/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   # Config for running NovoStoic job (subjob: OptStoic)
   novostoic-optstoic:
@@ -270,7 +270,7 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
         subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
   novostoic-pathways:
@@ -283,7 +283,7 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
         subPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   # Config for running NovoStoic job (subjob: dGPredictor)
   novostoic-dgpredictor:
@@ -296,7 +296,7 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/novostoic-dgpredictor/JOB_ID/out'
         subPath: 'uws/jobs/novostoic-dgpredictor/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   # Config for running NovoStoic job (subjob: EnzRank)
   novostoic-enzrank:
@@ -309,7 +309,7 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'
         subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   # Config for running OED Cheminfo job
   oed-cheminfo:
@@ -320,7 +320,7 @@ kubernetes_jobs:
       - name: 'shared-storage'
         mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
         subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        claimName: 'mmli-shared-job-data'
 
   defaults:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
@@ -334,7 +334,7 @@ kubernetes_jobs:
 
     ## Server working directory to store generated job data
     workingVolume:
-      claimName: "mmli-clean-job-weights"
+      claimName: "mmli-shared-job-data"
       mountPath: "/uws"
       subPath: "uws"
     ## Central data volumes to be mounted in job containers
