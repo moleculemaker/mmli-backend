@@ -10,9 +10,6 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
 
-persistence:
-  size: 40Gi
-
 analyzeIngress:
   hostname: mmli.fastapi.mmli2.ncsa.illinois.edu
   tls: true
@@ -190,6 +187,8 @@ config:
 postgresql:
   enabled: true
   autoschema: false
+  persistence:
+    size: 20Gi
   hostname: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
   global:
     storageClass: csi-cinder-sc-retain
@@ -200,6 +199,8 @@ postgresql:
 
 minio:
   enabled: true
+  persistence:
+    size: 40Gi
   apiIngress:
     tls: true
     hostname: minioapi.mmli.fastapi.mmli2.ncsa.illinois.edu
