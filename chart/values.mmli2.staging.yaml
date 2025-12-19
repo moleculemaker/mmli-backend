@@ -172,7 +172,7 @@ config:
 
 postgresql:
   enabled: true
-  autoschema: false
+  autoschema: true
   hostname: mmli-backend-staging-postgresql.staging.svc.cluster.local
   global:
     storageClass: csi-cinder-sc-retain
