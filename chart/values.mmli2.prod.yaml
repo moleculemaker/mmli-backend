@@ -10,6 +10,9 @@ ingress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
 
+persistence:
+  size: 40Gi
+
 analyzeIngress:
   hostname: mmli.fastapi.mmli2.ncsa.illinois.edu
   tls: true
