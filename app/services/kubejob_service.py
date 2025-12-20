@@ -602,6 +602,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
                 'pull_secrets': pullSecrets
             },
             command=command,
+            runtimeClassName=app_config['kubernetes_jobs'][job_type]['runtimeClassName'] if 'runtimeClassName' in app_config['kubernetes_jobs'][job_type] else None,
             nodeSelector=app_config['kubernetes_jobs'][job_type]['nodeSelector'] if 'nodeSelector' in app_config['kubernetes_jobs'][job_type] else None,
             tolerations=app_config['kubernetes_jobs'][job_type]['tolerations'] if 'tolerations' in app_config['kubernetes_jobs'][job_type] else None,
             prejob_command=app_config['kubernetes_jobs'][job_type]['prejob_command'] if 'prejob_command' in app_config['kubernetes_jobs'][job_type] else None,
