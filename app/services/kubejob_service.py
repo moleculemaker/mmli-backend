@@ -581,7 +581,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             templateText = f.read()
         jinja_template = Template(templateText)
 
-        log.info(f'Creating jinja with jinja_template={jinja_template}')
+        log.debug(f'Creating jinja with jinja_template={templateText}')
 
         yaml_template = jinja_template.render(
             name=job_name,
@@ -624,18 +624,18 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             ttlSecondsAfterFinished=app_config['kubernetes_jobs']['defaults']['ttlSecondsAfterFinished'],
             activeDeadlineSeconds=app_config['kubernetes_jobs']['defaults']['activeDeadlineSeconds'],
         )
-        log.info(f'After jinja with jinja_template...')
+        log.debug(f'After jinja with jinja_template...')
         job_body = yaml.safe_load(yaml_template)
         if DEBUG:
             log.debug("Job {}:\n{}".format(job_name, yaml.dump(job_body, indent=2)))
-        log.info(f'After safe_load')
+        log.debug(f'After safe_load')
         api_response = api_batch_v1.create_namespaced_job(
             namespace=namespace, body=job_body
         )
-        log.info(f'After api_batch_v1.')
+        log.debug(f'After api_batch_v1.')
         response['job_id'] = job_id
 
-        log.debug(f"Job {job_name} created: {job_id}")
+        log.info(f"Job {job_name} created: {job_id}")
     # TODO: Is there additional information to obtain from the ApiException?
     # except ApiException as e:
     #     msg = str(e)
