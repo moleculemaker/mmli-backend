@@ -26,6 +26,7 @@ config:
         key: mmli.role
         operator: Exists
     oed-dlkcat-dla:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -33,6 +34,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-unikp:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -40,6 +42,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-catpred:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -61,6 +64,7 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -103,6 +107,7 @@ config:
         key: mmli.role  
         operator: Exists
     cleandb-mepesm:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -117,6 +122,7 @@ config:
         key: mmli.role  
         operator: Exists
     aceretro:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -138,6 +144,7 @@ config:
         requests:	
           cpu: "1"	
           memory: 20Gi
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
