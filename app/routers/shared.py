@@ -1,6 +1,6 @@
 from typing import Annotated
-from fastapi import APIRouter, HTTPException, Query
-from services.shared import draw_chemical_svg
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from services.shared import draw_chemical_svg, is_valid_pdb_file
 from services.rdkit_service import RDKitService
 
 router = APIRouter()
@@ -35,3 +35,13 @@ async def canonicalize_smiles(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.post("/pdb/validate", tags=['Shared'])
+async def validate_pdb(
+    pdb_file: UploadFile = File(...),
+):
+    pdb_file_content = await pdb_file.read()
+    try:
+        return is_valid_pdb_file(pdb_file_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
