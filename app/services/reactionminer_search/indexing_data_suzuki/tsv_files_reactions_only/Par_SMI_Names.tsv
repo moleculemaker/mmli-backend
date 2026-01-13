@@ -1,0 +1,149 @@
+docno	name	IDX_SMI
+0	compounds of types 18 and 21	0
+1	20	1
+2	18	0
+3	23	2
+4	21	3
+5	organoborane 6	4
+6	boronic ester 31	5
+7	amide carbonyl, boronic ester 31	5
+8	35	6
+9	37b	7
+10	Enantioenriched geminal diboron compound 35	6
+11	38	5
+12	amide 37	7
+13	cyclic boronamide 44	8
+14	47 vicinal diborated compounds	9
+15	62	10
+16	10 B-labeled enantiomerically enriched diboronate 67	5
+17	alkyl radical 75	11
+18	photoexcited Ir catalyst 74, alkyltrifluorobates 71	12
+19	Ni(I)-alkyl species 78	13
+20	radical 75, nickel(0) complex 77	11
+21	nickel(II) complex 80	14
+22	82	15
+23	76, 77, 73	16
+24	diastereomeric nickel(III) complexes 79	9
+25	nickel-Csp 3 bond	5
+26	secondary alkyl βtrifluoroboratoketones (89), aryl bromides	17
+27	aryl boronic acids 58a	18
+28	60	19
+29	diborylated alkene 94	20
+30	sp 3	5
+31	sp 2	15
+32	98	21
+33	97, organoborane	9
+34	99	22
+35	98	21
+36	allylic phosphate 100, bis(pinacolatoboryl)methane	23
+37	diboron product 102	24
+38	homoallyl boronic ester 101, 9-BBN	25
+39	vicinal 1,2diboronates 113	25
+40	aryl Csp 2 -B bond	15
+41	aryl Csp 2 -B bond	15
+42	trisborylated compound 124	24
+43	aryl B-Csp 2 bond, primary B-Csp 3 bond, secondary benzylic B-Csp 3 bond	5
+44	sp 3 -hybridized trifluoroborate salts (127)	5
+45	sp 2 -hybridized boron reagents (126)	15
+46	borylated diarylmethane 128	26
+47	benzyl trifluoroborate salt 127, brominated aryl boronic ester 126	27
+48	129	28
+49	128	26
+50	4-aminophenol	29
+51	4-aminophenol	29
+52	sp 3 boron reagent, sp 3 electrophile	5
+53	compound 2b	30
+54	compound 2a	30
+55	crude compound 4b	31
+56	crude compound 4a, n-propyl amine	31
+57	compound 5b	32
+58	compound 5a, Et3N, N-Bromosuccinimide	32
+59	compound 8a	33
+60	compound 6a, compound 7a	34
+61	compound 8a, Et3N, N-Bromosuccinimide	33
+62	compound 13	33
+63	compound 12, Bis(pinacolato)diboron	30
+64	compound 3b	33
+65	compound 3a	33
+66	compound 3b	33
+67	electron-rich C sp 3ÀO Bonds, transition metal 18	35
+68	crosscoupled heterocycle 3	36
+69	2-ethoxy-2H-chromene 1a, p-fluorophenyl boronic acid	37
+70	4-CF 3	36
+71	dibenzothiophene 20	38
+72	dibenzofuran 19	39
+73	indole 25	40
+74	dibenzothiophene 20	38
+75	bromoethane	41
+76	thiophene	42
+77	thiophene	42
+78	[Pd(IPr)(3-CF 3 -An)Cl 2 ]	43
+79	furan-2-ylboronic acid	44
+80	CH 2 Cl 2, hexanes	45
+81	[M-H+HCO 2 H] -=329, [M] - =331, [M] -=567	45
+82	[M-F] -= 256	46
+83	2-(phenylcarbonyl)chromene	47
+84	2-(phenylcarbonyl)chromene	47
+85	Negishi reagent 15	48
+86	BB 1	48
+87	boronic acid 32	49
+88	MIDA boronate 21	48
+89	1-butyne (33)	49
+90	boronic acid 36	49
+91	MIDA boronate 25	50
+92	2(a), 2(b)	51
+93	comonomer 4	52
+94	(E)-(2-bromoethenyl)dibromoborane 3 15	53
+95	sp 3 -hybridized boronate ester terminus, (E)-styrenylboronic acid 4	54
+96	butadienyl boronate 8	55
+97	BB 1, vinyl stannane 7	56
+98	unsaturated methyl ester 10	57
+99	methyl acrylate 9	58
+100	lynchpin 16	53
+101	BB 1, 15 12d	53
+102	dienylchloride BB 2	53
+103	bisborylated olefin 14, (E)-1-chloro-2-iodoethylene 17 22	54
+104	sp 3 -hybridized MIDA boronate terminus of 14	54
+105	14	54
+106	sp 2 -hybridized pinacol boronic ester	53
+107	14	54
+108	BB 2	53
+109	14, 17	54
+110	BB 3, (E)-1-pentenylboronic acid 18	59
+111	tetraenyl MIDA boronate 19	58
+112	5b 17, Cs 2 CO 3	56
+113	BB 1 -BB 3	53
+114	tetraenyl MIDA boronate 21	53
+115	BB 1, trienylboronic acid 20	57
+116	crude boronic acid, β-bromo enal 22 27	56
+117	B-protected chlorodienylboronic acid BB 2	53
+118	all-trans trienyl boronate 25	53
+119	dienylchloride BB 2, (E)-1-butenylboronic acid 24 16	60
+120	25, vinyl iodide 26 16	53
+121	dienylboronate 28	61
+122	boronic acid 18, BB 1	59
+123	AmB skeleton 31	53
+124	MIDA boronates, dienylchloride 30	57
+125	beta-phenylethylamine	62
+126	N-formyl amide	63
+127	amide 1	64
+128	compound 3, (Bromomethyl)triphenylphosphonium bromide (Compound 4)	65
+129	3	66
+130	trans-cinnamic acid 1 a, Benzoyl chloride 1 b	64
+131	4	65
+132	trans-cinnamic acid 1 a, Benzoyl chloride 1 b	64
+133	acid chloride 2 a	67
+134	compound 1 a, oxalyl chloride	64
+135	compound 4 a	65
+136	compound 2 a, N-vinyl formamide 3 a	66
+137	compound 4b	65
+138	compound 4a, n-propylamine	65
+139	compound 6 a, phenylboronic acid (7 a)	68
+140	N-bromosuccinimide, Et 3 N	66
+141	compound 13	69
+142	key boronate ester (compound 13)	69
+143	compound 12, bis(pinacolato) diboron, KOAC	64
+144	compound 14	65
+145	compound 9, compound 13	70
+146	compound 5 b, compound 13, compound 15	69
+147	compound 7 b	62

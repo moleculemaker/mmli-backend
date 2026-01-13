@@ -72,6 +72,10 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.CLEAN:
         print("Getting CLEAN job result")
         return await CleanService.cleanResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.CLEANDB_MEPESM:
+        print("Getting CLEANDB MEP-ESM2 job result")
+        return await CleanService.cleanDBMepEsmResultPostProcess(bucket_name, job_id, service, db)
         
     elif bucket_name == JobType.NOVOSTOIC_OPTSTOIC:
         print("Getting novostoic-optstoic job result")

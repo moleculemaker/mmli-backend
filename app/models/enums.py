@@ -4,6 +4,7 @@ from enum import Enum
 class JobType(str, Enum):
     ACERETRO = 'aceretro'
     CLEAN = 'clean'
+    CLEANDB_MEPESM = 'cleandb-mepesm'
     CHEMSCRAPER = 'chemscraper'
     MOLLI = 'molli'
     NOVOSTOIC_OPTSTOIC= 'novostoic-optstoic'
@@ -17,6 +18,7 @@ class JobType(str, Enum):
     OED_UNIKP = 'oed-unikp'
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
+    EZ_SPECIFICITY = 'ez-specificity'
 
     def __str__(self) -> str:
         return self.value

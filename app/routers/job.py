@@ -142,6 +142,24 @@ async def create_job(
             environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info.replace('"', '\\"')}]
             log.debug(f'    environment: {environment}')
 
+        elif job_type == JobType.CLEANDB_MEPESM:
+            # Example: "job_info": "{\"sequence\":\"MEDIPDTSRPPLKYVK...\"}"
+            # OR       "job_info": "MEDIPDTSRPPLKYVK..."
+            try:
+                log.debug(f'    job_info: {job_info}')
+                job_config = json.loads(job_info.replace('\\"', '"'))
+                log.debug(f'    job_config: {job_config}')
+                input_sequence = job_config['sequence']
+                log.debug(f'CLEANDB-MEPESM - Parsed job_info as JSON')
+                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': input_sequence}]
+            except Exception as e:
+                log.warning(f'WARNING: CLEANDB-MEPESM - Failed to parse job_info as JSON: {str(e)}')
+                traceback.format_exc()
+                log.warning(f'WARNING: CLEANDB-MEPESM - Falling back to treating job_info as a string')
+                environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': job_info}]
+
+            log.debug(f'    environment: {environment}')
+
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
             json_str = job_info.replace('\"', '"')
@@ -285,6 +303,10 @@ async def create_job(
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.EZ_SPECIFICITY:
+            #TODO: update command to handle ez-specificity jobs
             command = app_config['kubernetes_jobs'][job_type]['command']
 
         # Run a Kubernetes Job with the given image + command + environment

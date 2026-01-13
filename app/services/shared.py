@@ -68,7 +68,8 @@ def draw_chemical_svg(id: str,
         
 def get_iupac_name(smiles: str) -> str:
     try:
-        url = f"https://cactus.nci.nih.gov/chemical/structure/{smiles}/iupac_name"
+        escaped_smiles = smiles.replace('#', '%23') # "Triple bonds in SMILES strings represented by ‘#’ have to be URL-escaped as ‘%23’"
+        url = f"https://cactus.nci.nih.gov/chemical/structure/{escaped_smiles}/iupac_name"
         response = requests.get(url)
         if response.status_code == 200:
             return response.text
@@ -77,6 +78,10 @@ def get_iupac_name(smiles: str) -> str:
     except Exception as e:
         return None
     
-# if __name__ == "__main__":
-#     print(get_iupac_name("CCO"))
-#     print(get_iupac_name("XYZ"))
+    
+def is_valid_pdb_file(file_content: bytes) -> bool:
+    try:
+        mol = Chem.MolFromPDBBlock(file_content)
+        return mol is not None
+    except Exception as e:
+        return False

@@ -112,6 +112,25 @@ kubernetes_jobs:
         claimName: 'mmli-clean-job-weights'
 
 
+  # Config for running CLEANDB MEP-ESM2 job
+  cleandb-mepesm:
+    image: 'moleculemaker/cleandb-mepesm2'
+    imagePullPolicy: 'Always'
+    volumes:
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/in'
+        subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/in'
+        claimName: 'mmli-clean-job-weights'
+      - name: 'shared-storage'
+        mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/out'
+        subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/out'
+        claimName: 'mmli-clean-job-weights'
+      - mountPath: /root/.cache/torch/hub
+        name: shared-storage
+        subPath: uws/jobs/cleandb-mepesm/.hub
+        claimName: 'mmli-clean-job-weights'
+
+
   # Config for running MOLLI job
   molli:
     image: "ghcr.io/moleculemaker/molli:ncsa-workflow"
@@ -133,6 +152,7 @@ kubernetes_jobs:
         mountPath: '/root/.cache/torch/hub/checkpoints'
         subPath: 'weights'
         claimName: 'mmli-clean-job-weights'
+
 
   # Config for running OpenEnzymeDB job(s)
   oed-dlkcat:
@@ -199,7 +219,10 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
         claimName: 'mmli-clean-job-weights'
-
+      - mountPath: /root/.cache/torch/hub/checkpoints
+        name: shared-storage
+        subPath: uws/jobs/oed-catpred/.hub
+        claimName: 'mmli-clean-job-weights'
   # Config for running ReactionMiner job
   reactionminer:
     image: "moleculemaker/reactionminer:latest"
@@ -363,6 +386,36 @@ kubernetes_jobs:
       requests:
         cpu: "16"
         memory: "12Gi"
+
+  # TODO: update to use correct image later
+  ez-specificity:
+    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
+    kubeconfig: "/opt/kubeconfig"
+    # Namespace where this job should run
+    namespace: "mmli"
+
+    # Example job image name + command combo
+    image: "perl:5.34.0"
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+
+    ## Server working directory to store generated job data
+    workingVolume:
+      claimName: "mmli-clean-job-weights"
+      mountPath: "/uws"
+      subPath: "uws"
+    ## Central data volumes to be mounted in job containers
+    volumes: []
+
+    ## Abort jobs after 3 days regardless of their behavior
+    activeDeadlineSeconds: 259200
+    ## Cleanup completed/failed jobs after 12 hours
+    ttlSecondsAfterFinished: 43200
+    ## Poll the log file for changes every `logFilePollingPeriod` seconds
+    logFilePollingPeriod: 300
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      # fsGroup: 202
 
 external:
   chemscraper:

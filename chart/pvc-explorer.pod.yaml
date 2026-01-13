@@ -20,12 +20,12 @@ spec:
         # local dev
         # claimName: job-manager-pvc
         
-        # prod
+        # mmli1 staging/prod
         # claimName: mmli-clean-job-weights
 
-        # staging
-        claimName: mmli-clean-job-weights
+        # mmli2
+        claimName: mmli-shared-job-data
     - name: nfs
       nfs:
-        path: /taiga/ncsa/radiant/bbfp/mmli1/
+        path: /taiga/ncsa/radiant/bbfp/mmli2/
         server: taiga-nfs.ncsa.illinois.edu
