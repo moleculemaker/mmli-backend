@@ -58,16 +58,7 @@ async def create_job(
 
     # Validate Job type
     # TODO: Set command+image based on job_type
-    if job_type == JobType.CHEMSCRAPER:
-        raise HTTPException(status_code=501, detail=f"job_type={job_type} is not yet supported by the Jobs API")
-
-        # TODO: Create a simple job container for executing ChemScraper HTTP requests
-
-        #log.debug("Creating CHEMSCRAPER job")
-        # runs as a background_task
-        #command = 'N/A'
-        #image_name = 'N/A'
-    elif job_type in JobTypes:
+    if job_type in JobTypes:
         log.debug(f"Creating Kubernetes job: {job_type}")
         # runs in Kubernetes, read Docker image name from config
         image_name = app_config['kubernetes_jobs'][job_type]['image']
@@ -84,6 +75,19 @@ async def create_job(
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
 
+        elif job_type == JobType.CHEMSCRAPER:
+            log.debug(f"Creating Kubernetes job: {job_type}")
+
+            job_config = json.loads(job_info.replace('\"', '"'))
+            if 'input_file' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "input_file" for ChemScraper jobs')
+
+            environment = [
+                {
+                    'name': 'CHEMSCRAPER_INPUT_FILE',
+                    'value': job_config['input_file']
+                }
+            ]
         elif job_type == JobType.ACERETRO:
             # ACERetro jobs
             # Example usage:
@@ -299,6 +303,10 @@ async def create_job(
                 upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.EZ_SPECIFICITY:
+            #TODO: update command to handle ez-specificity jobs
             command = app_config['kubernetes_jobs'][job_type]['command']
 
         # Run a Kubernetes Job with the given image + command + environment

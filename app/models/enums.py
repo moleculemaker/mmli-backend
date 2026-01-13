@@ -18,6 +18,7 @@ class JobType(str, Enum):
     OED_UNIKP = 'oed-unikp'
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
+    EZ_SPECIFICITY = 'ez-specificity'
 
     def __str__(self) -> str:
         return self.value

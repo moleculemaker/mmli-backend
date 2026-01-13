@@ -67,6 +67,31 @@ kubernetes_jobs:
         cpu: "2"
         memory: 12Gi
 
+  # Config for running ChemScraper K8S job
+  chemscraper:
+    image: moleculemaker/chemscraper-job:latest
+    imagePullPolicy: Always
+    env:
+      - name: LOG_LEVEL
+        value: DEBUG
+      - name: CHEMSCRAPER_BASE_URL
+        value: 'https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu'
+    nodeSelector:
+      ncsa.role: worker-job
+    tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    volumes:
+      - claimName: 'mmli-shared-job-data'
+        mountPath: /usr/app/inputs/
+        name: shared-storage
+        subPath: uws/jobs/chemscraper/JOB_ID/in
+      - claimName: 'mmli-shared-job-data'
+        mountPath: /usr/app/outputs/
+        name: shared-storage
+        subPath: uws/jobs/chemscraper/JOB_ID/out
+
   # Config for running CLEAN job
   clean:
     image: "moleculemaker/clean-image-amd64:latest"
@@ -173,6 +198,7 @@ kubernetes_jobs:
         itemList:
           - key: token
             path: token
+
   oed-catpred:
     image: 'moleculemaker/oed-catpred'
     imagePullPolicy: 'Always'
@@ -193,8 +219,9 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
         claimName: 'mmli-shared-job-data'
+      - mountPath: /root/.cache/torch/hub/checkpoints
         name: shared-storage
-        subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
+        subPath: uws/jobs/oed-catpred/.hub
         claimName: 'mmli-shared-job-data'
   # Config for running ReactionMiner job
   reactionminer:
@@ -359,6 +386,36 @@ kubernetes_jobs:
       requests:
         cpu: "16"
         memory: "12Gi"
+
+  # TODO: update to use correct image later
+  ez-specificity:
+    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
+    kubeconfig: "/opt/kubeconfig"
+    # Namespace where this job should run
+    namespace: "mmli"
+
+    # Example job image name + command combo
+    image: "perl:5.34.0"
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+
+    ## Server working directory to store generated job data
+    workingVolume:
+      claimName: "mmli-clean-job-weights"
+      mountPath: "/uws"
+      subPath: "uws"
+    ## Central data volumes to be mounted in job containers
+    volumes: []
+
+    ## Abort jobs after 3 days regardless of their behavior
+    activeDeadlineSeconds: 259200
+    ## Cleanup completed/failed jobs after 12 hours
+    ttlSecondsAfterFinished: 43200
+    ## Poll the log file for changes every `logFilePollingPeriod` seconds
+    logFilePollingPeriod: 300
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      # fsGroup: 202
 
 external:
   chemscraper:
