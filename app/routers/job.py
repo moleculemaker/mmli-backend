@@ -300,6 +300,10 @@ async def create_job(
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.EZ_SPECIFICITY:
+            #TODO: update command to handle ez-specificity jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
 
         # Run a Kubernetes Job with the given image + command + environment
         try:

@@ -59,6 +59,8 @@ origins = [
     "https://openenzymedb.platform.moleculemaker.org",
     "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu",
     "https://reactionminer.frontend.mmli1.ncsa.illinois.edu",
+    "https://ezspecificity.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://ezspecificity.frontend.mmli1.ncsa.illinois.edu",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 
