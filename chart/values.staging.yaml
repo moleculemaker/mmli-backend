@@ -18,13 +18,20 @@ analyzeIngress:
 
 config:
   kubernetes_jobs:
+    ez-specificity:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     defaults:
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     oed-dlkcat-dla:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -47,12 +54,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     novostoic-dgpredictor:
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     novostoic-enzrank:
       resources:
         limits:
@@ -75,12 +82,12 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     novostoic-pathways:
       resources:
         limits:
@@ -89,19 +96,19 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     clean:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     cleandb-mepesm:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -110,12 +117,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     molli:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     aceretro:
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -127,16 +134,16 @@ config:
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     reactionminer:
-      resources:	
-        limits:	
-          cpu: "1"	
-          memory: 24Gi	
-        requests:	
-          cpu: "1"	
+      resources:
+        limits:
+          cpu: "1"
+          memory: 24Gi
+        requests:
+          cpu: "1"
           memory: 20Gi
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -145,12 +152,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-cheminfo:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
@@ -205,110 +212,107 @@ minio:
     existingSecret: "mmli-backend-minio"
 
 extraDeploy:
-# IP ratelimiting for staging JobMgr
-- apiVersion: traefik.io/v1alpha1
-  kind: Middleware
-  metadata:
-    name: chemscraper-analyze-ip-ratelimit
-  spec:
-    rateLimit:
-      average: 1
-      period: 120s
+  # IP ratelimiting for staging JobMgr
+  - apiVersion: traefik.io/v1alpha1
+    kind: Middleware
+    metadata:
+      name: chemscraper-analyze-ip-ratelimit
+    spec:
+      rateLimit:
+        average: 1
+        period: 120s
 
-# Enable DecentCI backups
-- apiVersion: v1
-  kind: ConfigMap
-  metadata:
-    name: mmli-backend-staging-backups
-    namespace: staging
-    labels:  
-      app.kubernetes.io/name: decentci-backups
-      app.kubernetes.io/component: config
-  data:
-    backups: |
-      # TODO: Configure backups for MinIO?
-      #- backup-name: decentci-backups-mmli-backend-staging-minio-files
+  # Enable DecentCI backups
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: mmli-backend-staging-backups
+      namespace: staging
+      labels:
+        app.kubernetes.io/name: decentci-backups
+        app.kubernetes.io/component: config
+    data:
+      backups: |
+        # TODO: Configure backups for MinIO?
+        #- backup-name: decentci-backups-mmli-backend-staging-minio-files
 
-      - backup-name: decentci-backups-mmli-backend-staging-db
-        schedule: "01 7 * * *"
-        database:
-          type: postgresql
-          host: mmli-backend-staging-postgresql.staging.svc.cluster.local
-          auth:
-            username: mmli
-            database: mmli
-            passwordKey: postgres-password
-            existingSecret: mmli-backend-postgresql
-    global: |
-      enabled: false
-      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/staging/mmli-backend
-      backup-nfs-server: taiga-nfs.ncsa.illinois.edu
+        - backup-name: decentci-backups-mmli-backend-staging-db
+          schedule: "01 7 * * *"
+          database:
+            type: postgresql
+            host: mmli-backend-staging-postgresql.staging.svc.cluster.local
+            auth:
+              username: mmli
+              database: mmli
+              passwordKey: postgres-password
+              existingSecret: mmli-backend-postgresql
+      global: |
+        enabled: false
+        backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli1/backups/staging/mmli-backend
+        backup-nfs-server: taiga-nfs.ncsa.illinois.edu
 
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: mmli-backend-postgresql
-    namespace: staging
-  spec:
-    encryptedData:
-      password: AgCPIGultbAoDNAzqfMX4v/DF+gNcLGc8Xwei9vq6alUd8ibicd0lfu9l/739Uzd3cQamhRwkNozQWSMxktbmOruApx4WyfB2Gbn7BXY+Sd9ru1Rf5sMbqy3mnIbxbKHKNRCvcN8mCkd4tFrN154Kcreh2t2+T/phDlQfb0fm2BOtNSE8pZw4a8EO4ue3unGi9UeMFR0Ilc3Sbm8p5TVGBDH3NylOp45I0h6wwFtmxeBPtVnprn24/j4YokWY7Z6toZ22VekCVuI3iX4huaIPwqP3Ab05FO2KZx69bpN0sZ4PoBlUB76N11TsKROk0EA2pxvWG/8DJXqZ8ejkc5S79B+R79RPYBkfUe8LJfyF703Dtrttp9iOuU8uSGdUjWahIW9W7idw9ISYW6+t9ftNEFKn2g8vrOhR/Ow4o4BZEzCGxGOFCAYS6HUD+r0bCj4tCZsFz5ZxuSp65Zr1lPkJZeCYE8hR0vy2be3y6lM/92nvkQ0tJGfasvbY+CWh2jMxgxGlKBMsUlK/eWM3oPEEQ5HyFomcdycmfPSzvhzjuLI0mL61Z6v0UI3mx/ZOwDNIfw7KIA6/hf5Zjx0wx5RAiK1VuBqJQzuPUCbcFg9kRTCPKjZx054HWePBoOK8inZZsrwqII9D3zfkawGZLHlkeM1+yZ+f8ArnPZVlVBIRPZwPTF/b73QxP/N/KqLTVW9Qm0V6wAJoo3Q7fVwBq45dYgpvRZ7EAU0qB3V+0suQea9+g==
-      postgres-password: AgAMEPWCx2f5tTpKcqB3HOQTM0Jx37+0/liK5RmYSemdG6AbroINtbyLQvpNfLLyMhNtMb7zfX4bjVq/WN65YbZ/I8YvUrykwdDfLHLzbBrnLeJ3oNmpoUW4QN9Qu5VTLjp0B7bK34w3jCkRuIcTfIUZu/yzEA2neqBIBKtPpQ2M+0fuN0vN/+k3yPTPW69XCtw2BrwynMRMELjues459DG7x3eBOU4RsbwH434ymJQq19vBCT6U6DFP6LfAesYe6zZEyezMjLJpt47kPznrBvIpHZGT6HVQDp4FnoEnsKkdStf3590irQlfhpodHlIjAxdZ1+lxpfE3eUkNqMR8nON+2Zjb30sPP+6vkuFZEwg62JCWNANqWieqqJbpXPsYcLyRZJMvfguSWgKGt2TyW4KvyWYFCFih9NGW1u9/qa+/p0ysBRqwNm5O5oDCvtw6JZIDT4h7K2W5r4NDhLFL+MW5U2A45J10FICvdLU5Rzoza8ElWvjtHN0VB8/lhioNhZuOWVOkwi+sOie9lCJHcbS3zbFBdOtWIu7gCwOd5bL5scw8b/ep5J4ds9cusN1j2szotVMXOWna32Z0IRzmOM0wCclrnMnDKc/L/Z2O2NXvByVW/B9lZzTzPCfcePqDAwVRdicw6TtZ2RD5Ul9dVFY+9V2zUo2IOf4pJr/KEltftn+Jpjg1lhcxGmMSGaqeqfpVP5wp21eXmKe3vx/goI9MsxkSAnDpqHHvHhQ/fj2dNA==
-    template:
-      metadata:
-        creationTimestamp: null
-        name: mmli-backend-postgresql
-        namespace: staging
-  
-  
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-postgresql
+      namespace: staging
+    spec:
+      encryptedData:
+        password: AgCPIGultbAoDNAzqfMX4v/DF+gNcLGc8Xwei9vq6alUd8ibicd0lfu9l/739Uzd3cQamhRwkNozQWSMxktbmOruApx4WyfB2Gbn7BXY+Sd9ru1Rf5sMbqy3mnIbxbKHKNRCvcN8mCkd4tFrN154Kcreh2t2+T/phDlQfb0fm2BOtNSE8pZw4a8EO4ue3unGi9UeMFR0Ilc3Sbm8p5TVGBDH3NylOp45I0h6wwFtmxeBPtVnprn24/j4YokWY7Z6toZ22VekCVuI3iX4huaIPwqP3Ab05FO2KZx69bpN0sZ4PoBlUB76N11TsKROk0EA2pxvWG/8DJXqZ8ejkc5S79B+R79RPYBkfUe8LJfyF703Dtrttp9iOuU8uSGdUjWahIW9W7idw9ISYW6+t9ftNEFKn2g8vrOhR/Ow4o4BZEzCGxGOFCAYS6HUD+r0bCj4tCZsFz5ZxuSp65Zr1lPkJZeCYE8hR0vy2be3y6lM/92nvkQ0tJGfasvbY+CWh2jMxgxGlKBMsUlK/eWM3oPEEQ5HyFomcdycmfPSzvhzjuLI0mL61Z6v0UI3mx/ZOwDNIfw7KIA6/hf5Zjx0wx5RAiK1VuBqJQzuPUCbcFg9kRTCPKjZx054HWePBoOK8inZZsrwqII9D3zfkawGZLHlkeM1+yZ+f8ArnPZVlVBIRPZwPTF/b73QxP/N/KqLTVW9Qm0V6wAJoo3Q7fVwBq45dYgpvRZ7EAU0qB3V+0suQea9+g==
+        postgres-password: AgAMEPWCx2f5tTpKcqB3HOQTM0Jx37+0/liK5RmYSemdG6AbroINtbyLQvpNfLLyMhNtMb7zfX4bjVq/WN65YbZ/I8YvUrykwdDfLHLzbBrnLeJ3oNmpoUW4QN9Qu5VTLjp0B7bK34w3jCkRuIcTfIUZu/yzEA2neqBIBKtPpQ2M+0fuN0vN/+k3yPTPW69XCtw2BrwynMRMELjues459DG7x3eBOU4RsbwH434ymJQq19vBCT6U6DFP6LfAesYe6zZEyezMjLJpt47kPznrBvIpHZGT6HVQDp4FnoEnsKkdStf3590irQlfhpodHlIjAxdZ1+lxpfE3eUkNqMR8nON+2Zjb30sPP+6vkuFZEwg62JCWNANqWieqqJbpXPsYcLyRZJMvfguSWgKGt2TyW4KvyWYFCFih9NGW1u9/qa+/p0ysBRqwNm5O5oDCvtw6JZIDT4h7K2W5r4NDhLFL+MW5U2A45J10FICvdLU5Rzoza8ElWvjtHN0VB8/lhioNhZuOWVOkwi+sOie9lCJHcbS3zbFBdOtWIu7gCwOd5bL5scw8b/ep5J4ds9cusN1j2szotVMXOWna32Z0IRzmOM0wCclrnMnDKc/L/Z2O2NXvByVW/B9lZzTzPCfcePqDAwVRdicw6TtZ2RD5Ul9dVFY+9V2zUo2IOf4pJr/KEltftn+Jpjg1lhcxGmMSGaqeqfpVP5wp21eXmKe3vx/goI9MsxkSAnDpqHHvHhQ/fj2dNA==
+      template:
+        metadata:
+          creationTimestamp: null
+          name: mmli-backend-postgresql
+          namespace: staging
 
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-minio
+      namespace: staging
+    spec:
+      encryptedData:
+        root-password: AgAxOMS9qTyWHN20R4veXoCNeybvy9YrnZAl8+C1zeE/7rkD7K4xcJRyL/UeKo10ayRWXqvdnvPbKGfePiQwjkRDKIYBwu2vaDdIurAMplk10+mw2XGXnvgQVkcucHV61ue4/S4JLA1EwcVmbpEFxRM/ZH3frwprcfpXjjaQqpxQYo7GadOfq4i2uOw3ltG3hBBqNmnd/iNHp3nIpQuzumWCIrmlKb6qTNSnUOCjaFYjTYtWnOG8oFU8tguoh0proRvCahog4GiW1UxhGVZj6Qg+W/qS00RjBlTLY1fKiOcq1nwzgL2zl2NYBn8hIqGsHSxJy3JaSrUCxUEkHzkBjccyQWqeSB7QrHsrdT2wtP91Z7TNDwLZwyuRMog7nCN/JYp2FWmYD8IFjpXGROR33CHqj7qMBoevQ2CxlGOnZFPFQeoOxMya3Jn1szm5JFJb+n9mH6ssB+q+CW+mOYlVbRkJFwgGBK6bYtjcawSGh/crC5lVSIycl3/nKbGvRMP2/jpNNgmgVEfx0bDW2KVr1W3rHL4Ci8y0QnB0UWFsGeuoo3UpCR5ryhaZFn1043G2Fd4zuGwuxB36kHYx3FtjD3shiN7s/zCAtRkNmaCFUDHcuETGa3jN/7KGIQ/8riFik52HYex7N43/e9urshuHxsY0EsQ/VdYQSOdJKGFhdplYJ/LJEHOav710/ex43LB5rbj263jCrJqfPKgGxTIxfBsepCGnlnZdpH6k+4QmGEZA4w==
+        root-user: AgChDYuMHKRdo29to97xogMtFzfwXYPAK4Cb7+DVL85+IFTOXfu6cnOjB5CE2SZaP6HVAtsDP7K94aC5N7iFajTKC5zQvsM18tkRhGDrZJ9oqGKxWUJ7YTP8QQeCJ2WxYhheTiIeSRCvDjJMMXiUvP2WyahZzK8+NP2NynQamE6TAZykm7upSwqJLTnt+t8B4VlYAi8WprZWGgaX+Bm6IPkhEpzKpyBK0TjugmG0/eF47vumiIMkgHrNObjDsXOIQ0uWZ1jfcE9BJPJutRZv4ANO7eepuSa942UkLVLmvLzC+MYMnKhyY7TqK0XTACyPzbd/qzJYEuJUbMt7wnp3ADS2tfKPvmeYGJfzfL88236F7EumcGas+8pND8mdCGHwZqKRObH3PkHvs67Jlf6cpvoU+QGS9ieTdxuYeGZDCk4DNpt0mB5GDsTSRSDIojXW7Gtw9i4y7cLKQ7jaggdbIxQi8c3yIxbffSBO/aH1k4QuUjaMepXP4lPPCw0Z+5JEBDQvwiUIiyz88R7v+DTcB2ozDtvAPEMeKji6GWW9H9+YTrFeh4r2WNxyPGnHLSe2FfFXExs5r22p30lofP0+pVOSpgwHYrxDjglez97AXiTyUoPaqhiXN3bMB9opgGpowUNnOBer4LKo4vxNJl5WQtS4Knp458/6V6TviV4EJlQRQ1jOAor6XKQ6YwBSSgfaiLY9VHxRGPeDqS6ozxy943uyyEZiYxuGJ0ZLC5re5+Rt7A==
+      template:
+        metadata:
+          creationTimestamp: null
+          name: mmli-backend-minio
+          namespace: staging
 
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: mmli-backend-minio
-    namespace: staging
-  spec:
-    encryptedData:
-      root-password: AgAxOMS9qTyWHN20R4veXoCNeybvy9YrnZAl8+C1zeE/7rkD7K4xcJRyL/UeKo10ayRWXqvdnvPbKGfePiQwjkRDKIYBwu2vaDdIurAMplk10+mw2XGXnvgQVkcucHV61ue4/S4JLA1EwcVmbpEFxRM/ZH3frwprcfpXjjaQqpxQYo7GadOfq4i2uOw3ltG3hBBqNmnd/iNHp3nIpQuzumWCIrmlKb6qTNSnUOCjaFYjTYtWnOG8oFU8tguoh0proRvCahog4GiW1UxhGVZj6Qg+W/qS00RjBlTLY1fKiOcq1nwzgL2zl2NYBn8hIqGsHSxJy3JaSrUCxUEkHzkBjccyQWqeSB7QrHsrdT2wtP91Z7TNDwLZwyuRMog7nCN/JYp2FWmYD8IFjpXGROR33CHqj7qMBoevQ2CxlGOnZFPFQeoOxMya3Jn1szm5JFJb+n9mH6ssB+q+CW+mOYlVbRkJFwgGBK6bYtjcawSGh/crC5lVSIycl3/nKbGvRMP2/jpNNgmgVEfx0bDW2KVr1W3rHL4Ci8y0QnB0UWFsGeuoo3UpCR5ryhaZFn1043G2Fd4zuGwuxB36kHYx3FtjD3shiN7s/zCAtRkNmaCFUDHcuETGa3jN/7KGIQ/8riFik52HYex7N43/e9urshuHxsY0EsQ/VdYQSOdJKGFhdplYJ/LJEHOav710/ex43LB5rbj263jCrJqfPKgGxTIxfBsepCGnlnZdpH6k+4QmGEZA4w==
-      root-user: AgChDYuMHKRdo29to97xogMtFzfwXYPAK4Cb7+DVL85+IFTOXfu6cnOjB5CE2SZaP6HVAtsDP7K94aC5N7iFajTKC5zQvsM18tkRhGDrZJ9oqGKxWUJ7YTP8QQeCJ2WxYhheTiIeSRCvDjJMMXiUvP2WyahZzK8+NP2NynQamE6TAZykm7upSwqJLTnt+t8B4VlYAi8WprZWGgaX+Bm6IPkhEpzKpyBK0TjugmG0/eF47vumiIMkgHrNObjDsXOIQ0uWZ1jfcE9BJPJutRZv4ANO7eepuSa942UkLVLmvLzC+MYMnKhyY7TqK0XTACyPzbd/qzJYEuJUbMt7wnp3ADS2tfKPvmeYGJfzfL88236F7EumcGas+8pND8mdCGHwZqKRObH3PkHvs67Jlf6cpvoU+QGS9ieTdxuYeGZDCk4DNpt0mB5GDsTSRSDIojXW7Gtw9i4y7cLKQ7jaggdbIxQi8c3yIxbffSBO/aH1k4QuUjaMepXP4lPPCw0Z+5JEBDQvwiUIiyz88R7v+DTcB2ozDtvAPEMeKji6GWW9H9+YTrFeh4r2WNxyPGnHLSe2FfFXExs5r22p30lofP0+pVOSpgwHYrxDjglez97AXiTyUoPaqhiXN3bMB9opgGpowUNnOBer4LKo4vxNJl5WQtS4Knp458/6V6TviV4EJlQRQ1jOAor6XKQ6YwBSSgfaiLY9VHxRGPeDqS6ozxy943uyyEZiYxuGJ0ZLC5re5+Rt7A==
-    template:
-      metadata:
-        creationTimestamp: null
-        name: mmli-backend-minio
-        namespace: staging
-  
-  
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: huggingface-token
-    namespace: staging
-  spec:
-    encryptedData:
-      token: AgBE0ecVZ0V62syvL9U4GhV7AhdJqovR7AYATpyfIZFRkVZ0LTfvx5dl0r/CFvcP/xB11g7EYCWEbqqKHXGPDTPnDnbHttGWsUKT2pmem9vSjWoOIODyyEH7YjrwySAkwdq+633n2A+csta90nPq9X3ZELUjSZY9tpuG/KIE3XdHaR6marOx7TqpgmraMh+I920XfGynOJ0nG4Sv8XOoIwKmZ8S/EPW63whz+6/eKwCbFcPq1LFChTO52/fpUi1YaeZZbMp2H0UwPa9CSWHJxdLeshauYCecBm2T2kMi2CFSASU+3AZNwlCzlWUn9xbIfuJGi98IT2+07jC08eJ/38aqpKCC71jE+L9oCiAs0KBZHb/dy0Q4n+kvPbk5kEUYOLm94U1H5etVZRAA4Fij0SjXV4zTL63zTDEGnQXBlbCAw1wC/s/LtvhNlipK4UNlL2yuIBsN2H0y7+18fD+Tm4ezvlCVvqsZ0H6/17khZc8+5GtUaf1GM+9+XJCn0hes8eReNhrS0WYepBEL+masXt/Pj+F6aZio0oReWdAP1jZTVroMs4eswku4CdXpSbYbquYws/wr14SfnakarQr0CxWknF3fOHmNZyjo0QUvKyxNzOD4ulzV6XHe49ItQfbnJUzfTuhhVX2y8Xw51IdELFzHvFdcdLogYw314mStMjUyF0xgEfvKqihr/ZYtb4P7rf4gbeSZ/xNynK1pNkLJyR43rQYiiRS1xVNxt0wbEXy5ZymCfG0W
-    template:
-      metadata:
-        creationTimestamp: null
-        name: huggingface-token
-        namespace: staging
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: huggingface-token
+      namespace: staging
+    spec:
+      encryptedData:
+        token: AgBE0ecVZ0V62syvL9U4GhV7AhdJqovR7AYATpyfIZFRkVZ0LTfvx5dl0r/CFvcP/xB11g7EYCWEbqqKHXGPDTPnDnbHttGWsUKT2pmem9vSjWoOIODyyEH7YjrwySAkwdq+633n2A+csta90nPq9X3ZELUjSZY9tpuG/KIE3XdHaR6marOx7TqpgmraMh+I920XfGynOJ0nG4Sv8XOoIwKmZ8S/EPW63whz+6/eKwCbFcPq1LFChTO52/fpUi1YaeZZbMp2H0UwPa9CSWHJxdLeshauYCecBm2T2kMi2CFSASU+3AZNwlCzlWUn9xbIfuJGi98IT2+07jC08eJ/38aqpKCC71jE+L9oCiAs0KBZHb/dy0Q4n+kvPbk5kEUYOLm94U1H5etVZRAA4Fij0SjXV4zTL63zTDEGnQXBlbCAw1wC/s/LtvhNlipK4UNlL2yuIBsN2H0y7+18fD+Tm4ezvlCVvqsZ0H6/17khZc8+5GtUaf1GM+9+XJCn0hes8eReNhrS0WYepBEL+masXt/Pj+F6aZio0oReWdAP1jZTVroMs4eswku4CdXpSbYbquYws/wr14SfnakarQr0CxWknF3fOHmNZyjo0QUvKyxNzOD4ulzV6XHe49ItQfbnJUzfTuhhVX2y8Xw51IdELFzHvFdcdLogYw314mStMjUyF0xgEfvKqihr/ZYtb4P7rf4gbeSZ/xNynK1pNkLJyR43rQYiiRS1xVNxt0wbEXy5ZymCfG0W
+      template:
+        metadata:
+          creationTimestamp: null
+          name: huggingface-token
+          namespace: staging
 
-# References Postgres and Minio secrets
-# Update this and reseal if either of those credentials need to change
-- apiVersion: bitnami.com/v1alpha1
-  kind: SealedSecret
-  metadata:
-    creationTimestamp: null
-    name: mmli-backend-staging-secrets
-    namespace: staging
-  spec:
-    encryptedData:
-      secret.yaml: AgBeOTpZxZNbQ4qIX/CVF7uG5N60z22Wts4oeOBlhVWFHxU/n6mji/ZbM4OiE6uwoV8G8emK6wAnJN/Q9HrTdCm+sQqD8hUuoDymEEJbfmUQQgeQE1NXnqhMZ6PcY/mbyrUyxEb8BcmlcQDad/1wsIzTac0mf5qbHeol85oZ9mJoShm3+WEwtXlMiKYHxfcQMjlCXYw5vNtVJmaH3pb5/HGeqXSwrFoeLrJKkYjCNakUpM85UxhppuZrW8ByqfYTwJdCoYAltgKpzIPzHStJcA8w7F1bqxjxuusr7ZJkD7sJ8j3Q7PTTGw7xOTHyQ5LTU1DlefSoeZVSIPZntR6Bi/Z7Lv7FoWvdmFqCG4VcOsxwUYVfzJ453cyvncH2WdwJTlBGVhQ3cBTOLQvFFIhdm2eMNdVtukG9I5K6zgZqPkzy2j2Yk4lnHjDeOtxyrTUoZUlE+deTz/QQUEeGJa9xSu3SRil3gy8VBUVVVpv8Yw+K+7ds5UWGAWhcMlepkiTViwvDlfDGnsREKFgx6fuDNfXuCNzNE+KrzTG9CrE4mW2HP4aJl4UJXeTGB1935siDRae66hSaQRwlG7msWFHVs9+wZMrklWDs9ggmoxCxPIWSOz/qgwEkskQQccnr/1HVivuJt1AX0iERRe7yBJMM5KQQBMMJsq5iFbpJoujAu8raybTx33tUMfqCigdMAS0KfTj24ZXBMdcGWEWLk9t1E2bPVAXnRAVCNwhO1Q/sTE/hf1JNk840WJWOWs4FlBqQhRwyK1Z8zCoVlL8DTB+rIBDjJGn2BRCpuVYCiP5rrtsVlV36gfl6YXxYTKWhrkvGVLgsUAAuHs7t0+v+fTUQEze5EW+nmBNSoZ0U9wGjc6FSRaNjW/NnP6OHC3BqzqZ9FwXj9x4UJJXPGJ+G/5ujdN84VYOOkPOR7NclcL0R2MMBS9mRSGW+Z6H1HbOJynXKxE/tiLWyeMjM9WBc1/6CKgBwZatRV/ePnyHXSpju3zQ8I5dOtVpVZvfnjZixNEpNkpwAuMfllRctXTHgbLGusPiUWyL6AJts2sLyTRS3W36sPgF+vRikUV3yffJQRlxdNFRLWQCRUVORx+4zqZISYFIzbsgHQSpwC1tU2e3gG0s=
-    template:
-      metadata:
-        creationTimestamp: null
-        name: mmli-backend-staging-secrets
-        namespace: staging
-      type: Opaque
+  # References Postgres and Minio secrets
+  # Update this and reseal if either of those credentials need to change
+  - apiVersion: bitnami.com/v1alpha1
+    kind: SealedSecret
+    metadata:
+      creationTimestamp: null
+      name: mmli-backend-staging-secrets
+      namespace: staging
+    spec:
+      encryptedData:
+        secret.yaml: AgBeOTpZxZNbQ4qIX/CVF7uG5N60z22Wts4oeOBlhVWFHxU/n6mji/ZbM4OiE6uwoV8G8emK6wAnJN/Q9HrTdCm+sQqD8hUuoDymEEJbfmUQQgeQE1NXnqhMZ6PcY/mbyrUyxEb8BcmlcQDad/1wsIzTac0mf5qbHeol85oZ9mJoShm3+WEwtXlMiKYHxfcQMjlCXYw5vNtVJmaH3pb5/HGeqXSwrFoeLrJKkYjCNakUpM85UxhppuZrW8ByqfYTwJdCoYAltgKpzIPzHStJcA8w7F1bqxjxuusr7ZJkD7sJ8j3Q7PTTGw7xOTHyQ5LTU1DlefSoeZVSIPZntR6Bi/Z7Lv7FoWvdmFqCG4VcOsxwUYVfzJ453cyvncH2WdwJTlBGVhQ3cBTOLQvFFIhdm2eMNdVtukG9I5K6zgZqPkzy2j2Yk4lnHjDeOtxyrTUoZUlE+deTz/QQUEeGJa9xSu3SRil3gy8VBUVVVpv8Yw+K+7ds5UWGAWhcMlepkiTViwvDlfDGnsREKFgx6fuDNfXuCNzNE+KrzTG9CrE4mW2HP4aJl4UJXeTGB1935siDRae66hSaQRwlG7msWFHVs9+wZMrklWDs9ggmoxCxPIWSOz/qgwEkskQQccnr/1HVivuJt1AX0iERRe7yBJMM5KQQBMMJsq5iFbpJoujAu8raybTx33tUMfqCigdMAS0KfTj24ZXBMdcGWEWLk9t1E2bPVAXnRAVCNwhO1Q/sTE/hf1JNk840WJWOWs4FlBqQhRwyK1Z8zCoVlL8DTB+rIBDjJGn2BRCpuVYCiP5rrtsVlV36gfl6YXxYTKWhrkvGVLgsUAAuHs7t0+v+fTUQEze5EW+nmBNSoZ0U9wGjc6FSRaNjW/NnP6OHC3BqzqZ9FwXj9x4UJJXPGJ+G/5ujdN84VYOOkPOR7NclcL0R2MMBS9mRSGW+Z6H1HbOJynXKxE/tiLWyeMjM9WBc1/6CKgBwZatRV/ePnyHXSpju3zQ8I5dOtVpVZvfnjZixNEpNkpwAuMfllRctXTHgbLGusPiUWyL6AJts2sLyTRS3W36sPgF+vRikUV3yffJQRlxdNFRLWQCRUVORx+4zqZISYFIzbsgHQSpwC1tU2e3gG0s=
+      template:
+        metadata:
+          creationTimestamp: null
+          name: mmli-backend-staging-secrets
+          namespace: staging
+        type: Opaque
+
