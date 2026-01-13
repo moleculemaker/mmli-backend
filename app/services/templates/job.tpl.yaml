@@ -18,6 +18,10 @@ spec:
         runId: "{{ runId }}"
         ownerId: "{{ ownerId }}"
     spec:
+      {%- if runtimeClassName %}
+      runtimeClassName: {{ runtimeClassName }}
+      {% endif %}
+      
       {%- if tolerations %}
       tolerations:
         {% for tol in tolerations %}
