@@ -193,8 +193,9 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
         claimName: 'mmli-clean-job-weights'
+      - mountPath: /root/.cache/torch/hub/checkpoints
         name: shared-storage
-        subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
+        subPath: uws/jobs/oed-catpred/.hub
         claimName: 'mmli-clean-job-weights'
   # Config for running ReactionMiner job
   reactionminer:
