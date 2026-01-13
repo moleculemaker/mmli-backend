@@ -94,6 +94,17 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+    chemscraper:
+      image: moleculemaker/chemscraper-job:main
+      env:
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'http://chemscraper-services.alphasynthesis.svc.cluster.local:8000'
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
     clean:
       nodeSelector:
         ncsa.role: worker-job

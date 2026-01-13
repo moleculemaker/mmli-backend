@@ -96,12 +96,24 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    chemscraper:
+      env:
+        - name: LOG_LEVEL
+          value: DEBUG
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'http://chemscraper-services-staging.staging.svc.cluster.local:8000'
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
-        - effect: NoSchedule
-          key: mmli.role
-          operator: Exists
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     clean:
       nodeSelector:
         ncsa.role: worker-job

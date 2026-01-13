@@ -1,12 +1,15 @@
 
 from datetime import datetime
 import os
+from typing import List
+
 from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
 import time
 
 from sqlmodel import select
 
+from models.molecule import Molecule
 from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
@@ -25,7 +28,7 @@ import io
 router = APIRouter()
 
 
-@router.post("/chemscraper/analyze", tags=['ChemScraper'])
+@router.post("/chemscraper/analyze", tags=['ChemScraper'], response_model=List[Molecule], deprecated=True)
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
     # Analyze only one document for NSF demo
     if len(requestBody.fileList) > 0 and requestBody.jobId != "":
