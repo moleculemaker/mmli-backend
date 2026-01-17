@@ -125,7 +125,7 @@ config:
       volumes:
         - name: "shared-storage"
           mountPath: "/uws/jobs/aceretro/JOB_ID/in"
-          subPath: "uws/jobs/aceretro/JOB_ID/in'
+          subPath: "uws/jobs/aceretro/JOB_ID/in"
           claimName: "mmli-shared-job-data"
         - name: "shared-storage"
           mountPath: "/uws/jobs/aceretro/JOB_ID/out"
@@ -180,7 +180,7 @@ config:
       image: "moleculemaker/cleandb-mepesm2"
       imagePullPolicy: "Always"
       volumes:
-        - name: "shared-storage'
+        - name: "shared-storage"
           mountPath: "/uws/jobs/cleandb-mepesm/JOB_ID/in"
           subPath: "uws/jobs/cleandb-mepesm/JOB_ID/in"
           claimName: "mmli-shared-job-data"
@@ -221,7 +221,7 @@ config:
       image: "moleculemaker/oed-dlkcat-dla"
       imagePullPolicy: "Always"
       volumes:
-        - name: "shared-storage'
+        - name: "shared-storage"
           mountPath: "/uws/jobs/oed-dlkcat/JOB_ID/in"
           subPath: "uws/jobs/oed-dlkcat/JOB_ID/in"
           claimName: "mmli-shared-job-data"
@@ -488,5 +488,6 @@ config:
     chemscraper:
       apiBaseUrl: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"
       frontendBaseUrl: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+
 
 
