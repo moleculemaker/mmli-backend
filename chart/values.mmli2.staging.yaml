@@ -26,6 +26,7 @@ config:
         key: mmli.role
         operator: Exists
     oed-dlkcat-dla:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -33,6 +34,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-unikp:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -40,6 +42,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-catpred:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -61,6 +64,7 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -103,6 +107,7 @@ config:
         key: mmli.role  
         operator: Exists
     cleandb-mepesm:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -117,6 +122,7 @@ config:
         key: mmli.role  
         operator: Exists
     aceretro:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -138,6 +144,7 @@ config:
         requests:	
           cpu: "1"	
           memory: 20Gi
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -312,3 +319,20 @@ extraDeploy:
         name: mmli-backend-staging-secrets
         namespace: staging
       type: Opaque
+
+# imagePullSecret for pulling private images from ghcr.io and/or NCSA Harbor
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: regcred
+    namespace: staging
+  spec:
+    encryptedData:
+      .dockerconfigjson: AgBXplxj1qYiq0AV5yydn61dGBpsPNSHrGZrH5GNBaq63/AO4gA3B8roB/wBuhog0vyBFl0AlQ1hlCbTpcykDXTZUKJYPONx4kORdRNAwbewXwid7nc7RYDSG8pFr/WBI9q46TxBXK7/IJXXtdWsQSwCd6cVy6+QvaKGU17Cf8RnXJRoAXq9FVM3ZPZixH3Lw29Ibsi/13URYeTaSLU50DfNmkDR6SyOcn8DejCzK56wyySRHMVh+m4/EPeIW9lfRHhbOkX57r42GtQLX07ipqSrKsIGWCzC9qCYLVGb56ksq30qQGRiINKA7QGrVk+kDv/QyYKY6KIH5jE3RMMCzGG32uLwJAU4BsytBhCYPtrqVqmH1QINUmLb+3dNT3lj5dOdI/NNnMUPls36pV5wHcf3jJZLJn4pKfpGOcmUFa+W8EOizk6ZmXLFPrM6oipgwThb5ZIuI68+g0BfjuToATaySH5h7cLOoIRVkRoqsh3/oH455n94+YZE2Q7JH9g8KyE6CJyA2PwpKoZpDbufvXMSHMoPE/h8xeskUt4LFwIA+1lMWSAdV1Cw6pEZ3L0X5Mru0mXfQpuiSKZ7s36YHZkRYOntUSa/Be0h8MQvi/rnuZL6SQJ7M08eSL67G1EM2lX+Z/RbF+kRpRhFuNIq0vIz9SSBhR1COLIFpgJpA52+5aM6NsrLceWhJ2RyA0fOEOKepJCb31eOPCtw4t6CBubA4dylL3d59b8hb1KNfAMjl/idHzOMPpqblWQjxno6zdUWPfHUAjFJYvrjyRrxWYwja3CuHslQRuiN7Gl6eJo4QTVs1NoRCKJMNkuPxxiN17RZI0rM0jrUa+7aesn68zOkXO0pX6Ua5Ty7zBhaDj4hV5SuVTPYQUvHJpaBluVn5nr46+hF7vPaL5chmzwt8DHh99I2jgRw7/gOH8JH7Eyw35vK
+    template:
+      metadata:
+        creationTimestamp: null
+        name: regcred
+        namespace: staging
+      type: kubernetes.io/dockerconfigjson

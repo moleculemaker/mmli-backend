@@ -31,7 +31,7 @@ class ReactionMinerService:
         Inputs stored in Minio:  /{job_id}/in/[name].pdf    Bucket name: reactionminer
         Outputs stored in Minio: /{job_id}/out/[name].json  Bucket name: reactionminer
         """
-        folder_path = f"/{job_id}/out/"
+        folder_path = f"{job_id}/out/"
         objects = service.list_files(bucket_name, folder_path, recursive=True)
 
         # Iterate over folder and add all contents to a dictionary

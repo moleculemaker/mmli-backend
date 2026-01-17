@@ -53,6 +53,7 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -95,6 +96,7 @@ config:
         key: mmli.role  
         operator: Exists
     cleandb-mepesm:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -109,6 +111,7 @@ config:
         key: mmli.role  
         operator: Exists
     oed-dlkcat-dla:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -116,6 +119,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-unikp:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -123,6 +127,7 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-catpred:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -137,6 +142,7 @@ config:
         key: mmli.role
         operator: Exists
     aceretro:
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -153,6 +159,7 @@ config:
         - name: CHEMSCRAPER_BASE_URL	
           value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
       # Run ReactionMiner on GPU node
+      runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
       tolerations:
@@ -329,3 +336,19 @@ extraDeploy:
         namespace: alphasynthesis
       type: Opaque
 
+# imagePullSecret for pulling private images from ghcr.io and/or NCSA Harbor
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: regcred
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      .dockerconfigjson: AgC/idX5TTDceeluSwgt3KKCuAEZow+qwEX6fA2KzO/StJbP8RTWPx5N6oUMe8SxFDX8ex5GCklDH9sv9e6iGq0NmaG1shE0mrSMwHJffTuoptDyAeqBhlam5FBdVZnpUx396RqgDjNs5FZnx7VJ5+WE1437hOYV2kSMsLzCxbc4st7gcEHrtHWm5d4j0U1C8CGjcyUyfIZJqiVY0jVpm1xdHqBAOCCJp8IZKEUpYR6GaAB7T3rwZn/f5okngO4zTdC7XiQon2/P4hCI8YvZcD0L6MmOjEtlmrimXW9t+fwUwGEco63DmLPt3bCt2Frumz5LaTmo3AseHGphKkoclCfc631vboDrFyTVWqO6vkFBXPmI12kmtOV3B0jMlgYLQyG8QwItXRnZQ6DTI+Zc8L698HfpMlQCI/KPIs488S2BbURJxOmSYrf6klneodclB6F14ubqhn4H0LcBajx2CC1QsHtARM1pMcN+NyjoC2a6jkqV/QSwi0mDHYS4R1Y+B4WkST4KeCBO4yaLg1AE7VfgZqAw7AEfsrA962gngK2iLeVQhOsOzS9lX8E/ZSgubDZ/mGu1LSDw6MlSxO2ztPbxQvO2YpARfMwvQpFAXltD8Tfv70zV+T1IoKPe05U4zhmCMrqK89pYyi5T5bm19ogUWM4IXEmdTN29oIbkTGPNvEyiq26C/iCfXPxnZRhxp0DKsD5WXlso9iR96xlZz9TWIseDB6/xdiKBlI5DxXK3wkf8moUAJLoGIoIFr5AbUmsH6CKLSYGMpFn56yAZ7IFHZQPM2VHqnxs12DzKh+tA7JSD5ay1phLGup9+Fh9QiKBLc0rfRj6+2LYgt6BsIeuav4AqDk0G/2hq9bO4AJ52YKrlf/kTm4k9eLOIdThj/N8X0UrDGwk2BZZZD+5qEtnKh7ju/fgMYpi2XKI35f1oT7c/
+    template:
+      metadata:
+        creationTimestamp: null
+        name: regcred
+        namespace: alphasynthesis
+      type: kubernetes.io/dockerconfigjson
