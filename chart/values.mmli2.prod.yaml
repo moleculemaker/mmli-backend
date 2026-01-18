@@ -260,12 +260,13 @@ extraDeploy:
           type: postgresql
           host: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
           auth:
-            username: mmli
+            username: postgres
             database: mmli
             passwordKey: postgres-password
             existingSecret: mmli-backend-postgresql
     global: |
       enabled: true
+      agent-enabled: false
       backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli2/backups/mmli-backend
       backup-nfs-server: taiga-nfs.ncsa.illinois.edu
 
