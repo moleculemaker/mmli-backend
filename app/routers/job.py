@@ -305,6 +305,31 @@ async def create_job(
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
             
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            log.info(f"------------------ STARTING ML-SIMPLEFOLD JOB ------------------  job[{job_type}]: " + job_id)
+            job_config = json.loads(job_info.replace('\"', '"'))
+
+            if 'fasta' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
+
+            # Upload FASTA content to MinIO
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
+
+            command = (
+                "simplefold"
+                " --simplefold_model simplefold_100M"
+                " --num_steps 500"
+                " --tau 0.01"
+                " --nsample_per_protein 1"
+                " --plddt"
+                " --fasta_path ${JOB_INPUT_DIR}/input.fasta"
+                " --output_dir ${JOB_OUTPUT_DIR}"
+                " --backend torch"
+            )
+
         elif job_type == JobType.EZ_SPECIFICITY:
             #TODO: update command to handle ez-specificity jobs
             command = app_config['kubernetes_jobs'][job_type]['command']

@@ -120,9 +120,15 @@ spec:
           limits:
             cpu: "{{ resources.limits.cpu }}"
             memory: "{{ resources.limits.memory }}"
+            {%- if resources.limits['nvidia.com/gpu'] is defined %}
+            nvidia.com/gpu: "{{ resources.limits['nvidia.com/gpu'] }}"
+            {%- endif %}
           requests:
             cpu: "{{ resources.requests.cpu }}"
             memory: "{{ resources.requests.memory }}"
+            {%- if resources.requests['nvidia.com/gpu'] is defined %}
+            nvidia.com/gpu: "{{ resources.requests['nvidia.com/gpu'] }}"
+            {%- endif %}
         {%- if command %}
         command:
         - 'bash'

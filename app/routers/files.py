@@ -27,6 +27,7 @@ from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
 from services.reactionminer_service import ReactionMinerService
 from services.oed_service import OEDService
+from services.simplefold_service import SimpleFoldService
 
 
 from typing import Optional, List
@@ -105,6 +106,10 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
 
     elif bucket_name == JobType.OED_DLKCAT or bucket_name == JobType.OED_UNIKP or bucket_name == JobType.OED_CATPRED:
         return await OEDService.propertyPredictionResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.ML_SIMPLEFOLD:
+        print("Getting ML-SIMPLEFOLD job result")
+        return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)

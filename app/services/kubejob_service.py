@@ -172,6 +172,10 @@ class KubeEventWatcher:
             results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
 
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            # SimpleFold jobs don't have a frontend URL yet - skip email for now
+            return
+
         # OED & CLEANDB jobs are very fast - no need to send notification email
         elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
             #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
