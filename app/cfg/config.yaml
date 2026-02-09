@@ -350,7 +350,7 @@ kubernetes_jobs:
         claimName: 'mmli-shared-job-data'
 
   # Config for running SimpleFold protein structure prediction job
-  ml-simplefold:
+  mlsimplefold:
     image: "davidbianchi/ml-simplefold:version1"
     imagePullPolicy: "IfNotPresent"
     nodeSelector:
@@ -363,15 +363,15 @@ kubernetes_jobs:
     volumes:
       - name: 'shared-storage'
         mountPath: '/workspace/input'
-        subPath: 'uws/jobs/ml-simplefold/JOB_ID/in'
+        subPath: 'uws/jobs/mlsimplefold/JOB_ID/in'
         claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/workspace/output'
-        subPath: 'uws/jobs/ml-simplefold/JOB_ID/out'
+        subPath: 'uws/jobs/mlsimplefold/JOB_ID/out'
         claimName: 'mmli-shared-job-data'
       - name: 'shared-storage'
         mountPath: '/root/.cache/torch/hub'
-        subPath: 'uws/jobs/ml-simplefold/.cache'
+        subPath: 'uws/jobs/mlsimplefold/.cache'
         claimName: 'mmli-shared-job-data'
     resources:
       limits:
