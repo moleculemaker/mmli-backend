@@ -19,7 +19,7 @@ class JobType(str, Enum):
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
     EZ_SPECIFICITY = 'ez-specificity'
-    ML_SIMPLEFOLD = 'mlsimplefold'
+    ML_SIMPLEFOLD = 'ml-simplefold'
 
     def __str__(self) -> str:
         return self.value
