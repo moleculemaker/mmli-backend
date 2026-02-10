@@ -328,6 +328,7 @@ async def create_job(
                 " --fasta_path ${JOB_INPUT_DIR}/input.fasta"
                 " --output_dir ${JOB_OUTPUT_DIR}"
                 " --backend torch"
+                " && rm -rf ${JOB_OUTPUT_DIR}/cache"
             )
 
         elif job_type == JobType.EZ_SPECIFICITY:

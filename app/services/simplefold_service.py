@@ -15,7 +15,8 @@ class SimpleFoldService:
         Inputs stored in Minio:  /{job_id}/in/<fasta_file>    Bucket name: ml-simplefold
         Outputs stored in Minio: /{job_id}/out/               Bucket name: ml-simplefold
         """
-        output_urls = service.get_file_urls(bucket_name, f"{job_id}/out/")
-        if output_urls is None:
-            raise HTTPException(status_code=404, detail=f"Output files not found for job {job_id}")
+        cif_path = f"{job_id}/out/predictions_simplefold_100M/input_sampled_0.cif"
+        output_urls = service.get_file_urls(bucket_name, cif_path)
+        if output_urls is None or len(output_urls) == 0:
+            raise HTTPException(status_code=404, detail=f"Output CIF file not found for job {job_id}")
         return output_urls
