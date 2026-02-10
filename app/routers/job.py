@@ -309,12 +309,12 @@ async def create_job(
             log.info(f"------------------ STARTING ML-SIMPLEFOLD JOB ------------------  job[{job_type}]: " + job_id)
             job_config = json.loads(job_info.replace('\"', '"'))
 
-            if 'sequence' not in job_config:
-                raise HTTPException(status_code=400, detail='"job_info" requires "sequence" for SimpleFold jobs')
+            if 'fasta' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
 
             # Upload FASTA content to MinIO
             if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['sequence'].encode('utf-8'))
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
                 if not upload_result:
                     raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
 
