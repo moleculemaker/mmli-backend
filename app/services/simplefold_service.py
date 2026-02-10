@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from starlette.responses import PlainTextResponse
 
 from config import get_logger
 from services.minio_service import MinIOService
@@ -16,7 +17,7 @@ class SimpleFoldService:
         Outputs stored in Minio: /{job_id}/out/               Bucket name: ml-simplefold
         """
         cif_path = f"{job_id}/out/predictions_simplefold_100M/input_sampled_0.cif"
-        output_urls = service.get_file_urls(bucket_name, cif_path)
-        if output_urls is None or len(output_urls) == 0:
+        content = service.get_file(bucket_name, cif_path)
+        if content is None:
             raise HTTPException(status_code=404, detail=f"Output CIF file not found for job {job_id}")
-        return output_urls
+        return PlainTextResponse(content.decode('utf-8'))
