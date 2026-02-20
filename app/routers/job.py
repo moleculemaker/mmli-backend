@@ -352,6 +352,10 @@ async def create_job(
                 {'name': 'NVIDIA_DRIVER_CAPABILITIES', 'value': 'compute,utility'},
                 {'name': 'NVIDIA_VISIBLE_DEVICES', 'value': 'all'}
             ]
+            
+        elif job_type == JobType.EZ_SPECIFICITY:
+            #TODO: update command to handle ez-specificity jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
 
         # Run a Kubernetes Job with the given image + command + environment
         try:

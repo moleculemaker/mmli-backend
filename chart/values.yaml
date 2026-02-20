@@ -420,6 +420,38 @@ config:
           subPath: "uws/jobs/oed-cheminfo/JOB_ID/out"
           claimName: "mmli-shared-job-data"
 
+    # Config for running SimpleFold protein structure prediction job
+    ml-simplefold:
+      image: "davidbianchi/ml-simplefold:version1"
+      imagePullPolicy: "IfNotPresent"
+      env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/workspace/input"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/workspace/output"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/root/.cache/torch/hub"
+          subPath: "uws/jobs/ml-simplefold/.cache"
+          claimName: "mmli-shared-job-data"
+      resources:
+        limits:
+          cpu: "16"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "4"
+          memory: "24Gi"
+          nvidia.com/gpu: "1"
+
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
       kubeconfig: "/opt/kubeconfig"
