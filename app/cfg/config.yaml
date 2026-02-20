@@ -387,8 +387,8 @@ kubernetes_jobs:
         cpu: "16"
         memory: "12Gi"
 
-  # TODO: update to use correct image later
-  ez-specificity:
+  # EZSpec Uni-Dock docking job
+  ezspec-unidock:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
     kubeconfig: "/opt/kubeconfig"
     # Namespace where this job should run

@@ -19,6 +19,8 @@ class JobType(str, Enum):
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
     EZ_SPECIFICITY = 'ez-specificity'
+    EZSPEC_UNIDOCK = 'ezspec-unidock'
+    ML_SIMPLEFOLD = 'ml-simplefold'
 
     def __str__(self) -> str:
         return self.value

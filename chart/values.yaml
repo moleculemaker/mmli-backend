@@ -454,35 +454,45 @@ config:
           cpu: "1"
           memory: "12Gi"
 
-    # TODO: update to use correct image later
-    ez-specificity:
-      # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-      kubeconfig: "/opt/kubeconfig"
-      # Namespace where this job should run
-      namespace: "mmli"
-
-      # Example job image name + command combo
-      image: "perl:5.34.0"
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
-
-      ## Server working directory to store generated job data
-      workingVolume:
-        claimName: "mmli-shared-job-data"
-        mountPath: "/uws"
-        subPath: "uws"
-      ## Central data volumes to be mounted in job containers
-      volumes: []
-
-      ## Abort jobs after 3 days regardless of their behavior
-      activeDeadlineSeconds: 259200
-      ## Cleanup completed/failed jobs after 12 hours
-      ttlSecondsAfterFinished: 43200
-      ## Poll the log file for changes every `logFilePollingPeriod` seconds
-      logFilePollingPeriod: 300
+    # Config for running EZSpec Uni-Dock docking job
+    ezspec-unidock:
+      image: "bingjiguo/ez-specificity-unidock:latest"
+      imagePullPolicy: "Always"
+      runtimeClassName: "nvidia"
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/ezspec-unidock/JOB_ID/in"
+          subPath: "uws/jobs/ezspec-unidock/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/ezspec-unidock/JOB_ID/out"
+          subPath: "uws/jobs/ezspec-unidock/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+      resources:
+        limits:
+          cpu: "8"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "4"
+          memory: "16Gi"
+          nvidia.com/gpu: "1"
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
       securityContext:
         runAsUser: 0
         runAsGroup: 0
-        # fsGroup: 202
+      activeDeadlineSeconds: 259200
+      ttlSecondsAfterFinished: 43200
 
   external:
     chemscraper:
