@@ -488,7 +488,7 @@ config:
 
     # Config for running EZSpec Uni-Dock docking job
     ezspec-unidock:
-      image: "bingjiguo/ez-specificity-unidock:latest"
+      image: "moleculemaker/ezspec-unidock:latest"
       imagePullPolicy: "Always"
       runtimeClassName: "nvidia"
       env:
