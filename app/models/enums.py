@@ -22,6 +22,7 @@ class JobType(str, Enum):
     TEST1 = 'test1'
     TEST2 = 'test2'
     TEST3 = 'test3'
+    ML_SIMPLEFOLD = 'ml-simplefold'
 
     def __str__(self) -> str:
         return self.value

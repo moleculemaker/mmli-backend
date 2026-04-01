@@ -85,7 +85,7 @@ def download_remote_directory_from_minio(remote_path: str, bucket_name: str, tar
 
 
 # Upload a local directory recursively to MinIO
-def upload_local_directory_to_minio(local_path: str, bucket_name: str):
+def upload_local_directory_to_minio(local_path: str, bucket_name: str, minio_prefix: str = ""):
     if not os.path.isdir(local_path):
         log.warning('Not a directory: ' + local_path)
         return False
@@ -100,14 +100,13 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str):
     for local_file in glob.glob(local_path + '/**'):
         local_file = local_file.replace(os.sep, "/")
         if not os.path.isfile(local_file):
-            upload_local_directory_to_minio(local_file, bucket_name)
+            dir_name = os.path.basename(local_file)
+            sub_prefix = os.path.join(minio_prefix, dir_name) if minio_prefix else dir_name
+            upload_local_directory_to_minio(local_file, bucket_name, sub_prefix)
         else:
-            log.debug(f'Examining {str(local_file)}...')
-            file_path_head = os.path.split(local_file)[0]
-            remote_prefix = os.sep.join(file_path_head.split(os.sep)[-2:])
-
-            remote_path = os.path.join(remote_prefix, local_file[1 + len(local_path):])
-            log.info(f'Uploading {local_path} -> {remote_path}...')
+            file_name = os.path.basename(local_file)
+            remote_path = os.path.join(minio_prefix, file_name) if minio_prefix else file_name
+            log.info(f'Uploading {local_file} -> {remote_path}...')
             minioClient.fput_object(bucket_name=bucket_name, object_name=remote_path, file_path=local_file)
 
 
@@ -180,6 +179,10 @@ class KubeEventWatcher:
             openenzyemdb_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
+
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            # SimpleFold jobs don't have a frontend URL yet - skip email for now
+            return
 
         # OED & CLEANDB jobs are very fast - no need to send notification email
         elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
