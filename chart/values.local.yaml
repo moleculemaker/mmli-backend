@@ -1,6 +1,9 @@
 ingress:
   ingressClassName: nginx
 
+service:
+  type: LoadBalancer
+
 config:
   existingSecret: mmli-backend-secrets
   external:
@@ -10,7 +13,8 @@ config:
       frontendBaseUrl: "http://localhost:4200"
 
 controller:
-  image: moleculemaker/mmli-backend:kubejob
+  image: moleculemaker/mmli-backend:dependency-jobs
+  impagePullPolicy: Always
 
   # Change to local chemscraper service URL if deployed in local cluster
   # TODO: fit this into new config structure
@@ -39,6 +43,8 @@ minio:
   enabled: true
   apiIngress:
     ingressClassName: nginx
+  service:
+    type: LoadBalancer
   ingress:
     ingressClassName: nginx
 #  global:

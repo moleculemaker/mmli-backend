@@ -4,6 +4,9 @@ ingress:
   tls: false
   annotations: {}
 
+service:
+  type: ClusterIP
+
 # Custom ingress configuration for only /chemscraper/analyze endpoint
 analyzeIngress:
   hostname: mmli.fastapi.localhost
@@ -12,6 +15,7 @@ analyzeIngress:
 
 controller:
   image: moleculemaker/mmli-backend:latest
+  imagePullPolicy: Always
 
 sharedStorage:
   existingClaim: mmli-shared-job-data
@@ -516,6 +520,53 @@ config:
         runAsGroup: 0
         # fsGroup: 202
 
+    # TODO: update to use correct image later
+    test1:
+      # Example job image name + command combo
+      image: "ubuntu:jammy"
+      command: "echo '1' > ${JOB_OUTPUT_DIR}/step1.out"
+
+    # TODO: update to use correct image later
+    test2:
+      # Example job image name + command combo
+      image: "ubuntu:jammy"
+      command: "echo $(($(cat /uws/jobs/test1/${JOB_ID}/out/step1.out) * 5)) > ${JOB_OUTPUT_DIR}/step2.out"
+      initContainers:
+        - name: wait-for-test1
+          image: minio/mc
+          command: [ "/bin/bash", "-c" ]
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mmli-backend-secrets
+                  key: MINIO_ACCESS_KEY
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mmli-backend-secrets
+                  key: MINIO_SECRET_KEY
+          args:
+            - |
+              set -x
+              set -e
+              export SLEEP_DELAY=30
+              export MINIO_FILE_PATH=test1/${JOB_ID}/out/step1.out;
+              
+              # Loop until 'mc ls' finds the file (returns exit code 0)
+              mc alias set mmli2 http://${MINIO_SERVER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+              echo "Waiting for ${MINIO_FILE_PATH}...";
+              until mc ls "mmli2/$MINIO_FILE_PATH" 2>&1; do
+                echo "File not found. Retrying in ${SLEEP_DELAY} seconds...";
+                sleep ${SLEEP_DELAY};
+              done;
+  
+              echo "File detected! Preparing inputs...";
+              # TODO: Download files needed for next steps
+              # TODO: Validation / filtering / mapping to valid inputs
+  
+              echo "Inputs ready: Init container completed successful!";
+              exit 0
   external:
     chemscraper:
       apiBaseUrl: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"

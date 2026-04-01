@@ -71,6 +71,9 @@ kubernetes_jobs:
   chemscraper:
     image: moleculemaker/chemscraper-job:latest
     imagePullPolicy: Always
+    initContainers:
+      - image: minio/mc
+        command: '' # check if file exists in bucket
     env:
       - name: LOG_LEVEL
         value: DEBUG
@@ -415,41 +418,60 @@ kubernetes_jobs:
     # TODO: probably could adjust resource limits here
     resources:
       limits:
-        cpu: "64"
-        memory: "24Gi"
+        cpu: "8"
+        memory: "8Gi"
       requests:
-        cpu: "16"
-        memory: "12Gi"
+        cpu: "4"
+        memory: "4Gi"
 
   # TODO: update to use correct image later
-  ez-specificity:
-    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-    kubeconfig: "/opt/kubeconfig"
-    # Namespace where this job should run
-    namespace: "mmli"
-
+  test1:
     # Example job image name + command combo
-    image: "perl:5.34.0"
-    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+    image: "ubuntu:jammy"
+    command: "echo '1' > ${JOB_OUTPUT_DIR}/step1.out"
 
-    ## Server working directory to store generated job data
-    workingVolume:
-      claimName: "mmli-shared-job-data"
-      mountPath: "/uws"
-      subPath: "uws"
-    ## Central data volumes to be mounted in job containers
-    volumes: []
+  # TODO: update to use correct image later
+  test2:
+    # Example job image name + command combo
+    image: "ubuntu:jammy"
+    command: "echo $(($(cat /uws/jobs/test1/${JOB_ID}/out/step1.out) * 5)) > ${JOB_OUTPUT_DIR}/step2.out"
+    initContainers:
+      - name: wait-for-test1
+        image: minio/mc
+        command: [ "/bin/bash", "-c" ]
+        env:
+          - name: MINIO_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mmli-backend-secrets
+                key: MINIO_ACCESS_KEY
+          - name: MINIO_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mmli-backend-secrets
+                key: MINIO_SECRET_KEY
+        args:
+          - |
+            set -x
+            set -e
+            export SLEEP_DELAY=30
+            export MINIO_FILE_PATH=test1/${JOB_ID}/out/step1.out;
+            
+            # Loop until 'mc ls' finds the file (returns exit code 0)
+            mc alias set mmli2 http://${MINIO_SERVER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+            echo "Waiting for ${MINIO_FILE_PATH}...";
+            until mc ls "mmli2/$MINIO_FILE_PATH" 2>&1; do
+              echo "File not found. Retrying in ${SLEEP_DELAY} seconds...";
+              sleep ${SLEEP_DELAY};
+            done;
 
-    ## Abort jobs after 3 days regardless of their behavior
-    activeDeadlineSeconds: 259200
-    ## Cleanup completed/failed jobs after 12 hours
-    ttlSecondsAfterFinished: 43200
-    ## Poll the log file for changes every `logFilePollingPeriod` seconds
-    logFilePollingPeriod: 300
-    securityContext:
-      runAsUser: 0
-      runAsGroup: 0
-      # fsGroup: 202
+            echo "File detected! Preparing inputs...";
+            # TODO: Download files needed for next steps
+            # TODO: Validation / filtering / mapping to valid inputs
+
+            echo "Inputs ready: Init container completed successful!";
+            exit 0
+
 
 external:
   chemscraper:

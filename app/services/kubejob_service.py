@@ -7,7 +7,7 @@ from kubernetes.client.rest import ApiException
 import os
 import yaml
 import json
-from jinja2 import Template
+from jinja2 import Template, Environment, BaseLoader
 import uuid
 
 import time
@@ -19,7 +19,7 @@ from sqlmodel import Session
 
 from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER, MINIO_ACCESS_KEY, \
     MINIO_SECRET_KEY, SQLALCHEMY_DATABASE_URL
-from models.enums import JobStatus, JobType
+from models.enums import JobStatus, JobType, JobTypes, ExampleJobTypes
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
@@ -29,6 +29,11 @@ from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
+# Initialize your environment
+env = Environment(loader=BaseLoader())
+
+# Register the to_json filter
+env.filters['to_json'] = json.dumps
 
 ## Load Kubernetes cluster config. Unhandled exception if not in Kubernetes environment.
 try:
@@ -130,6 +135,10 @@ class KubeEventWatcher:
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
+        if job_type in ExampleJobTypes:
+            log.debug(f'Skipping notification email for ExampleJobType: {str(job_type)}')
+            return
+
         if 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
@@ -145,7 +154,7 @@ class KubeEventWatcher:
                 results_url = f'{novostoic_frontend_url}/thermodynamical-feasibility/result/{updated_job.job_id}'
                 job_type_name = 'dGPredictor'
             else:
-                raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {JobType}")
+                raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {str(JobTypes)}")
         elif job_type == JobType.SOMN:
             somn_frontend_url = app_config['somn_frontend_url']
             results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
@@ -180,8 +189,8 @@ class KubeEventWatcher:
             #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
             return
 
-        else: 
-            raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
+        else:
+            raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {str(JobTypes)}")
 
         job_id = updated_job.job_id
 
@@ -488,6 +497,8 @@ def delete_job(job_id: str) -> None:
     except Exception as e:
         log.error(f'''Error deleting Kubernetes Job: {e}''')
         raise
+
+    # XXX: Jobs don't currently use a configmap, but they could...
     # try:
     #     api_response = api_v1.delete_namespaced_config_map(
     #         namespace=namespace,
@@ -504,7 +515,9 @@ def delete_job(job_id: str) -> None:
     #     raise
 
 
-def create_job(job_type, job_id, run_id=None, image_name=None, command=None, owner_id=None, replicas=1, environment=[]):
+def create_job(job_type, job_id, run_id=None, image_name=None, command=None, owner_id=None, replicas=1, environment=None):
+    if environment is None:
+        environment = []
     log.info(f'Creating KubeJob with ID={job_id}')
 
     if job_type not in app_config['kubernetes_jobs']:
@@ -528,7 +541,8 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
     try:
         pullPolicy = app_config['kubernetes_jobs'][job_type]['imagePullPolicy']
     except:
-        pullPolicy = 'Always' if image_name in [':latest', ':dev'] else 'IfNotPresent'
+        pullPolicy = 'Always'
+        log.debug(f"Using default: pullPolicy=Always")
 
     response = {
         'job_id': None,
@@ -561,11 +575,15 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
         #     'subPath': 'positions.csv',
         #     'readOnly': True,
         # }]
+
+        default_job_vols = app_config['kubernetes_jobs']['defaults']['volumes']
+        individual_job_vols = app_config['kubernetes_jobs'][job_type]['volumes'] if 'volumes' in app_config['kubernetes_jobs'][job_type] else []
+
         all_volumes = []
-        for volume in app_config['kubernetes_jobs']['defaults']['volumes']:
+        for volume in default_job_vols:
             all_volumes.append(volume)
         if job_type != JobType.DEFAULT:
-            for volume in app_config['kubernetes_jobs'][job_type]['volumes']:
+            for volume in individual_job_vols:
                 all_volumes.append(volume)
 
         # Include secrets, if necessary (e.g. ReactionMiner for HuggingFace API token)
@@ -582,7 +600,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
 
         with open(os.path.join(os.path.dirname(__file__), 'templates', templateFile)) as f:
             templateText = f.read()
-        jinja_template = Template(templateText)
+        jinja_template = env.from_string(templateText)
 
         log.debug(f'Creating jinja with jinja_template={templateText}')
 
@@ -615,6 +633,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             job_output_dir=job_output_dir,
             job_input_dir=job_input_dir,
             project_subpath=project_subpath,
+            initContainers=app_config['kubernetes_jobs'][job_type]['initContainers'] if 'initContainers' in app_config['kubernetes_jobs'][job_type] else [],
             securityContext=app_config['kubernetes_jobs'][job_type]['securityContext'] if 'securityContext' in app_config['kubernetes_jobs'][job_type] else None,
             workingVolume=app_config['kubernetes_jobs']['defaults']['workingVolume'],
             volumes=all_volumes,

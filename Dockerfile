@@ -1,5 +1,5 @@
 # Start from Python 3.10 in the /code directory
-FROM --platform=linux/amd64 condaforge/mambaforge:24.1.2-0
+FROM condaforge/mambaforge:24.1.2-0
 WORKDIR /code
 
 # Set noninteractive installation and timezone
@@ -9,6 +9,7 @@ ENV TZ=Etc/UTC
 # Install build dependencies and OpenJDK
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     gcc \
     zlib1g-dev \
     openjdk-11-jdk \

@@ -68,12 +68,17 @@ async def create_job(
         environment = []
 
         # Mount in secrets/volumes at runtime
-        volumes = []
-        secrets = []
+        #volumes = []
+        #secrets = []
 
-        if job_type == JobType.DEFAULT:
+        if job_type == JobType.DEFAULT or job_type == JobType.TEST1 or job_type == JobType.TEST2 or job_type == JobType.TEST3:
             command = app_config['kubernetes_jobs'][job_type]['command']
-            #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
+            environment = app_config['kubernetes_jobs'][job_type]['env'] if 'env' in app_config['kubernetes_jobs'][job_type] else []
+            #initContainers = app_config['kubernetes_jobs'][job_type]['initContainers'] if 'initContainers' in app_config['kubernetes_jobs'][job_type] else []
+            #image = app_config['kubernetes_jobs'][job_type]['image'] if 'image' in app_config['kubernetes_jobs'][job_type] else app_config['kubernetes_jobs']['defaults']
+            #imagePullPolicy = app_config['kubernetes_jobs'][job_type]['imagePullPolicy'] if 'imagePullPolicy' in app_config['kubernetes_jobs'][job_type] else 'Always'
+            #volumes = app_config['kubernetes_jobs'][job_type]['volumes'] if 'volumes' in app_config['kubernetes_jobs'][job_type] else []
+            #secrets = app_config['kubernetes_jobs'][job_type]['secrets'] if 'secrets' in app_config['kubernetes_jobs'][job_type] else []
 
         elif job_type == JobType.CHEMSCRAPER:
             log.debug(f"Creating Kubernetes job: {job_type}")
@@ -243,14 +248,6 @@ async def create_job(
             #     # 'name': 'SOMN_PROJECT_DIR',
             #     # 'value': somn_project_dir
             # }]
-
-            # Run a Kubernetes Job with the given image + command + environment
-            try:
-                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-            except Exception as ex:
-                log.error("Failed to create Job: " + str(ex))
-                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
-            
         elif job_type == JobType.NOVOSTOIC_PATHWAYS:
             if service.ensure_bucket_exists(job_type):
                 job_info = json.loads(job_info.replace('\"', '"'))
@@ -338,14 +335,23 @@ async def create_job(
         # Run a Kubernetes Job with the given image + command + environment
         try:
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-            kubejob_service.create_job(job_type=job_type, job_id=job_id, run_id=run_id, image_name=image_name, command=command, environment=environment)
+            kubejob_service.create_job(
+                job_type=job_type,
+                job_id=job_id,
+                run_id=run_id,
+                image_name=image_name,
+                command=command,
+                environment=environment
+            )
         except Exception as ex:
             log.error("Failed to create Job: " + str(ex))
             log.error(traceback.format_exc())
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
     else:
-        raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
+        log.error("Failed to create job - invalid job type: " + str(job_type))
+        log.error(traceback.format_exc())
+        raise HTTPException(status_code=400, detail="Invalid job type: " + str(job_type))
 
     # TODO: Set user_agent based on requestor
     user_agent = ''
