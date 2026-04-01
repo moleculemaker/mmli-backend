@@ -19,6 +19,9 @@ class JobType(str, Enum):
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
     EZ_SPECIFICITY = 'ez-specificity'
+    TEST1 = 'test1'
+    TEST2 = 'test2'
+    TEST3 = 'test3'
 
     def __str__(self) -> str:
         return self.value
@@ -35,3 +38,4 @@ class JobStatus(str, Enum):
 
 
 JobTypes = [str(job_type) for job_type in JobType]
+ExampleJobTypes = ['defaults', 'test1', 'test2', 'test3']

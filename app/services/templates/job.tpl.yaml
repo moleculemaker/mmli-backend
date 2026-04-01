@@ -73,6 +73,51 @@ spec:
             {%- endif %}
         {%- endfor %}
       initContainers:
+      {%- for init in initContainers %}
+      - name: "{{ init.name }}"
+        image: "{{ init.image }}"
+        imagePullPolicy: Always
+        {%- if init.command %}
+        command: [ "{{ init.command | join('", "') }}" ]
+        {%- endif %}
+        {%- if init.args %}
+        args:
+          {%- for arg in init.args %}
+          - |
+{{ arg | indent(12, first=True) }}
+          {%- endfor %}
+        {%- endif %}
+        env:
+        - name: "JOB_ID"
+          value: "{{ jobId }}"
+        - name: "JOB_TYPE"
+          value: "{{ jobType }}"
+        - name: "MINIO_SERVER"
+          value: "{{ minio_server }}"
+        {%- for env_item in init.env %}
+        - name: "{{ env_item.name }}"
+          {%- if env_item.value is defined %}
+          value: "{{ env_item.value }}"
+          {%- elif env_item.valueFrom is defined %}
+          valueFrom:
+            {{ env_item.valueFrom | to_json }}
+          {%- endif %}
+        {%- endfor %}
+        {% for env in environment %}
+        - name: "{{ env.name }}"
+          value: "{{ env.value }}"
+        {% endfor %}
+        volumeMounts:
+          - name: "shared-storage"
+            mountPath: "/uws"
+            subPath: "uws"
+          - name: server-config
+            mountPath: /code/app/cfg/config.yaml
+            subPath: config.yaml
+          - name: server-secret
+            mountPath: /code/app/cfg/secret.yaml
+            subPath: secret.yaml
+      {%- endfor %}
       - name: init
         image: moleculemaker/mmli-backend:kubejob
         imagePullPolicy: Always
