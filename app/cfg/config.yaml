@@ -71,9 +71,6 @@ kubernetes_jobs:
   chemscraper:
     image: moleculemaker/chemscraper-job:latest
     imagePullPolicy: Always
-    initContainers:
-      - image: minio/mc
-        command: '' # check if file exists in bucket
     env:
       - name: LOG_LEVEL
         value: DEBUG
