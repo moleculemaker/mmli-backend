@@ -48,8 +48,8 @@ with open(CONFIG_FILEPATH, "r") as server_yaml_file:
     except Exception as ex:
         log.error(f'Failed to load secrets file: {ex}')
 
-log.info('Valid job types : ', JobTypes)
-log.info('Server configuration: ', app_config)
+log.info(f'Valid job types : {str(JobTypes)}')
+log.info(f'Server configuration: {str(app_config)}', )
 
 # Override app_config with some individual environment variables
 # TODO: Is this needed??
