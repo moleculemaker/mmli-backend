@@ -6,19 +6,27 @@ service:
 
 config:
   existingSecret: mmli-backend-secrets
+  kubernetes_jobs:
+    ez-specificity:
+      env:
+        - name: MINIO_SERVER
+          value: "http://mmli-backend-minio.mmli.svc.cluster.local:9000"
+        - name: MMLI_BACKEND_HOST
+          value: "http://mmli-backend.mmli.svc.cluster.local:8080"
   external:
     chemscraper:
       # Change to local chemscraper service URL if deployed in local cluster
-      apiBaseUrl: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
+      apiBaseUrl: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"
       frontendBaseUrl: "http://localhost:4200"
 
 controller:
-  image: moleculemaker/mmli-backend:dependency-jobs
-  impagePullPolicy: Always
+  image: moleculemaker/mmli-backend:coord-jobs
+  imagePullPolicy: Always
 
   # Change to local chemscraper service URL if deployed in local cluster
   # TODO: fit this into new config structure
-  chemscraper_url: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
+  chemscraper_url: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "http://localhost:4200"
   novostoic_frontend_url: "http://localhost:4200"
   somn_frontend_url: "http://localhost:4200"
   chemscraper_frontend_url: "http://localhost:4200"

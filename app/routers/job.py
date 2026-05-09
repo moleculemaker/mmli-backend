@@ -49,12 +49,12 @@ async def create_job(
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
-    # Check if this job_id already exists
-    statement = select(Job).where(Job.job_id == job_id)
+    # Check if this job_id already exists for this job_type
+    statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
     existing_jobs = await db.exec(statement)
     db_job: Job = existing_jobs.first()
-    #if db_job:
-    #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+    if db_job:
+        raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
     # Validate Job type
     # TODO: Set command+image based on job_type
@@ -71,7 +71,7 @@ async def create_job(
         #volumes = []
         #secrets = []
 
-        if job_type == JobType.DEFAULT or job_type == JobType.TEST1 or job_type == JobType.TEST2 or job_type == JobType.TEST3:
+        if job_type == JobType.DEFAULT:
             command = app_config['kubernetes_jobs'][job_type]['command']
             environment = app_config['kubernetes_jobs'][job_type]['env'] if 'env' in app_config['kubernetes_jobs'][job_type] else []
             #initContainers = app_config['kubernetes_jobs'][job_type]['initContainers'] if 'initContainers' in app_config['kubernetes_jobs'][job_type] else []
@@ -328,9 +328,49 @@ async def create_job(
                 " && rm -rf ${JOB_OUTPUT_DIR}/cache"
             )
 
+        # EZspecificity parent job, see subjobs below
         elif job_type == JobType.EZ_SPECIFICITY:
-            #TODO: update command to handle ez-specificity jobs
+            # TODO: update command to handle ez-specificity jobs
             command = app_config['kubernetes_jobs'][job_type]['command']
+            job_config = json.loads(job_info.replace('\"', '"'))
+
+            # Generate subjob_ids, store these in job_info / pass along as environment
+            ezspec_unidock_job_id = str(kubejob_service.generate_uuid())
+            ezspec_inference_job_id = str(kubejob_service.generate_uuid())
+
+            # Preserve these subjob_ids in our job_info
+            job_config = job_config | {
+                'parent_job_id': job_id,
+                'ezspec_unidock_job_id': ezspec_unidock_job_id,
+                'ezspec_inference_job_id': ezspec_inference_job_id,
+            }
+            job_info = json.dumps(job_config).replace('"', '\"')
+
+            # Pass parent / subjob_ids along as envvars
+            environment = [
+                { "name": "PARENT_JOB_ID", "value": job_id },
+                { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": ezspec_unidock_job_id },
+                { "name": "EZSPEC_INFERENCE_JOB_ID", "value": ezspec_inference_job_id }
+            ]
+
+        # all EZspecificity subjobs / job steps share the same handling
+        elif job_type == JobType.EZSPEC_UNIDOCK or job_type == JobType.EZSPEC_INFERENCE:
+            # TODO: update command to handle ez-specificity jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+            # Grab our subjob_ids from the passed job_info
+            job_config = json.loads(job_info.replace('\"', '"'))
+            if job_type == JobType.EZSPEC_UNIDOCK:
+                job_id = job_config['ezspec_unidock_job_id']
+            elif job_type == JobType.EZSPEC_INFERENCE:
+                job_id = job_config['ezspec_inference_job_id']
+
+            # Pass parent / subjob_ids along as envvars
+            environment = [
+                { "name": "PARENT_JOB_ID",  "value": job_config['parent_job_id'] },
+                { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": job_config['ezspec_unidock_job_id'] },
+                { "name": "EZSPEC_INFERENCE_JOB_ID", "value": job_config['ezspec_inference_job_id'] }
+            ]
 
         # Run a Kubernetes Job with the given image + command + environment
         try:

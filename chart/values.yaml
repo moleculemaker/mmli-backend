@@ -71,6 +71,7 @@ config:
   # TODO: Default these to local cluster? For now, default is staging and we override for prod
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
   novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
   somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"
@@ -492,81 +493,33 @@ config:
 
     # TODO: update to use correct image later
     ez-specificity:
-      # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-      kubeconfig: "/opt/kubeconfig"
-      # Namespace where this job should run
-      namespace: "mmli"
-
       # Example job image name + command combo
-      image: "perl:5.34.0"
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
-
-      ## Server working directory to store generated job data
-      workingVolume:
-        claimName: "mmli-shared-job-data"
-        mountPath: "/uws"
-        subPath: "uws"
-      ## Central data volumes to be mounted in job containers
-      volumes: []
-
-      ## Abort jobs after 3 days regardless of their behavior
-      activeDeadlineSeconds: 259200
-      ## Cleanup completed/failed jobs after 12 hours
-      ttlSecondsAfterFinished: 43200
-      ## Poll the log file for changes every `logFilePollingPeriod` seconds
-      logFilePollingPeriod: 300
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        # fsGroup: 202
+      image: "moleculemaker/mmli-backend:coord-jobs"
+      command: "python ./coordinator.py"
+      steps:
+        # Define names / order for steps here
+        - ezspec-unidock
+        - ezspec-inference
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
 
     # TODO: update to use correct image later
-    test1:
+    ezspec-unidock:
       # Example job image name + command combo
       image: "ubuntu:jammy"
-      command: "echo '1' > ${JOB_OUTPUT_DIR}/step1.out"
+      command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
 
     # TODO: update to use correct image later
-    test2:
+    ezspec-inference:
       # Example job image name + command combo
       image: "ubuntu:jammy"
-      command: "echo $(($(cat /uws/jobs/test1/${JOB_ID}/out/step1.out) * 5)) > ${JOB_OUTPUT_DIR}/step2.out"
-      initContainers:
-        - name: wait-for-test1
-          image: minio/mc
-          command: [ "/bin/bash", "-c" ]
-          env:
-            - name: MINIO_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: mmli-backend-secrets
-                  key: MINIO_ACCESS_KEY
-            - name: MINIO_SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: mmli-backend-secrets
-                  key: MINIO_SECRET_KEY
-          args:
-            - |
-              set -x
-              set -e
-              export SLEEP_DELAY=30
-              export MINIO_FILE_PATH=test1/${JOB_ID}/out/step1.out;
-              
-              # Loop until 'mc ls' finds the file (returns exit code 0)
-              mc alias set mmli2 http://${MINIO_SERVER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
-              echo "Waiting for ${MINIO_FILE_PATH}...";
-              until mc ls "mmli2/$MINIO_FILE_PATH" 2>&1; do
-                echo "File not found. Retrying in ${SLEEP_DELAY} seconds...";
-                sleep ${SLEEP_DELAY};
-              done;
-  
-              echo "File detected! Preparing inputs...";
-              # TODO: Download files needed for next steps
-              # TODO: Validation / filtering / mapping to valid inputs
-  
-              echo "Inputs ready: Init container completed successful!";
-              exit 0
+      command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+
   external:
     chemscraper:
       apiBaseUrl: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"

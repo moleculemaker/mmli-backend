@@ -179,14 +179,15 @@ class KubeEventWatcher:
             openenzyemdb_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
-
-        elif job_type == JobType.ML_SIMPLEFOLD:
-            # SimpleFold jobs don't have a frontend URL yet - skip email for now
-            return
-
-        # OED & CLEANDB jobs are very fast - no need to send notification email
-        elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
-            #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
+        elif job_type == JobType.EZ_SPECIFICITY:
+            ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
+            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
+            job_type_name = 'EZspecificity'
+        elif job_type in JobTypes:
+            # OED & CLEANDB jobs are very fast - no need to send notification email
+            # No need to notify about EZspec intermediary steps
+            # No need to notify about ML Simplefold
+            log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
             return
 
         else:
@@ -197,9 +198,11 @@ class KubeEventWatcher:
         # Send email notification about success/failure
         if new_phase == JobStatus.COMPLETED and updated_job.email and self.should_send_email(job_type, job_id):
             try:
-                self.email_service.send_email(updated_job.email,
-                                              f'''Result for your {job_type_name} Job ({job_id}) is ready''',
-                                              f'''The result for your {job_type_name} Job is available at {results_url}''')
+                self.email_service.send_email(
+                    updated_job.email,
+                    f'''Result for your {job_type_name} Job ({job_id}) is ready''',
+                    f'''The result for your {job_type_name} Job is available at {results_url}'''
+                )
                 self.mark_email_as_sent(job_type, job_id, success=True)
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')

@@ -10,7 +10,7 @@ server:
   hostName: "mmli.fastapi.mmli2.ncsa.illinois.edu"
 
 minio:
-  server: "minio:9000"
+  server: "mmli-backend-minio.mmli.svc.cluster.local:9000"
   apiBaseUrl: "minioapi.mmli.fastapi.localhost"
 
 auth:
@@ -25,6 +25,7 @@ email:
 # Change frontend service URLs depending on where they're deployed (used for email notifications)
 chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
 chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
 novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
 somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
 clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"
@@ -424,53 +425,71 @@ kubernetes_jobs:
         cpu: "4"
         memory: "4Gi"
 
+  ez-specificity:
+    # Example job image name + command combo
+    image: "moleculemaker/mmli-backend:coord-jobs"
+    command: "python ./coordinator.py"
+    steps:
+      # Define names / order for steps here
+      - ezspec-unidock
+      - ezspec-inference
+    resources:
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+      requests:
+        cpu: "1"
+        memory: "1Gi"
+
   # TODO: update to use correct image later
-  test1:
+  ezspec-unidock:
     # Example job image name + command combo
     image: "ubuntu:jammy"
-    command: "echo '1' > ${JOB_OUTPUT_DIR}/step1.out"
+    command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
 
   # TODO: update to use correct image later
-  test2:
+  ezspec-inference:
     # Example job image name + command combo
     image: "ubuntu:jammy"
-    command: "echo $(($(cat /uws/jobs/test1/${JOB_ID}/out/step1.out) * 5)) > ${JOB_OUTPUT_DIR}/step2.out"
-    initContainers:
-      - name: wait-for-test1
-        image: minio/mc
-        command: [ "/bin/bash", "-c" ]
-        env:
-          - name: MINIO_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: mmli-backend-secrets
-                key: MINIO_ACCESS_KEY
-          - name: MINIO_SECRET_KEY
-            valueFrom:
-              secretKeyRef:
-                name: mmli-backend-secrets
-                key: MINIO_SECRET_KEY
-        args:
-          - |
-            set -x
-            set -e
-            export SLEEP_DELAY=30
-            export MINIO_FILE_PATH=test1/${JOB_ID}/out/step1.out;
-            
-            # Loop until 'mc ls' finds the file (returns exit code 0)
-            mc alias set mmli2 http://${MINIO_SERVER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
-            echo "Waiting for ${MINIO_FILE_PATH}...";
-            until mc ls "mmli2/$MINIO_FILE_PATH" 2>&1; do
-              echo "File not found. Retrying in ${SLEEP_DELAY} seconds...";
-              sleep ${SLEEP_DELAY};
-            done;
+    command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
 
-            echo "File detected! Preparing inputs...";
-            # TODO: Download files needed for next steps
-            # TODO: Validation / filtering / mapping to valid inputs
-
-            echo "Inputs ready: Init container completed successful!";
-            exit 0
+        # XXX: this is a new feature, but we're not sure if it will stick around yet
+#        initContainers:
+#          - name: wait-for-test1
+#            image: minio/mc
+#            command: [ "/bin/bash", "-c" ]
+#            env:
+#              - name: MINIO_ACCESS_KEY
+#                valueFrom:
+#                  secretKeyRef:
+#                    name: mmli-backend-secrets
+#                    key: MINIO_ACCESS_KEY
+#              - name: MINIO_SECRET_KEY
+#                valueFrom:
+#                  secretKeyRef:
+#                    name: mmli-backend-secrets
+#                    key: MINIO_SECRET_KEY
+#            args:
+#              - |
+#                set -x
+#                set -e
+#                export SLEEP_DELAY=30
+#                export MINIO_FILE_PATH=test1/${JOB_ID}/out/step1.out;
+#
+#                # Loop until 'mc ls' finds the file (returns exit code 0)
+#                mc alias set mmli2 http://${MINIO_SERVER} ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY};
+#                echo "Waiting for ${MINIO_FILE_PATH}...";
+#                until mc ls "mmli2/$MINIO_FILE_PATH" 2>&1; do
+#                  echo "File not found. Retrying in ${SLEEP_DELAY} seconds...";
+#                  sleep ${SLEEP_DELAY};
+#                done;
+#
+#                echo "File detected! Preparing inputs...";
+#                # TODO: Download files needed for next steps
+#                # TODO: Validation / filtering / mapping to valid inputs
+#
+#                echo "Inputs ready: Init container completed successful!";
+#                exit 0
 
 
 external:
