@@ -13,6 +13,18 @@ config:
           value: "http://mmli-backend-minio.mmli.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
           value: "http://mmli-backend.mmli.svc.cluster.local:8080"
+
+# Uncomment for a way to test multi-step workflow locally
+#    ezspec-unidock:
+#      # Example job image name + command combo
+#      image: "ubuntu:jammy"
+#      command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+
+# Uncomment for a way to test multi-step workflow locally
+#    ezspec-inference:
+#      # Example job image name + command combo
+#      image: "ubuntu:jammy"
+#      command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
   external:
     chemscraper:
       # Change to local chemscraper service URL if deployed in local cluster

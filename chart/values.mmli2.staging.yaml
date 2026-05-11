@@ -166,6 +166,40 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    ezspec-unidock:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
+    ezspec-inference:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli2.ncsa.illinois.edu"

@@ -430,6 +430,8 @@ kubernetes_jobs:
       # Define names / order for steps here
       - ezspec-unidock
       - ezspec-inference
+
+    # Parent job doesn't need many resources
     resources:
       limits:
         cpu: "2"
@@ -438,17 +440,46 @@ kubernetes_jobs:
         cpu: "1"
         memory: "1Gi"
 
-  # TODO: update to use correct image later
-  ezspec-unidock:
-    # Example job image name + command combo
-    image: "ubuntu:jammy"
-    command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
 
-  # TODO: update to use correct image later
+  ezspec-unidock:
+    image: moleculemaker/ezspec-unidock:latest
+    imagePullPolicy: Always
+    #command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+    env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: compute,utility
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: all
+    volumes:
+      - name: shared-storage
+        mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
+        subPath: uws/jobs/ezspec-unidock/JOB_ID/in
+        claimName: mmli-shared-job-data
+      - name: shared-storage
+        mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
+        subPath: uws/jobs/ezspec-unidock/JOB_ID/out
+        claimName: mmli-shared-job-data
+
+
   ezspec-inference:
-    # Example job image name + command combo
-    image: "ubuntu:jammy"
-    command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+    image: moleculemaker/ezspec-inference:latest
+    imagePullPolicy: Always
+    #command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+    env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: compute,utility
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: all
+    volumes:
+      - name: shared-storage
+        mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
+        subPath: uws/jobs/ezspec-inference/JOB_ID/in
+        claimName: mmli-shared-job-data
+      - name: shared-storage
+        mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
+        subPath: uws/jobs/ezspec-inference/JOB_ID/out
+        claimName: mmli-shared-job-data
+
 
         # XXX: this is a new feature, but we're not sure if it will stick around yet
 #        initContainers:

@@ -491,7 +491,7 @@ config:
           cpu: "1"
           memory: "12Gi"
 
-    # TODO: update to use correct image later
+
     ez-specificity:
       # Example job image name + command combo
       image: "moleculemaker/mmli-backend:coord-jobs"
@@ -500,25 +500,55 @@ config:
         # Define names / order for steps here
         - ezspec-unidock
         - ezspec-inference
+
+      # Parent job doesn't need many resources
       resources:
         limits:
           cpu: "2"
-          memory: "4Gi"
+          memory: "2Gi"
         requests:
           cpu: "1"
-          memory: "2Gi"
+          memory: "1Gi"
 
-    # TODO: update to use correct image later
+
     ezspec-unidock:
-      # Example job image name + command combo
-      image: "ubuntu:jammy"
-      command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+      image: moleculemaker/ezspec-unidock:latest
+      #command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/out
+          claimName: mmli-shared-job-data
 
-    # TODO: update to use correct image later
+
     ezspec-inference:
-      # Example job image name + command combo
-      image: "ubuntu:jammy"
-      command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+      image: moleculemaker/ezspec-inference:latest
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      #command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
+          subPath: uws/jobs/ezspec-inference/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
+          subPath: uws/jobs/ezspec-inference/JOB_ID/out
+          claimName: mmli-shared-job-data
 
   external:
     chemscraper:
