@@ -494,7 +494,7 @@ config:
 
     ez-specificity:
       # Example job image name + command combo
-      image: "moleculemaker/mmli-backend:coord-jobs"
+      image: "moleculemaker/mmli-backend:latest"
       command: "python ./coordinator.py"
       steps:
         # Define names / order for steps here
