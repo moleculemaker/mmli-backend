@@ -11,7 +11,6 @@ from fastapi import HTTPException
 from requests import Response
 
 from config import get_logger, app_config
-from services import kubejob_service
 from services.kubejob_service import download_remote_directory_from_minio, upload_local_directory_to_minio, \
     api_batch_v1, get_job_name_from_id
 
@@ -25,7 +24,7 @@ target_directory = os.sep.join(job_input_dir.split(os.sep)[0:-2])
 
 remote_path = os.path.join(job_id, 'in')
 
-hostname = os.getenv('MMLI_BACKEND_HOST', 'http://mmli-backend.mmli.svc.cluster.local:8080')
+hostname = os.getenv('MMLI_BACKEND_HOST')
 
 log = get_logger(__name__)
 

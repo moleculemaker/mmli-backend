@@ -347,7 +347,8 @@ async def create_job(
             job_info = json.dumps(job_config).replace('"', '\"')
 
             # Pass parent / subjob_ids along as envvars
-            environment = [
+            environment += app_config['kubernetes_jobs'][job_type]['env']
+            environment += [
                 { "name": "PARENT_JOB_ID", "value": job_id },
                 { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": ezspec_unidock_job_id },
                 { "name": "EZSPEC_INFERENCE_JOB_ID", "value": ezspec_inference_job_id }
@@ -366,7 +367,8 @@ async def create_job(
                 job_id = job_config['ezspec_inference_job_id']
 
             # Pass parent / subjob_ids along as envvars
-            environment = [
+            environment += app_config['kubernetes_jobs'][job_type]['env']
+            environment += [
                 { "name": "PARENT_JOB_ID",  "value": job_config['parent_job_id'] },
                 { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": job_config['ezspec_unidock_job_id'] },
                 { "name": "EZSPEC_INFERENCE_JOB_ID", "value": job_config['ezspec_inference_job_id'] }

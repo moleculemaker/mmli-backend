@@ -166,6 +166,12 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    ez-specificity:
+      env:
+        - name: MINIO_SERVER
+          value: "http://mmli-backend-staging-minio.staging.svc.cluster.local:9000"
+        - name: MMLI_BACKEND_HOST
+          value: "http://mmli-backend-staging.staging.svc.cluster.local:8080"
     ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
