@@ -53,8 +53,8 @@ async def create_job(
     statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
     existing_jobs = await db.exec(statement)
     db_job: Job = existing_jobs.first()
-    if db_job:
-        raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+    #if db_job:
+    #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
     # Validate Job type
     # TODO: Set command+image based on job_type
