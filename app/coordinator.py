@@ -125,7 +125,6 @@ try:
 
         # Upload our local scratch directory to MinIO for processing
         upload_local_directory_to_minio(
-            minio_server=minio_server,
             local_path=scratch_dir,
             bucket_name=subjob_type,
             minio_prefix=f'{subjob_id}/in'
@@ -172,7 +171,6 @@ try:
         # Output files should now be present in MinIO: e.g. bucket=step  path={job_id}/out
         # Download them to our local scratch directory
         download_remote_directory_from_minio(
-            minio_server=minio_server,
             remote_path=f'{subjob_id}/out',
             bucket_name=subjob_type,
             target_directory=scratch_dir

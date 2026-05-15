@@ -119,7 +119,7 @@ spec:
             subPath: secret.yaml
       {%- endfor %}
       - name: init
-        image: moleculemaker/mmli-backend:pr-101
+        image: moleculemaker/mmli-backend:pr-103
         imagePullPolicy: Always
         # securityContext:
         #   runAsUser: 0
@@ -218,6 +218,12 @@ spec:
           - name: "shared-storage"
             mountPath: "/uws"
             subPath: "{{ workingVolume.subPath }}"
+          - name: server-config
+            mountPath: /code/app/cfg/config.yaml
+            subPath: config.yaml
+          - name: server-secret
+            mountPath: /code/app/cfg/secret.yaml
+            subPath: secret.yaml
         {%- for volume in volumes %}
           - name: {{ volume.name }}
             mountPath: "{{ volume.mountPath | replace('JOB_ID',jobId) }}"
@@ -232,7 +238,7 @@ spec:
         {%- endfor %}
       containers:
       - name: post-job
-        image: "moleculemaker/mmli-backend:pr-101"
+        image: "moleculemaker/mmli-backend:pr-103"
         imagePullPolicy: Always
         command:
         - 'bash'

@@ -17,7 +17,6 @@ log = get_logger(__name__)
 
 try:
     download_remote_directory_from_minio(
-        minio_server=MINIO_SERVER,
         remote_path=remote_path,
         bucket_name=bucket_name,
         target_directory=target_directory,
