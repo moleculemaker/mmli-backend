@@ -357,7 +357,7 @@ async def create_job(
         # all EZspecificity subjobs / job steps share the same handling
         elif job_type == JobType.EZSPEC_UNIDOCK or job_type == JobType.EZSPEC_INFERENCE:
             # TODO: update command to handle ez-specificity jobs
-            command = app_config['kubernetes_jobs'][job_type]['command']
+            #command = app_config['kubernetes_jobs'][job_type]['command']
 
             # Grab our subjob_ids from the passed job_info
             job_config = json.loads(job_info.replace('\"', '"'))

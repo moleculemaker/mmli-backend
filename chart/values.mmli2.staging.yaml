@@ -171,7 +171,7 @@ config:
         - name: MINIO_SERVER
           value: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
-          value: "mmli-backend-staging.staging.svc.cluster.local:8080"
+          value: "http://mmli-backend-staging.staging.svc.cluster.local:8080"
     ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
@@ -217,6 +217,7 @@ config:
   # Change to staging service URLs (used for email notifications)
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
   novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
   somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"

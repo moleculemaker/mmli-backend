@@ -187,7 +187,7 @@ config:
         - name: MINIO_SERVER
           value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
-          value: "mmli-backend.alphasynthesis.svc.cluster.local:8080"
+          value: "http://mmli-backend.alphasynthesis.svc.cluster.local:8080"
     ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
@@ -231,6 +231,7 @@ config:
   # Change to prod service URLs (used for email notifications)
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  ezspecificity_frontend_url: "https://ezspecificity.platform.moleculemaker.org"
   novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
   somn_frontend_url: "https://somn.platform.moleculemaker.org"
   clean_frontend_url: "https://clean.platform.moleculemaker.org"

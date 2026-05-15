@@ -12,7 +12,7 @@ config:
         - name: MINIO_SERVER
           value: "mmli-backend-minio.mmli.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
-          value: "mmli-backend.mmli.svc.cluster.local:8080"
+          value: "http://mmli-backend.mmli.svc.cluster.local:8080"
 
 # Uncomment for a way to test multi-step workflow locally
 #    ezspec-unidock:
