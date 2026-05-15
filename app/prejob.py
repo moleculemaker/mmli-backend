@@ -1,7 +1,7 @@
 #!/bin/env python3
 import os
 
-from config import get_logger
+from config import get_logger, MINIO_SERVER
 from services.kubejob_service import download_remote_directory_from_minio
 
 bucket_name = os.getenv('JOB_TYPE')
@@ -17,6 +17,7 @@ log = get_logger(__name__)
 
 try:
     download_remote_directory_from_minio(
+        minio_server=MINIO_SERVER,
         remote_path=remote_path,
         bucket_name=bucket_name,
         target_directory=target_directory,

@@ -70,9 +70,9 @@ api_v1 = client.CoreV1Api()
 #            w.stop()
 
 
-def download_remote_directory_from_minio(remote_path: str, bucket_name: str, target_directory: str = ''):
+def download_remote_directory_from_minio(minio_server:str, remote_path: str, bucket_name: str, target_directory: str = ''):
     minio = Minio(
-        MINIO_SERVER,
+        minio_server,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=False
@@ -85,13 +85,13 @@ def download_remote_directory_from_minio(remote_path: str, bucket_name: str, tar
 
 
 # Upload a local directory recursively to MinIO
-def upload_local_directory_to_minio(local_path: str, bucket_name: str, minio_prefix: str = ""):
+def upload_local_directory_to_minio(minio_server:str, local_path: str, bucket_name: str, minio_prefix: str = ""):
     if not os.path.isdir(local_path):
         log.warning('Not a directory: ' + local_path)
         return False
 
     minioClient = Minio(
-        MINIO_SERVER,
+        minio_server,
         access_key=MINIO_ACCESS_KEY,
         secret_key=MINIO_SECRET_KEY,
         secure=False

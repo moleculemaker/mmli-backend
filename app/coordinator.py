@@ -7,7 +7,6 @@ import traceback
 from time import sleep
 
 import requests
-from fastapi import HTTPException
 from requests import Response
 
 from config import get_logger, app_config
@@ -24,7 +23,8 @@ target_directory = os.sep.join(job_input_dir.split(os.sep)[0:-2])
 
 remote_path = os.path.join(job_id, 'in')
 
-hostname = os.getenv('MMLI_BACKEND_HOST')
+mmli_hostname = os.getenv('MMLI_BACKEND_HOST')
+minio_server = os.getenv('MINIO_SERVER')
 
 log = get_logger(__name__)
 
@@ -39,7 +39,7 @@ def create_job_step(step_type: str, subjob_id: str, job_config=None) -> str:
 
     # Create a subjob that will run this step on the input files
     resp: Response = requests.post(
-        f'{hostname}/{step_type}/jobs',
+        f'{mmli_hostname}/{step_type}/jobs',
         data=json.dumps(req_body),
         headers={
             "Content-Type": "application/json",
@@ -66,7 +66,7 @@ def create_job_step(step_type: str, subjob_id: str, job_config=None) -> str:
 
 
 def get_job_step_status(step_name: str, step_id: str) -> str:
-    resp = requests.get(f'{hostname}/{step_name}/jobs/{step_id}')
+    resp = requests.get(f'{mmli_hostname}/{step_name}/jobs/{step_id}')
     resp.raise_for_status()
     job_list = resp.json()
     log.debug(f'job_type={job_type}  job_id={job_id}  step_type={step_name}  step_id={step_id}  |  job_list={str(job_list)}')
@@ -125,6 +125,7 @@ try:
 
         # Upload our local scratch directory to MinIO for processing
         upload_local_directory_to_minio(
+            minio_server=minio_server,
             local_path=scratch_dir,
             bucket_name=subjob_type,
             minio_prefix=f'{subjob_id}/in'
@@ -171,6 +172,7 @@ try:
         # Output files should now be present in MinIO: e.g. bucket=step  path={job_id}/out
         # Download them to our local scratch directory
         download_remote_directory_from_minio(
+            minio_server=minio_server,
             remote_path=f'{subjob_id}/out',
             bucket_name=subjob_type,
             target_directory=scratch_dir

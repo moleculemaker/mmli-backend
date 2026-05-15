@@ -185,9 +185,9 @@ config:
     ez-specificity:
       env:
         - name: MINIO_SERVER
-          value: "http://mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
+          value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
-          value: "http://mmli-backend.alphasynthesis.svc.cluster.local:8080"
+          value: "mmli-backend.alphasynthesis.svc.cluster.local:8080"
     ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
