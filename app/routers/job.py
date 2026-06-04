@@ -60,16 +60,7 @@ async def create_job(
 
     # Validate Job type
     # TODO: Set command+image based on job_type
-    if job_type == JobType.CHEMSCRAPER:
-        raise HTTPException(status_code=501, detail=f"job_type={job_type} is not yet supported by the Jobs API")
-
-        # TODO: Create a simple job container for executing ChemScraper HTTP requests
-
-        #log.debug("Creating CHEMSCRAPER job")
-        # runs as a background_task
-        #command = 'N/A'
-        #image_name = 'N/A'
-    elif job_type in JobTypes:
+    if job_type in JobTypes:
         log.debug(f"Creating Kubernetes job: {job_type}")
         # runs in Kubernetes, read Docker image name from config
         image_name = app_config['kubernetes_jobs'][job_type]['image']
@@ -86,6 +77,19 @@ async def create_job(
             command = app_config['kubernetes_jobs'][job_type]['command']
             #command = f'ls -al /uws/jobs/{job_type}/{job_id}'
 
+        elif job_type == JobType.CHEMSCRAPER:
+            log.debug(f"Creating Kubernetes job: {job_type}")
+
+            job_config = json.loads(job_info.replace('\"', '"'))
+            if 'input_file' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "input_file" for ChemScraper jobs')
+
+            environment = [
+                {
+                    'name': 'CHEMSCRAPER_INPUT_FILE',
+                    'value': job_config['input_file']
+                }
+            ]
         elif job_type == JobType.ACERETRO:
             # ACERetro jobs
             # Example usage:
@@ -153,6 +157,36 @@ async def create_job(
         elif job_type == JobType.CRISPR_COPIES:
             #TODO: update command to handle crispr-copies jobs
             command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.EZ_SPECIFICITY:
+            #TODO: update command to handle ez-specificity jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            log.info(f"------------------ STARTING ML-SIMPLEFOLD JOB ------------------  job[{job_type}]: " + job_id)
+            job_config = json.loads(job_info.replace('\"', '"'))
+
+            if 'fasta' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
+
+            # Upload FASTA content to MinIO
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
+
+            command = (
+                "simplefold"
+                " --simplefold_model simplefold_100M"
+                " --num_steps 500"
+                " --tau 0.01"
+                " --nsample_per_protein 1"
+                " --plddt"
+                " --fasta_path ${JOB_INPUT_DIR}/input.fasta"
+                " --output_dir ${JOB_OUTPUT_DIR}"
+                " --backend torch"
+                " && rm -rf ${JOB_OUTPUT_DIR}/cache"
+            )
 
         elif job_type == JobType.MOLLI:
             # Pass path to CORES/SUBS files into the container
@@ -313,7 +347,6 @@ async def create_job(
                 'value': somn_project_dir
             }]
         
-
         # Run a Kubernetes Job with the given image + command + environment
         try:
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)

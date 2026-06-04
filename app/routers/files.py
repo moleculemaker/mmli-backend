@@ -27,6 +27,7 @@ from services.mutagenesis_service import MutagenesisService
 from services.novostoic_service import NovostoicService
 from services.oed_service import OEDService
 from services.reactionminer_service import ReactionMinerService
+from services.simplefold_service import SimpleFoldService
 from services.somn_service import SomnService
 
 
@@ -78,6 +79,10 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         print("Getting CRISPR COPIES job result")
         return await CRISPRCopiesService.resultPostProcess(bucket_name, job_id, service, db)
     
+    elif bucket_name == JobType.ML_SIMPLEFOLD:
+        print("Getting ML-SIMPLEFOLD job result")
+        return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
+
     elif bucket_name == JobType.MOLLI:
         print("Getting MOLLI job result")
         return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
@@ -135,12 +140,6 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
         filename = job_id + "/errors.txt"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
-
-
-# FIXME: Temporary workaround to force FastAPI to generate a model for Molecule
-@router.post("/{bucket_name}/exxample", tags=['Files'])
-async def delete_me() -> List[Molecule]:
-    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
 # TODO: Refactor this to make it more generic?

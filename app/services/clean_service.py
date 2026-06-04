@@ -83,7 +83,7 @@ class CleanService:
             raise HTTPException(status_code=400, detail='400: Bad Request - CLEAN allows only for a maximum of 20 FASTA Sequences.')
 
         encoded_data = base64.b64encode(job_config.encode('utf-8')).decode('utf-8')
-        command = f'''echo {encoded_data} | base64 -d > ./data/inputs/{job_id}.fasta && (((python CLEAN_infer_fasta.py --fasta_data {job_id} 2>&1 | tee $JOB_OUTPUT_DIR/log) && ls -al ./results/inputs/; mv ./results/inputs/{job_id}_maxsep.csv $JOB_OUTPUT_DIR/{job_id}_maxsep.csv) || (touch $JOB_OUTPUT_DIR/error && false))'''
+        command = f'''echo {encoded_data} | base64 -d > ./data/inputs/{job_id}.fasta && (((python CLEAN_infer_fasta.py --fasta_data {job_id} 2>&1 | tee $JOB_OUTPUT_DIR/log) && ls -al $JOB_OUTPUT_DIR/) || (touch $JOB_OUTPUT_DIR/error && false))'''
 
         return command
 

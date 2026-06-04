@@ -12,7 +12,7 @@ log = get_logger(__name__)
 
 try:
     log.info(f'Uploading to MinIO: {job_output_dir}')
-    upload_local_directory_to_minio(local_path=job_output_dir, bucket_name=bucket_name)
+    upload_local_directory_to_minio(local_path=job_output_dir, bucket_name=bucket_name, minio_prefix=f"{job_id}/out")
     log.info(f'Uploaded successfully to MinIO: {job_output_dir}')
 except Exception as ex:
     log.error(f'Failed to upload output files from job[{bucket_name}]: {job_id} - {str(ex)}')

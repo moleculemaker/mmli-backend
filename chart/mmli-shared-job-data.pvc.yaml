@@ -2,8 +2,9 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: mmli-clean-job-weights
-  namespace: mmli
+  name: mmli-shared-job-data
+  # namespace: alphasynthesis    # mmli1/mmli2 prod
+  # namespace: staging           # mmli1/mmli2 staging
 spec:
   accessModes:
     - ReadWriteMany

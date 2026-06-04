@@ -80,7 +80,7 @@ def download_remote_directory_from_minio(remote_path: str, bucket_name: str, tar
 
 
 # Upload a local directory recursively to MinIO
-def upload_local_directory_to_minio(local_path: str, bucket_name: str):
+def upload_local_directory_to_minio(local_path: str, bucket_name: str, minio_prefix: str = ""):
     if not os.path.isdir(local_path):
         log.warning('Not a directory: ' + local_path)
         return False
@@ -95,14 +95,13 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str):
     for local_file in glob.glob(local_path + '/**'):
         local_file = local_file.replace(os.sep, "/")
         if not os.path.isfile(local_file):
-            upload_local_directory_to_minio(local_file, bucket_name)
+            dir_name = os.path.basename(local_file)
+            sub_prefix = os.path.join(minio_prefix, dir_name) if minio_prefix else dir_name
+            upload_local_directory_to_minio(local_file, bucket_name, sub_prefix)
         else:
-            log.debug(f'Examining {str(local_file)}...')
-            file_path_head = os.path.split(local_file)[0]
-            remote_prefix = os.sep.join(file_path_head.split(os.sep)[-2:])
-
-            remote_path = os.path.join(remote_prefix, local_file[1 + len(local_path):])
-            log.info(f'Uploading {local_path} -> {remote_path}...')
+            file_name = os.path.basename(local_file)
+            remote_path = os.path.join(minio_prefix, file_name) if minio_prefix else file_name
+            log.info(f'Uploading {local_file} -> {remote_path}...')
             minioClient.fput_object(bucket_name=bucket_name, object_name=remote_path, file_path=local_file)
 
 
@@ -168,8 +167,8 @@ class KubeEventWatcher:
             else:
                 raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {JobType}")
         elif job_type == JobType.OED_CHEMINFO:
-            reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
-            results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
+            openenzyemdb_frontend_url = app_config['openenzymedb_frontend_url']
+            results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
         elif job_type == JobType.REACTIONMINER:
             reactionminer_frontend_url = app_config['reactionminer_frontend_url']
@@ -179,6 +178,10 @@ class KubeEventWatcher:
             somn_frontend_url = app_config['somn_frontend_url']
             results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'SOMN'
+
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            # SimpleFold jobs don't have a frontend URL yet - skip email for now
+            return
 
         # OED & CLEANDB jobs are very fast - no need to send notification email
         elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
@@ -589,7 +592,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             templateText = f.read()
         jinja_template = Template(templateText)
 
-        log.info(f'Creating jinja with jinja_template={jinja_template}')
+        log.debug(f'Creating jinja with jinja_template={templateText}')
 
         yaml_template = jinja_template.render(
             name=job_name,
@@ -610,6 +613,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
                 'pull_secrets': pullSecrets
             },
             command=command,
+            runtimeClassName=app_config['kubernetes_jobs'][job_type]['runtimeClassName'] if 'runtimeClassName' in app_config['kubernetes_jobs'][job_type] else None,
             nodeSelector=app_config['kubernetes_jobs'][job_type]['nodeSelector'] if 'nodeSelector' in app_config['kubernetes_jobs'][job_type] else None,
             tolerations=app_config['kubernetes_jobs'][job_type]['tolerations'] if 'tolerations' in app_config['kubernetes_jobs'][job_type] else None,
             prejob_command=app_config['kubernetes_jobs'][job_type]['prejob_command'] if 'prejob_command' in app_config['kubernetes_jobs'][job_type] else None,
@@ -631,18 +635,18 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             ttlSecondsAfterFinished=app_config['kubernetes_jobs']['defaults']['ttlSecondsAfterFinished'],
             activeDeadlineSeconds=app_config['kubernetes_jobs']['defaults']['activeDeadlineSeconds'],
         )
-        log.info(f'After jinja with jinja_template...')
+        log.debug(f'After jinja with jinja_template...')
         job_body = yaml.safe_load(yaml_template)
         if DEBUG:
             log.debug("Job {}:\n{}".format(job_name, yaml.dump(job_body, indent=2)))
-        log.info(f'After safe_load')
+        log.debug(f'After safe_load')
         api_response = api_batch_v1.create_namespaced_job(
             namespace=namespace, body=job_body
         )
-        log.info(f'After api_batch_v1.')
+        log.debug(f'After api_batch_v1.')
         response['job_id'] = job_id
 
-        log.debug(f"Job {job_name} created: {job_id}")
+        log.info(f"Job {job_name} created: {job_id}")
     # TODO: Is there additional information to obtain from the ApiException?
     # except ApiException as e:
     #     msg = str(e)

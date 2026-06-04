@@ -1,0 +1,362 @@
+controller:
+  image: moleculemaker/mmli-backend:main
+
+ingress:
+  hostname: mmli.fastapi.mmli2.ncsa.illinois.edu
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
+
+analyzeIngress:
+  hostname: mmli.fastapi.mmli2.ncsa.illinois.edu
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    kubernetes.io/tls-acme: "true"
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd,alphasynthesis-chemscraper-analyze-ip-ratelimit@kubernetescrd
+
+config:
+  minio:
+    server: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
+    apiBaseUrl: "minioapi.mmli.fastapi.mmli2.ncsa.illinois.edu"
+  kubernetes_jobs:
+    defaults:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    novostoic-dgpredictor:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 16Gi
+        requests:
+          cpu: "1"
+          memory: 12Gi
+    novostoic-enzrank:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    novostoic-optstoic:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+    novostoic-pathways:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    cleandb-mepesm:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    oed-dlkcat-dla:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-unikp:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-catpred:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    somn:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    aceretro:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    reactionminer:
+      # Override Grobid server host for production
+      env:
+        - name: HF_TOKEN_PATH
+          value: '/root/.cache/token'
+        - name: GROBID_SERVER
+          value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
+        - name: CHEMSCRAPER_BASE_URL	
+          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
+      # Run ReactionMiner on GPU node
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    
+    oed-cheminfo:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    ml-simplefold:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+  external:
+    chemscraper:
+      apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
+      frontendBaseUrl: "https://chemscraper.platform.moleculemaker.org"
+
+  # Change to prod service URLs (used for email notifications)
+  chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
+  chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
+  somn_frontend_url: "https://somn.platform.moleculemaker.org"
+  clean_frontend_url: "https://clean.platform.moleculemaker.org"
+  molli_frontend_url: "https://molli.platform.moleculemaker.org"
+  aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
+  reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
+  openenzymedb_frontend_url: "https://openenzymedb.platform.moleculemaker.org"
+
+
+postgresql:
+  enabled: true
+  autoschema: false
+  persistence:
+    size: 20Gi
+  hostname: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
+  global:
+    storageClass: csi-cinder-sc-retain
+  auth:
+    existingSecret: "mmli-backend-postgresql"
+    username: "postgres"
+    database: "mmli"
+
+minio:
+  enabled: true
+  persistence:
+    size: 40Gi
+  apiIngress:
+    tls: true
+    hostname: minioapi.mmli.fastapi.mmli2.ncsa.illinois.edu
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      kubernetes.io/tls-acme: "true"
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
+  ingress:
+    tls: true
+    hostname: minio.mmli.fastapi.mmli2.ncsa.illinois.edu
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+      kubernetes.io/tls-acme: "true"
+      traefik.ingress.kubernetes.io/router.tls: "true"
+      traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd
+  global:
+    storageClass: csi-cinder-sc-retain
+  auth:
+    existingSecret: "mmli-backend-minio"
+
+extraDeploy:
+# IP ratelimiting for prod JobMgr
+- apiVersion: traefik.io/v1alpha1
+  kind: Middleware
+  metadata:
+    name: chemscraper-analyze-ip-ratelimit
+  spec:
+    rateLimit:
+      average: 1
+      period: 120s
+
+# Enable DecentCI backups
+- apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: mmli-backend-backups
+    namespace: alphasynthesis
+    labels:  
+      app.kubernetes.io/name: decentci-backups
+      app.kubernetes.io/component: config
+  data:
+    backups: |
+      # TODO: Configure backups for MinIO?
+      #- backup-name: decentci-backups-mmli-backend-minio-files
+
+      - backup-name: decentci-backups-mmli-backend-db
+        schedule: "01 7 * * *"
+        database:
+          type: postgresql
+          host: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
+          auth:
+            username: postgres
+            database: mmli
+            passwordKey: postgres-password
+            existingSecret: mmli-backend-postgresql
+    global: |
+      enabled: true
+      agent-enabled: false
+      backup-nfs-path: /taiga/ncsa/radiant/bbfp/mmli2/backups/mmli-backend
+      backup-nfs-server: taiga-nfs.ncsa.illinois.edu
+
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-postgresql
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      password: AgAcDpEFjkpr4dSrQGjJtlL1W3z76pljqDsCrsNDzLhQRAjQJQeql9vG5zazAWSFRxxhO4jH8XATa0R7Nr+bHaBH3RsheposrMXUSazHsIVNkYqAnURZ/ZEIKU6lxxp/KdaeNyJ0ta1KOzUGq18pjFYMHTPVcBwRq0kqNn4fugJSlNWdPoqr1y9Dk8khXCHgj4f8D7+ypy5q5D4drYEwa2ASxeZPRixOlu9v1RHQPTncAiEpC+6o+Z0mjUPNdT2Ty63H2BFSqVxB355SJkSVbufmjEXhP/G6eE99ls1zA2fQce7mqTckmylXXE7a9BWM99dfyk/bCtKVtjD1HlD5jsUJ2GIjr8JUnJ6Uoodu2RF6uOQ5fJTXA51Ccqd69iqtHGgwk834da3TvnM7yZNoo5I1RH4SGqN/p+wj2lpPfjJ1OMbhTO4odQS21bgbxbBjj2BwGPAsEteywD3wiI8XUlWOObCJrZXLaxH0nca6UuFfvUL57IT+YModgHS6XAXf7C/KMc44KPWvG2e5ksKT1kzuicMjulQD4aBRKcYYmOvPv0NzzTSC2zisaOb+jeYg7hKvRkKRAZlXxNtrt0FF5S6u0oKS0odpBxb03LD6bnQ3NB3zvjODJGobkudlcJSlrDG4unubeDq2c5VJ60vt0O/shm39m6Lr8ECSR8aV2FmOrUgXcKQ/9l4kzN6IeihZe/477M6pho0X0A5zc0cHm2pS0xF87Ny1jA8BbS4vZENODA==
+      postgres-password: AgCuvYzQpG6cQZx7jxd+7f2/lhx/73Hf2j/Yi2JK267AOcteQdrIPESCgBoRjXnaQ3jj5MjgQLC09VtBPlVvXq/6RIomvhHvlE2PlI4QkqwgS4nCmWZp+IAQNb3DdG3L2B3PIf28u4sXW73eZYHnqPBzPtmwWDi1B542eRViuDY5nK1Ziu1IN03ZUVOJPVoe7XJLcevw7EGAZ5/aGXDQF5XlBK4Dliwr9WlWLxiMYRvo9wbcYHF0Ll6vC1I/U6rDR42ZcWK92Mkg3XZin5qxdCbyOxUuBbi5+9dFh4ovB7e+5oPJVNGpWGs017iEl+3ZrtJQD2nRS0GYWFlnl3u2R4O2yDpxlCJ10kc84IFRFHF17p9ZkWPY1E4T5fFlR/ctvBFCp3BhKB70zqzQdmiY6cywbTtf4IXuPbsqQ70m7RfRLTc7D4Qu0zbPbM7QPN+aDpJW+MK8Xp11ajhfcfflw5FkR5DYX6knH52Tl81E0YjAL5pCCMKZz8GbkNMHSgPn7VVoMJavG1qYG3pmEFLMs5CA0AWOKD/VaNWCJKCUe8v+h5DMcsHpAFYEkPIffYzKcWNNC8wdW1AWYftY54EfkSMpNdbB56ZVU8ORm02NtJ9paQiI0BgzSqMKIDL5DdA4EEbi+HXV8ePd0cA00bwo/y8epYcQ5nGfW8WUHxmI18mbFVaxs06ZKIy8mu49JF/c+UpJ38rSXlghKPiHLha2oR0BSAJmVH4LbFRb43TljMEIZg==
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-postgresql
+        namespace: alphasynthesis
+  
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-minio
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      root-password: AgBCz7cKu8/suY8I91q2G2hPD0gyZN3LvBz7BdbG5GXtjlWA31IjwTLKXE4Y85l29IApgt6elIXPp6KYwn23CSqiOjnohoH0HENzAI3BYIPl9ittvIp3vr6Ud/K54cQdd583jF9/dVeUnWbPkv3P96jRny3U8DDqMPkiUQrBpNSQK5PbKL3MiSb93BiEzgxEfsSkQRrHOeFLZTnQR6xTKUVTgsUtxuhy5rPiBisNCcSSrlbN6luXHnyci3nnnlC4GMVyySSUhWKaIMFUeDmLx94jHfkHGhWv+E9U+oCJLuHu+O5qpGiIHY1Aw6RnLvJm295uQNgvo6VtmpAZRgiIzHt17osBji+RZNInmnxLjleLrWLRJr4WkMU+7Qy7wr47E8Jh+FPWcMEE3hsfxvb7esWvPGGjngyTNO1sxp4mwJVKIKM/mXmKb+4l29G/r7Ymjmh1JYPBUaBeyKn4D6K6HeXL071iIz71WCnzQJhQYBHt19oPQKTeOflQQbDATf+yc3h4evvTCsXDQqhBXfrYXuTYZXeggBVdVZO2BssZFV0deoD8APjFROv+bahWkOtDD+KdRDRutAEH8//7pBYZHyNcLIZhsiI8WPb2nIpkEWZX9nrDc03qwvMe1yRl7JbE2R4xZp8Km1cMcTPht0kubWjkY8eEfE+OpxlLVzVmiMb7uILvTyx4lWd5KejijlV/vUhKHpVpOqYxe0zdb+BNwuKJ17Md/m/vvXFvLXet+gK+0w==
+      root-user: AgCxcYWtTQEkn8kyQqrjluhHhPCfwcb50R10wGJlGgK1mTYpGccP0FTSetlYdFDfUh0TzxFAODegeJbvRFmgZrtyK4cpReFuGE/epCWNqF14rC7SrIJfqTd2C5nf3My/Su2a6s8C0rnsF14BaXHBZzofsHPG1SMc2A7plhPvlCwuLMhU1iKdTwyVFjUdw4Oqz22dy8kMiYU4SaF78KaEPKYRcYzJijCsQxvUpBmJ2HxlUWL3UPodE7H3wriL2QJiOf1/0uXsThJ5UqUKJfguUEUTKAzTaociVEsUJkgyWpKPtChGDqtS1Ymw7ZMKlgOrjsH/P3gcCMyRAf4ZznPioqFm6hJHcv1xVdxOY3QwVht7CQ9zh6/1cdEW4WZanLy23k6QwDNi2inNcXYE3YAGtAFKqogn5GGV74Dc09zB4L7P25XY3ZUWY2XxBkVCi/hAbFtMmKQplcouQDHCh24IdI/RGfVocOVyyj/V6W4R9d4U9Vn56hSQlVtgf0ZYm2JODSpEU3m+xuY1RGpL94ut7bTcn3bRNvSWsoENBM9s8alQatT+ANlA5SxLU+fRlZeyzjoMeC7m+2dt2NIHT3UfVl3srJ4x33r10AdifQ8FCcFeOkkNP9A00HjayqmqxrsGXzVX1YrI5Fluko0cO7DlXqGixP/3qGz9z8swmTZgKMPBtywN4G9Xf18VL2pSl8hv3a93cUSkV/Y1VI7VgvG6dU6G2XsorRFGRHLEJftXqTHUTQ==
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-minio
+        namespace: alphasynthesis
+      type: Opaque
+
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: huggingface-token
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      token: AgAhPH0i7ydR8tC2Fa9OG0N3FCeWJnyM7HvymD3n8+K+yarLgl2vvZDlINTKktMKgmmSg9l1SYW8zqwVA+Wy1tOJ1CMBX5u52JK27YgCYsCh79ZTQFTSK45JbIYyPfxmTAqAxqo83gAWyGH+R+cpylrB0EcPINJEzPnZ6s0biy/NVmgq07V0c91Xcum41JWLCnPm5d2JufR6jQsgTAk4RFzH7RJ8cVVGtI1POCqcklF3YwGM+R4esl2AMZzB9lfcRAvlYTYn9Vy39qDvFAuxdOwKMwTXOXSl/Z4GC1V2YGf1V8JxLE0Kumqxg938Gw7dOGNiYWlE/PmSm2bjPximaGqj6UjoaqyINIcFAS3Q36ZzjwAiABzLxTueBPf6LYico+pX4tw0dAsfJGBxCumYs8wUpP/UC++lqPv2LUxM3WIgiBtOEbTEA23XD4mcdK8z4wKjRxY6zFzNdXrARWwGna9Wj1DVYyy+HKJgXkeKHmSGmx22wEJtohWDPitY9JHHgD2QapGOj/67howwxQOHfn/PqbBwGCxvKTh6XoCbHx1tQCD8HT0NybJENSLuh4qtVtWMmVkPljQKGPrb9kHhp2l/MrGsE3+HJUZvoKoOeuyRYfTPDCxvxQgD/a9w7f9QeGyQVCkEplndQC4reuEbhfaQuOT0lkx0U/Dd5fX+KXCtOgdj8XRRrvll76v66nXlrmyuGb5NlO6tJVIJzm3Op74IOznSrHx55JnjYouoQBm8QNURoZXe
+    template:
+      metadata:
+        creationTimestamp: null
+        name: huggingface-token
+        namespace: alphasynthesis
+
+# References Postgres and Minio secrets
+# Update this and reseal if either of those credentials need to change
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: mmli-backend-secrets
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      secret.yaml: AgAND6SmyHOXa+k7yOmqf+BIwBjGFlt4K7tqnPQ8sYwKjSHsAQwVSb5s834rnrcwAPj9CCC8AeN9JY/tlCRJgMPYU/cuqVeM/RrifAqWnjup+hfsKZMErfcxjJUCt40Krk53f09+UdDNEMg1ybRPqLygswymWZ+pR0F1es/vKZ4h8GSNF+hmnauKHak2FC/ibI5lsVn1dD91+kAjsgdfjHsN9DR2eGh9Jqe4AAyTkmzqJ+VT9QxZwcVzb5S2mUGXIkffns7/QbI/ea053AIgk3efdPM/sQhp6Pj235g4qz9lYyw1NJKTouKvmXK0WuSPHcTzxlWG5sgOyBt4XN/rGhgiU8VigKIdhjShHlOTzC1i+ONPCL6qbeIxJ/AySSqvWpu0CihebmAjx2xhJcQqqOauDa+DsM489uQhluvMcH5xQ5wilgEZBLxXqWeRaVSKBDsT2khtMIwxpukwIUjrePOtGL/qSpsbsEHV5hEhO7xy0lUsmDfNABlnVpJiEjRHnObifSvOshQnxwrhEBZamuGTt6zZ/2taSgJpIyJ3jaCQMbovJj6UleF/u8iEHxg1p1/x9CZu/9UI3RuXGWHnZa88Z/mbEisiMwmFHINcC+1+KweGi4GEDpxt5U4x8ibPA0nYvBIvF+87hmxnMKI28iyRQOoWJ/4FY1EIsYP9+naSRf2lSBt8GC5g+6OHnp+57qOox+MRyqie0i4ksGj5pp9UTXgsC9iDCRtca7mCPVf5P30ec8AdFA1QML/GfGN6byX7H3eioiusUOI6bAmaZhPHPmOAIY3/uZsz2Gsh+Rr2+Djn8y/l1Ln8+RWUCnRbYscWzvAbB9fEyXpz3mvql8wZqj1X166BFqueINU7ImNGLmeKW8xrBx/lsw9dTqM2hIIh/Pd3NfH1FETTG7Vtd2LQjJaLFn0oP6o/k/egSPrgMcW5vIKT3+PQnE2zYfzyAG8H/41xrIlErFXQhQJCXI4LAG4VA9YT1r+eC3tKjrZzlKqDSQay83Zbb82psRPOdGMBZv50UlTdDLizb0+HesA6SVVvxqKyguZU84EOH7CFZ9o0ubD4r7VC9S9v+FRVsRdS7Lru5RDA7jqioNE1OxPsC4+zfzR86fa7ecoN5g==
+    template:
+      metadata:
+        creationTimestamp: null
+        name: mmli-backend-secrets
+        namespace: alphasynthesis
+      type: Opaque
+
+# imagePullSecret for pulling private images from ghcr.io and/or NCSA Harbor
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    creationTimestamp: null
+    name: regcred
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      .dockerconfigjson: AgC/idX5TTDceeluSwgt3KKCuAEZow+qwEX6fA2KzO/StJbP8RTWPx5N6oUMe8SxFDX8ex5GCklDH9sv9e6iGq0NmaG1shE0mrSMwHJffTuoptDyAeqBhlam5FBdVZnpUx396RqgDjNs5FZnx7VJ5+WE1437hOYV2kSMsLzCxbc4st7gcEHrtHWm5d4j0U1C8CGjcyUyfIZJqiVY0jVpm1xdHqBAOCCJp8IZKEUpYR6GaAB7T3rwZn/f5okngO4zTdC7XiQon2/P4hCI8YvZcD0L6MmOjEtlmrimXW9t+fwUwGEco63DmLPt3bCt2Frumz5LaTmo3AseHGphKkoclCfc631vboDrFyTVWqO6vkFBXPmI12kmtOV3B0jMlgYLQyG8QwItXRnZQ6DTI+Zc8L698HfpMlQCI/KPIs488S2BbURJxOmSYrf6klneodclB6F14ubqhn4H0LcBajx2CC1QsHtARM1pMcN+NyjoC2a6jkqV/QSwi0mDHYS4R1Y+B4WkST4KeCBO4yaLg1AE7VfgZqAw7AEfsrA962gngK2iLeVQhOsOzS9lX8E/ZSgubDZ/mGu1LSDw6MlSxO2ztPbxQvO2YpARfMwvQpFAXltD8Tfv70zV+T1IoKPe05U4zhmCMrqK89pYyi5T5bm19ogUWM4IXEmdTN29oIbkTGPNvEyiq26C/iCfXPxnZRhxp0DKsD5WXlso9iR96xlZz9TWIseDB6/xdiKBlI5DxXK3wkf8moUAJLoGIoIFr5AbUmsH6CKLSYGMpFn56yAZ7IFHZQPM2VHqnxs12DzKh+tA7JSD5ay1phLGup9+Fh9QiKBLc0rfRj6+2LYgt6BsIeuav4AqDk0G/2hq9bO4AJ52YKrlf/kTm4k9eLOIdThj/N8X0UrDGwk2BZZZD+5qEtnKh7ju/fgMYpi2XKI35f1oT7c/
+    template:
+      metadata:
+        creationTimestamp: null
+        name: regcred
+        namespace: alphasynthesis
+      type: kubernetes.io/dockerconfigjson
