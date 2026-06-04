@@ -16,7 +16,7 @@ from models.exportRequestBody import ExportRequestBody
 from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
-from models.enums import JobType
+from models.enums import JobType, JobTypes
 from services.aceretro_service import ACERetroService
 from services.chemscraper_service import ChemScraperService
 from services.clean_service import CleanService
@@ -39,13 +39,36 @@ log = get_logger(__name__)
 
 csv.field_size_limit(sys.maxsize)
 
-@router.post("/{bucket_name}/upload", tags=['Files'])
+@router.post(
+    "/{bucket_name}/upload", tags=['Files'],
+    summary="Upload an input file for a job",
+    description=(
+        "Upload a single input file into a job's input area, stored at MinIO "
+        "`{bucket_name}/{job_id}/in/{filename}`. `bucket_name` must be a valid job "
+        "type (e.g. `crispr-copies`, `mutagenesis`); the bucket is created on the "
+        "fly if needed. If `job_id` is omitted a new one is generated and returned. "
+        "Call this once per input file using the **same** `job_id`, then create the "
+        "job via `POST /{job_type}/jobs` referencing the uploaded filenames. "
+        "Returns `{\"jobID\": ..., \"uploaded_at\": ...}`."
+    ),
+)
 async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", minio: MinIOService = Depends()):
+    # Only allow uploads to buckets that correspond to a real job type. This bounds
+    # on-the-fly bucket creation below to the same set create_job manages - an API
+    # caller can never provision an arbitrary bucket.
+    if bucket_name not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown bucket: {bucket_name}")
+
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
     if bucket_name != 'chemscraper' or first_four_bytes == b'%PDF':
         if job_id == "":
             job_id = str(uuid.uuid4()).replace('-', '')
+
+        # Jobs that take user-uploaded files (e.g. crispr-copies, mutagenesis) upload
+        # before the job is created, so the bucket may not exist yet. Safe to create
+        # here because bucket_name is whitelisted to known job types above.
+        minio.ensure_bucket_exists(bucket_name)
 
         file_content = await file.read()
         upload_result = minio.upload_file(bucket_name, job_id + '/in/' + file.filename, file_content)
@@ -57,7 +80,14 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.get("/{bucket_name}/results/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/results/{job_id}", tags=['Files'],
+    summary="Get results for a completed job",
+    description=(
+        "Return the post-processed results for a finished job. The response shape "
+        "depends on `bucket_name` (job type)."
+    ),
+)
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
     if bucket_name == JobType.ACERETRO:
         print("Getting ACERETRO job result")
@@ -124,7 +154,15 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)
 
 
-@router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/inputs/{job_id}", tags=['Files'],
+    summary="List a job's uploaded input files",
+    description=(
+        "Return presigned URLs for every file uploaded to "
+        "`{bucket_name}/{job_id}/in/`. Useful for confirming which inputs a job will "
+        "run against. Returns 404 if no input files are found."
+    ),
+)
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     pdf_urls = service.get_file_urls(bucket_name, job_id + "/in/")
     if pdf_urls is None:
@@ -133,7 +171,14 @@ def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depend
     return pdf_urls
 
 
-@router.get("/{bucket_name}/errors/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/errors/{job_id}", tags=['Files'],
+    summary="Get a job's error output",
+    description=(
+        "Return the contents of `{bucket_name}/{job_id}/errors.txt` if the job wrote "
+        "one. Returns 404 if no error file is present."
+    ),
+)
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     error_content = service.get_file(bucket_name, job_id + "/errors.txt")
     if error_content is None:
@@ -143,7 +188,14 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
 
 
 # TODO: Refactor this to make it more generic?
-@router.post("/{bucket_name}/export-results", tags=['Files'])
+@router.post(
+    "/{bucket_name}/export-results", tags=['Files'],
+    summary="Export ChemScraper results as a zip",
+    description=(
+        "ChemScraper-specific: bundle selected CDXML and/or CSV outputs for a job "
+        "into a downloadable zip. Not used by crispr-copies / mutagenesis."
+    ),
+)
 async def export_results(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if requestBody.jobId == "":

@@ -38,7 +38,20 @@ router = APIRouter()
 log = get_logger(__name__)
 
 
-@router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'], description="Create a new run for a new or existing Job")
+CREATE_JOB_DESCRIPTION = """
+Create a new run for a new or existing Job.
+
+`job_type` is the path segment, e.g. `crispr-copies`, `mutagenesis`, `clean`, `somn`.
+
+`job_info` is a **JSON-encoded string** (not a nested object; future versions may change this)
+whose schema depends on `job_type`. For jobs that take uploaded files, first upload each
+file via `POST /{job_type}/upload?job_id=<id>` (using the same `job_id`), then reference
+the uploaded filenames here.
+
+Results are retrieved from `GET /{job_type}/results/{job_id}` once the job completes.
+"""
+@router.post("/{job_type}/jobs", response_model=Job, tags=['Jobs'],
+             summary="Create a job run", description=CREATE_JOB_DESCRIPTION)
 async def create_job(
         job_id: Optional[str] = Body(default=None),
         run_id: Optional[str] = Body(default=None),
@@ -155,8 +168,10 @@ async def create_job(
             log.debug(f'    environment: {environment}')
 
         elif job_type == JobType.CRISPR_COPIES:
-            #TODO: update command to handle crispr-copies jobs
-            command = app_config['kubernetes_jobs'][job_type]['command']
+            # Inputs (genome/annotations/protein) are uploaded by the frontend to
+            # MinIO {job_id}/in/ and synced into ${JOB_INPUT_DIR} before the job runs.
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = CRISPRCopiesService.build_crispr_copies_job_command(job_id=job_id, job_info=job_config)
 
         elif job_type == JobType.EZ_SPECIFICITY:
             #TODO: update command to handle ez-specificity jobs
@@ -195,8 +210,10 @@ async def create_job(
             environment = MolliService.build_molli_job_environment(job_id=job_id, job_info=job_config)
 
         elif job_type == JobType.MUTAGENESIS:
-            #TODO: update command to handle mutagenesis jobs
-            command = app_config['kubernetes_jobs'][job_type]['command']
+            # Inputs (mutation list / ORF file) are uploaded by the frontend to
+            # MinIO {job_id}/in/ and synced into ${JOB_INPUT_DIR} before the job runs.
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = MutagenesisService.build_mutagenesis_job_command(job_id=job_id, job_info=job_config)
 
         elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
             if service.ensure_bucket_exists(job_type):

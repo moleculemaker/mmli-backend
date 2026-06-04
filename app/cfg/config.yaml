@@ -385,66 +385,31 @@ kubernetes_jobs:
         memory: "24Gi"
         nvidia.com/gpu: "1"
 
-  # Config for running CRISPR_COPIES job
-  # TODO: update to use correct image later
+  # Config for running CRISPR-COPIES job.
+  # The job command is built dynamically by CRISPRCopiesService (see routers/job.py).
+  # Inputs uploaded to MinIO {job_id}/in are synced by prejob.py into ${JOB_INPUT_DIR}
+  # on the shared working volume (defaults.workingVolume), which the job container
+  # already mounts at /uws, so no extra volumes are required.
   crispr-copies:
-    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-    kubeconfig: "/opt/kubeconfig"
-    # Namespace where this job should run
-    namespace: "mmli"
-
-    # Example job image name + command combo
-    image: "perl:5.34.0"
-    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
-
-    ## Server working directory to store generated job data
-    workingVolume:
-      claimName: "mmli-clean-job-weights"
-      mountPath: "/uws"
-      subPath: "uws"
-    ## Central data volumes to be mounted in job containers
+    image: "ghcr.io/ibiofoundry/copies:latest"
+    imagePullPolicy: "Always"
     volumes: []
-
-    ## Abort jobs after 3 days regardless of their behavior
-    activeDeadlineSeconds: 259200
-    ## Cleanup completed/failed jobs after 12 hours
-    ttlSecondsAfterFinished: 43200
-    ## Poll the log file for changes every `logFilePollingPeriod` seconds
-    logFilePollingPeriod: 300
     securityContext:
       runAsUser: 0
       runAsGroup: 0
-      # fsGroup: 202
-  # Config for running MUTAGENESIS job
-  # TODO: update to use correct image later
+
+  # Config for running MUTAGENESIS job.
+  # The job command is built dynamically by MutagenesisService (see routers/job.py).
+  # Inputs uploaded to MinIO {job_id}/in are synced by prejob.py into ${JOB_INPUT_DIR}
+  # on the shared working volume (defaults.workingVolume), which the job container
+  # already mounts at /uws, so no extra volumes are required.
   mutagenesis:
-    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-    kubeconfig: "/opt/kubeconfig"
-    # Namespace where this job should run
-    namespace: "mmli"
-
-    # Example job image name + command combo
-    image: "perl:5.34.0"
-    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
-
-    ## Server working directory to store generated job data
-    workingVolume:
-      claimName: "mmli-clean-job-weights"
-      mountPath: "/uws"
-      subPath: "uws"
-    ## Central data volumes to be mounted in job containers
+    image: "ghcr.io/ibiofoundry/mutagenesis:latest"
+    imagePullPolicy: "Always"
     volumes: []
-
-    ## Abort jobs after 3 days regardless of their behavior
-    activeDeadlineSeconds: 259200
-    ## Cleanup completed/failed jobs after 12 hours
-    ttlSecondsAfterFinished: 43200
-    ## Poll the log file for changes every `logFilePollingPeriod` seconds
-    logFilePollingPeriod: 300
     securityContext:
       runAsUser: 0
       runAsGroup: 0
-      # fsGroup: 202
 
 
   defaults:

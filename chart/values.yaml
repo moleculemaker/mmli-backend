@@ -454,28 +454,28 @@ config:
           memory: "24Gi"
           nvidia.com/gpu: "1"
 
-    # Config for running CRISPR_COPIES job
+    # Config for running CRISPR-COPIES job.
+    # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
     crispr-copies:
-      # TODO: update to use correct image later
-      image: "perl:5.34.0"
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+      image: "ghcr.io/ibiofoundry/copies:latest"
       imagePullPolicy: "Always"
-      volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/crispr-copies/JOB_ID/out'
-          subPath: 'uws/jobs/crispr-copies/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
-    # Config for running MUTAGENESIS job
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    # Config for running MUTAGENESIS job.
+    # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
     mutagenesis:
-      # TODO: update to use correct image later
-      image: "perl:5.34.0"
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+      image: "ghcr.io/ibiofoundry/mutagenesis:latest"
       imagePullPolicy: "Always"
-      volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/mutagenesis/JOB_ID/out'
-          subPath: 'uws/jobs/mutagenesis/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
