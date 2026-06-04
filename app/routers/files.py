@@ -17,16 +17,17 @@ from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
-from services.molli_service import MolliService
-from services.clean_service import CleanService
-
-from services.novostoic_service import NovostoicService
-from services.somn_service import SomnService
-from services.minio_service import MinIOService
-from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
-from services.reactionminer_service import ReactionMinerService
+from services.chemscraper_service import ChemScraperService
+from services.clean_service import CleanService
+from services.crispr_copies_service import CRISPRCopiesService
+from services.minio_service import MinIOService
+from services.molli_service import MolliService
+from services.mutagenesis_service import MutagenesisService
+from services.novostoic_service import NovostoicService
 from services.oed_service import OEDService
+from services.reactionminer_service import ReactionMinerService
+from services.somn_service import SomnService
 
 
 from typing import Optional, List
@@ -57,18 +58,14 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
 
 @router.get("/{bucket_name}/results/{job_id}", tags=['Files'])
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
+    if bucket_name == JobType.ACERETRO:
+        print("Getting ACERETRO job result")
+        return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
+
     if bucket_name == JobType.CHEMSCRAPER:
         print("Getting CHEMSCRAPER job result")
         return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
     
-    if bucket_name == JobType.ACERETRO:
-        print("Getting ACERETRO job result")
-        return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
-    
-    elif bucket_name == JobType.MOLLI:
-        print("Getting MOLLI job result")
-        return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
-
     elif bucket_name == JobType.CLEAN:
         print("Getting CLEAN job result")
         return await CleanService.cleanResultPostProcess(bucket_name, job_id, service, db)
@@ -76,7 +73,27 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.CLEANDB_MEPESM:
         print("Getting CLEANDB MEP-ESM2 job result")
         return await CleanService.cleanDBMepEsmResultPostProcess(bucket_name, job_id, service, db)
-        
+
+    elif bucket_name == JobType.CRISPR_COPIES:
+        print("Getting CRISPR COPIES job result")
+        return await CRISPRCopiesService.resultPostProcess(bucket_name, job_id, service, db)
+    
+    elif bucket_name == JobType.MOLLI:
+        print("Getting MOLLI job result")
+        return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.MUTAGENESIS:
+        print("Getting mutagenesis job result")
+        return await MutagenesisService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
+        print("Getting novostoic-dgpredictor job result")
+        return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.NOVOSTOIC_ENZRANK:
+        print("Getting novostoic-enzrank job result")
+        return await NovostoicService.enzRankResultPostProcess(bucket_name, job_id, service, db)
+
     elif bucket_name == JobType.NOVOSTOIC_OPTSTOIC:
         print("Getting novostoic-optstoic job result")
         return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
@@ -84,27 +101,19 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.NOVOSTOIC_PATHWAYS:
         print("Getting novostoic-pathways job result")
         return await NovostoicService.novostoicResultPostProcess(bucket_name, job_id, service, db)
-        
-    elif bucket_name == JobType.NOVOSTOIC_ENZRANK:
-        print("Getting novostoic-enzrank job result")
-        return await NovostoicService.enzRankResultPostProcess(bucket_name, job_id, service, db)
 
-    elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
-        print("Getting novostoic-dgpredictor job result")
-        return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
-
-    elif bucket_name == JobType.REACTIONMINER:
-        return await ReactionMinerService.resultPostProcess(bucket_name, job_id, service, db)
-
-    elif bucket_name == JobType.SOMN:
-        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
-    
     elif bucket_name == JobType.OED_CHEMINFO:
         print("Getting oed-cheminfo job result")
         return await OEDService.chemInfoResultPostProcess(bucket_name, job_id, service, db)
 
     elif bucket_name == JobType.OED_DLKCAT or bucket_name == JobType.OED_UNIKP or bucket_name == JobType.OED_CATPRED:
         return await OEDService.propertyPredictionResultPostProcess(bucket_name, job_id, service, db)
+        
+    elif bucket_name == JobType.REACTIONMINER:
+        return await ReactionMinerService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.SOMN:
+        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)

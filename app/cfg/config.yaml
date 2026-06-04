@@ -31,6 +31,8 @@ clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
 molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
 aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
 openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
+crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli1.ncsa.illinois.edu"
+mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli1.ncsa.illinois.edu"
 
 kubernetes_jobs:
   aceretro:
@@ -321,6 +323,68 @@ kubernetes_jobs:
         mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
         subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
         claimName: 'mmli-clean-job-weights'
+
+  # Config for running CRISPR_COPIES job
+  # TODO: update to use correct image later
+  crispr-copies:
+    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
+    kubeconfig: "/opt/kubeconfig"
+    # Namespace where this job should run
+    namespace: "mmli"
+
+    # Example job image name + command combo
+    image: "perl:5.34.0"
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+
+    ## Server working directory to store generated job data
+    workingVolume:
+      claimName: "mmli-clean-job-weights"
+      mountPath: "/uws"
+      subPath: "uws"
+    ## Central data volumes to be mounted in job containers
+    volumes: []
+
+    ## Abort jobs after 3 days regardless of their behavior
+    activeDeadlineSeconds: 259200
+    ## Cleanup completed/failed jobs after 12 hours
+    ttlSecondsAfterFinished: 43200
+    ## Poll the log file for changes every `logFilePollingPeriod` seconds
+    logFilePollingPeriod: 300
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      # fsGroup: 202
+  # Config for running MUTAGENESIS job
+  # TODO: update to use correct image later
+  mutagenesis:
+    # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
+    kubeconfig: "/opt/kubeconfig"
+    # Namespace where this job should run
+    namespace: "mmli"
+
+    # Example job image name + command combo
+    image: "perl:5.34.0"
+    command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+
+    ## Server working directory to store generated job data
+    workingVolume:
+      claimName: "mmli-clean-job-weights"
+      mountPath: "/uws"
+      subPath: "uws"
+    ## Central data volumes to be mounted in job containers
+    volumes: []
+
+    ## Abort jobs after 3 days regardless of their behavior
+    activeDeadlineSeconds: 259200
+    ## Cleanup completed/failed jobs after 12 hours
+    ttlSecondsAfterFinished: 43200
+    ## Poll the log file for changes every `logFilePollingPeriod` seconds
+    logFilePollingPeriod: 300
+    securityContext:
+      runAsUser: 0
+      runAsGroup: 0
+      # fsGroup: 202
+
 
   defaults:
     # Kubeconfig (credentials + cluster) used to run this job in Kubernetes

@@ -71,6 +71,8 @@ config:
   molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli1.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli1.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -393,6 +395,29 @@ config:
         - name: 'shared-storage'
           mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
           subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+
+    # Config for running CRISPR_COPIES job
+    crispr-copies:
+      # TODO: update to use correct image later
+      image: "perl:5.34.0"
+      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+      imagePullPolicy: "Always"
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/crispr-copies/JOB_ID/out'
+          subPath: 'uws/jobs/crispr-copies/JOB_ID/out'
+          claimName: 'mmli-clean-job-weights'
+    # Config for running MUTAGENESIS job
+    mutagenesis:
+      # TODO: update to use correct image later
+      image: "perl:5.34.0"
+      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+      imagePullPolicy: "Always"
+      volumes:
+        - name: 'shared-storage'
+          mountPath: '/uws/jobs/mutagenesis/JOB_ID/out'
+          subPath: 'uws/jobs/mutagenesis/JOB_ID/out'
           claimName: 'mmli-clean-job-weights'
 
     defaults:

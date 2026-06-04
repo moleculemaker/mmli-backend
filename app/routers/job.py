@@ -27,8 +27,10 @@ from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 from services import kubejob_service
 from services.clean_service import CleanService
+from services.crispr_copies_service import CRISPRCopiesService
 from services.molli_service import MolliService
 from services.minio_service import MinIOService
+from services.mutagenesis_service import MutagenesisService
 from services.somn_service import SomnService
 
 router = APIRouter()
@@ -124,19 +126,11 @@ async def create_job(
 
             command = f"python entrypoint.py --job_id {job_id}"
             # Job is created at end of function
-        elif job_type == JobType.REACTIONMINER:
-            log.debug(f'Running ReactionMiner job: {job_id}')
-            environment = app_config['kubernetes_jobs']['reactionminer']['env']
 
-        elif job_type == JobType.OED_DLKCAT or job_type == JobType.OED_UNIKP or job_type == JobType.OED_CATPRED:
-            # Example: "job_info": "{\"input_pairs\":[{\"name\":\"example\",\"sequence\":\"MEDIPDTSRPPLKYVK...\",\"type\":\"FASTA\",\"smiles\":\"OC1=CC=C(C[C@@H](C(O)=O)N)C=C1\"}]}"
-            log.debug(f'Running OpenEnzymeDB job: {job_type} - {job_id}')
-            log.debug(f'    job_info: {job_info}')
-            job_config = json.loads(job_info.replace('\\"', '"'))
-            log.debug(f'    job_config: {job_config}')
-            job_config_str = json.dumps(job_config['input_pairs']).replace('"', '\\"')
-            environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info.replace('"', '\\"')}]
-            log.debug(f'    environment: {environment}')
+        elif job_type == JobType.CLEAN:
+            # Build up input.FASTA from user input
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = CleanService.build_clean_job_command(job_id=job_id, job_info=job_config)
 
         elif job_type == JobType.CLEANDB_MEPESM:
             # Example: "job_info": "{\"sequence\":\"MEDIPDTSRPPLKYVK...\"}"
@@ -155,6 +149,98 @@ async def create_job(
                 environment = [{'name': 'CLEANDB_INPUT_SEQUENCE', 'value': job_info}]
 
             log.debug(f'    environment: {environment}')
+
+        elif job_type == JobType.CRISPR_COPIES:
+            #TODO: update command to handle crispr-copies jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.MOLLI:
+            # Pass path to CORES/SUBS files into the container
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            job_config = json.loads(job_info.replace('\"', '"'))
+            environment = MolliService.build_molli_job_environment(job_id=job_id, job_info=job_config)
+
+        elif job_type == JobType.MUTAGENESIS:
+            #TODO: update command to handle mutagenesis jobs
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.NOVOSTOIC_ENZRANK:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+            # environment = [{
+            #     # TBD... 
+            #     # 'name': 'SOMN_PROJECT_DIR',
+            #     # 'value': somn_project_dir
+            # }]
+
+            # Run a Kubernetes Job with the given image + command + environment
+            try:
+                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
+            except Exception as ex:
+                log.error("Failed to create Job: " + str(ex))
+                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
+            
+        elif job_type == JobType.NOVOSTOIC_PATHWAYS:
+            if service.ensure_bucket_exists(job_type):
+                job_info = json.loads(job_info.replace('\"', '"'))
+                stoic = f'{job_info["substrate"]["amount"]} {job_info["substrate"]["molecule"]}'
+                for coReactant in job_info['reactants']:
+                    stoic += f' + {coReactant["amount"]} {coReactant["molecule"]}'
+                stoic += " <=> "
+                for coProduct in job_info['products']:
+                    stoic += f'{coProduct["amount"]} {coProduct["molecule"]} + '
+                stoic += f'{job_info["product"]["amount"]} {job_info["product"]["molecule"]}'
+                
+                job_info['stoic'] = stoic
+                job_info['substrate'] = job_info['substrate']['molecule']
+                job_info['product'] = job_info['product']['molecule']
+                job_info['num_enzymes'] = job_info['num_enzymes'] if 'num_enzymes' in job_info else 0
+                
+                job_info = json.dumps(job_info)
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.OED_CHEMINFO:
+            # Pass path to CORES/SUBS files into the container
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.OED_DLKCAT or job_type == JobType.OED_UNIKP or job_type == JobType.OED_CATPRED:
+            # Example: "job_info": "{\"input_pairs\":[{\"name\":\"example\",\"sequence\":\"MEDIPDTSRPPLKYVK...\",\"type\":\"FASTA\",\"smiles\":\"OC1=CC=C(C[C@@H](C(O)=O)N)C=C1\"}]}"
+            log.debug(f'Running OpenEnzymeDB job: {job_type} - {job_id}')
+            log.debug(f'    job_info: {job_info}')
+            job_config = json.loads(job_info.replace('\\"', '"'))
+            log.debug(f'    job_config: {job_config}')
+            job_config_str = json.dumps(job_config['input_pairs']).replace('"', '\\"')
+            environment = [{'name': 'OED_INPUT_PAIRS', 'value': job_info.replace('"', '\\"')}]
+            log.debug(f'    environment: {environment}')
+
+        elif job_type == JobType.REACTIONMINER:
+            log.debug(f'Running ReactionMiner job: {job_id}')
+            environment = app_config['kubernetes_jobs']['reactionminer']['env']
 
         elif job_type == JobType.SOMN:
             #  Build up example_request.csv from user input, upload to MinIO?
@@ -227,79 +313,6 @@ async def create_job(
                 'value': somn_project_dir
             }]
         
-        elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
-            if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
-                if not upload_result:
-                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
-
-            # environment = [{
-            #     # TBD... 
-            #     # 'name': 'SOMN_PROJECT_DIR',
-            #     # 'value': somn_project_dir
-            # }]
-
-            # Run a Kubernetes Job with the given image + command + environment
-            try:
-                log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-            except Exception as ex:
-                log.error("Failed to create Job: " + str(ex))
-                raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
-            
-        elif job_type == JobType.NOVOSTOIC_PATHWAYS:
-            if service.ensure_bucket_exists(job_type):
-                job_info = json.loads(job_info.replace('\"', '"'))
-                stoic = f'{job_info["substrate"]["amount"]} {job_info["substrate"]["molecule"]}'
-                for coReactant in job_info['reactants']:
-                    stoic += f' + {coReactant["amount"]} {coReactant["molecule"]}'
-                stoic += " <=> "
-                for coProduct in job_info['products']:
-                    stoic += f'{coProduct["amount"]} {coProduct["molecule"]} + '
-                stoic += f'{job_info["product"]["amount"]} {job_info["product"]["molecule"]}'
-                
-                job_info['stoic'] = stoic
-                job_info['substrate'] = job_info['substrate']['molecule']
-                job_info['product'] = job_info['product']['molecule']
-                job_info['num_enzymes'] = job_info['num_enzymes'] if 'num_enzymes' in job_info else 0
-                
-                job_info = json.dumps(job_info)
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
-                if not upload_result:
-                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
-            
-        elif job_type == JobType.NOVOSTOIC_ENZRANK:
-            if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
-                if not upload_result:
-                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
-            
-        elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
-            if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
-                if not upload_result:
-                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
-
-        elif job_type == JobType.CLEAN:
-            # Build up input.FASTA from user input
-            job_config = json.loads(job_info.replace('\"', '"'))
-            command = CleanService.build_clean_job_command(job_id=job_id, job_info=job_config)
-        elif job_type == JobType.MOLLI:
-            # Pass path to CORES/SUBS files into the container
-            command = app_config['kubernetes_jobs'][job_type]['command']
-            job_config = json.loads(job_info.replace('\"', '"'))
-            environment = MolliService.build_molli_job_environment(job_id=job_id, job_info=job_config)
-            
-        elif job_type == JobType.OED_CHEMINFO:
-            # Pass path to CORES/SUBS files into the container
-            if service.ensure_bucket_exists(job_type):
-                upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
-                if not upload_result:
-                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
-            command = app_config['kubernetes_jobs'][job_type]['command']
 
         # Run a Kubernetes Job with the given image + command + environment
         try:

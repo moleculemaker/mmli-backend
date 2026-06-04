@@ -154,6 +154,10 @@ spec:
             value: {{ .Values.config.novostoic_frontend_url }}
           - name: SOMN_FRONTEND_URL
             value: {{ .Values.config.somn_frontend_url }}
+          - name: CRISPRCOPIES_FRONTEND_URL
+            value: {{ .Values.config.crisprcopies_frontend_url }}
+          - name: MUTAGENESIS_FRONTEND_URL
+            value: {{ .Values.config.mutagenesis_frontend_url }}
             
           ports:
             - containerPort: 8080

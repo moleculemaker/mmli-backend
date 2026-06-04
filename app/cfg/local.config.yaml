@@ -11,6 +11,8 @@ data:
     chemscraper_frontend_url: https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu
     chemscraper_url: http://chemscraper-services-staging.staging.svc.cluster.local:8000
     clean_frontend_url: https://clean.frontend.staging.mmli1.ncsa.illinois.edu
+    crisprcopies_frontend_url: https://crispr-copies.frontend.staging.mmli1.ncsa.illinois.edu
+    mutagenesis_frontend_url: https://mutagenesis.frontend.staging.mmli1.ncsa.illinois.edu
     db:
       url: ""
     email:

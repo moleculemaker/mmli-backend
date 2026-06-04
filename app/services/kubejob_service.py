@@ -131,7 +131,27 @@ class KubeEventWatcher:
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
-        if 'novostoic' in job_type:
+        if job_type == JobType.ACERETRO:
+            aceretro_frontend_url = app_config['aceretro_frontend_url']
+            results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ACERetro'
+        elif job_type == JobType.CLEAN:
+            clean_frontend_url = app_config['clean_frontend_url']
+            results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'CLEAN'
+        elif job_type == JobType.CRISPR_COPIES:
+            crispr_copies_frontend_url = app_config['crispr_copies_frontend_url']
+            results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'CRISPR-Copies'
+        elif job_type == JobType.MOLLI:
+            molli_frontend_url = app_config['molli_frontend_url']
+            results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'MOLLI'
+        elif job_type == JobType.MUTAGENESIS:
+            mutagenesis_frontend_url = app_config['mutagenesis_frontend_url']
+            results_url = f'{mutagenesis_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'Mutagenesis'
+        elif 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
@@ -147,30 +167,18 @@ class KubeEventWatcher:
                 job_type_name = 'dGPredictor'
             else:
                 raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {JobType}")
-        elif job_type == JobType.SOMN:
-            somn_frontend_url = app_config['somn_frontend_url']
-            results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'SOMN'
-        elif job_type == JobType.CLEAN:
-            clean_frontend_url = app_config['clean_frontend_url']
-            results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'CLEAN'
-        elif job_type == JobType.MOLLI:
-            molli_frontend_url = app_config['molli_frontend_url']
-            results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'MOLLI'
-        elif job_type == JobType.ACERETRO:
-            aceretro_frontend_url = app_config['aceretro_frontend_url']
-            results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'ACERetro'
-        elif job_type == JobType.REACTIONMINER:
-            reactionminer_frontend_url = app_config['reactionminer_frontend_url']
-            results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'ReactionMiner'
         elif job_type == JobType.OED_CHEMINFO:
             reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
+        elif job_type == JobType.REACTIONMINER:
+            reactionminer_frontend_url = app_config['reactionminer_frontend_url']
+            results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ReactionMiner'
+        elif job_type == JobType.SOMN:
+            somn_frontend_url = app_config['somn_frontend_url']
+            results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'SOMN'
 
         # OED & CLEANDB jobs are very fast - no need to send notification email
         elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
