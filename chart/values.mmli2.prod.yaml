@@ -223,6 +223,20 @@ config:
           cpu: "2"
           memory: 8Gi  # 16Gi ?
           nvidia.com/gpu: "1"
+    crispr-copies:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    mutagenesis:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
@@ -239,6 +253,8 @@ config:
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
   reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"
   openenzymedb_frontend_url: "https://openenzymedb.platform.moleculemaker.org"
+  crisprcopies_frontend_url: "https://crispr-copies.platform.ibiofoundry.illinois.edu"
+  mutagenesis_frontend_url: "https://mutagenesis.platform.ibiofoundry.illinois.edu"
 
 
 postgresql:

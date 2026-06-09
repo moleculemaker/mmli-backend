@@ -177,6 +177,20 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    crispr-copies:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    mutagenesis:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli1.ncsa.illinois.edu"
@@ -195,6 +209,8 @@ config:
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
   reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli1.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli1.ncsa.illinois.edu"
 
 postgresql:
   enabled: true

@@ -78,6 +78,8 @@ config:
   molli_frontend_url: "https://molli.frontend.staging.mmli2.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli2.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli2.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -456,6 +458,29 @@ config:
           cpu: "4"
           memory: "24Gi"
           nvidia.com/gpu: "1"
+
+    # Config for running CRISPR-COPIES job.
+    # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    crispr-copies:
+      image: "ghcr.io/ibiofoundry/copies:latest"
+      imagePullPolicy: "Always"
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    # Config for running MUTAGENESIS job.
+    # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    mutagenesis:
+      image: "ghcr.io/ibiofoundry/mutagenesis:latest"
+      imagePullPolicy: "Always"
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
