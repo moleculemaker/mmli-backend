@@ -17,6 +17,7 @@ from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
+from services.ezspecificity_service import EzSpecificityService
 from services.molli_service import MolliService
 from services.clean_service import CleanService
 
@@ -110,6 +111,18 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.ML_SIMPLEFOLD:
         print("Getting ML-SIMPLEFOLD job result")
         return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZ_SPECIFICITY:
+        print("Getting EZ-SPECIFICITY job result")
+        return await EzSpecificityService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZSPEC_UNIDOCK:
+        print("Getting EZSPEC-UNIDOCK job result")
+        return await EzSpecificityService.unidockResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZSPEC_INFERENCE:
+        print("Getting EZSPEC-INFERENCE job result")
+        return await EzSpecificityService.inferenceResultPostProcess(bucket_name, job_id, service, db)
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)

@@ -431,6 +431,12 @@ async def create_job(
             'email': str(db_job.email),
             'job_info': str(db_job.job_info),
         })
+    else:
+        db_job.job_info = job_info
+
+        await db.merge(db_job)
+        await db.commit()
+        await db.refresh(db_job)
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'job_id': str(db_job.job_id),
