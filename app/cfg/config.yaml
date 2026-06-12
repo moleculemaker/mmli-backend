@@ -10,7 +10,7 @@ server:
   hostName: "mmli.fastapi.mmli2.ncsa.illinois.edu"
 
 minio:
-  server: "mmli-backend-minio.mmli.svc.cluster.local:9000"
+  server: "minio:9000"
   apiBaseUrl: "minioapi.mmli.fastapi.localhost"
 
 auth:
