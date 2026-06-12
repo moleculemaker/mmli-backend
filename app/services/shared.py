@@ -79,9 +79,13 @@ def get_iupac_name(smiles: str) -> str:
         return None
     
     
-def is_valid_pdb_file(file_content: bytes) -> bool:
+def is_valid_pdb_file(file_content) -> bool:
     try:
+        # RDKit's MolFromPDBBlock expects the PDB block as text; callers may pass
+        # raw bytes (e.g. from an upload or MinIO), so decode to str first.
+        if isinstance(file_content, (bytes, bytearray)):
+            file_content = file_content.decode('utf-8', errors='ignore')
         mol = Chem.MolFromPDBBlock(file_content)
         return mol is not None
-    except Exception as e:
+    except Exception:
         return False
