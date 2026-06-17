@@ -54,6 +54,8 @@ class EzSpecificityService:
         job_info = job_status.job_info
         job_config = json.loads(job_info.replace('\\"', '"'))
 
+        unidock_id = job_config['ezspec_unidock_job_id']
+
         # Fetch ezspec-unidock results
         enzyme_bytes = service.get_file(bucket_name, f"{job_id}/out/{unidock_id}/out/Enzymes.csv")
         enzymes_stream = io.StringIO(enzyme_bytes.decode('utf-8'))
@@ -77,6 +79,8 @@ class EzSpecificityService:
         job_status = await db.get(Job, job_id)
         job_info = job_status.job_info
         job_config = json.loads(job_info.replace('\\"', '"'))
+
+        inference_id = job_config['ezspec_inference_job_id']
 
         # Fetch ezspec-inference results
         results_bytes = service.get_file(bucket_name, f"{job_id}/out/{inference_id}/out/results.csv")
