@@ -31,11 +31,16 @@ from services.crispr_copies_service import CRISPRCopiesService
 from services.molli_service import MolliService
 from services.minio_service import MinIOService
 from services.mutagenesis_service import MutagenesisService
+from services.shared import is_valid_pdb_file
 from services.somn_service import SomnService
 
 router = APIRouter()
 
 log = get_logger(__name__)
+
+# EZSpecificity input limits (mirror the frontend's MAX_ENZYMES / substrate cap)
+EZSPEC_MAX_ENZYMES = 5
+EZSPEC_MAX_SUBSTRATES = 10
 
 
 CREATE_JOB_DESCRIPTION = """
@@ -403,6 +408,193 @@ async def create_job(
                 'name': 'SOMN_PROJECT_DIR',
                 'value': somn_project_dir
             }]
+
+        
+        elif job_type == JobType.NOVOSTOIC_OPTSTOIC:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+            # environment = [{
+            #     # TBD... 
+            #     # 'name': 'SOMN_PROJECT_DIR',
+            #     # 'value': somn_project_dir
+            # }]
+        elif job_type == JobType.NOVOSTOIC_PATHWAYS:
+            if service.ensure_bucket_exists(job_type):
+                job_info = json.loads(job_info.replace('\"', '"'))
+                stoic = f'{job_info["substrate"]["amount"]} {job_info["substrate"]["molecule"]}'
+                for coReactant in job_info['reactants']:
+                    stoic += f' + {coReactant["amount"]} {coReactant["molecule"]}'
+                stoic += " <=> "
+                for coProduct in job_info['products']:
+                    stoic += f'{coProduct["amount"]} {coProduct["molecule"]} + '
+                stoic += f'{job_info["product"]["amount"]} {job_info["product"]["molecule"]}'
+                
+                job_info['stoic'] = stoic
+                job_info['substrate'] = job_info['substrate']['molecule']
+                job_info['product'] = job_info['product']['molecule']
+                job_info['num_enzymes'] = job_info['num_enzymes'] if 'num_enzymes' in job_info else 0
+                
+                job_info = json.dumps(job_info)
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.NOVOSTOIC_ENZRANK:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.NOVOSTOIC_DGPREDICTOR:
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+
+        elif job_type == JobType.CLEAN:
+            # Build up input.FASTA from user input
+            job_config = json.loads(job_info.replace('\"', '"'))
+            command = CleanService.build_clean_job_command(job_id=job_id, job_info=job_config)
+        elif job_type == JobType.MOLLI:
+            # Pass path to CORES/SUBS files into the container
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            job_config = json.loads(job_info.replace('\"', '"'))
+            environment = MolliService.build_molli_job_environment(job_id=job_id, job_info=job_config)
+            
+        elif job_type == JobType.OED_CHEMINFO:
+            # Pass path to CORES/SUBS files into the container
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/job.json", job_info.replace('\"', '"').encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            log.info(f"------------------ STARTING ML-SIMPLEFOLD JOB ------------------  job[{job_type}]: " + job_id)
+            job_config = json.loads(job_info.replace('\"', '"'))
+
+            if 'fasta' not in job_config:
+                raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
+
+            # Upload FASTA content to MinIO
+            if service.ensure_bucket_exists(job_type):
+                upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
+                if not upload_result:
+                    raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
+
+            command = (
+                "simplefold"
+                " --simplefold_model simplefold_100M"
+                " --num_steps 500"
+                " --tau 0.01"
+                " --nsample_per_protein 1"
+                " --plddt"
+                " --fasta_path ${JOB_INPUT_DIR}/input.fasta"
+                " --output_dir ${JOB_OUTPUT_DIR}"
+                " --backend torch"
+                " && rm -rf ${JOB_OUTPUT_DIR}/cache"
+            )
+
+        # EZspecificity parent job, see subjobs below
+        elif job_type == JobType.EZ_SPECIFICITY:
+            command = app_config['kubernetes_jobs'][job_type]['command']
+            job_config = json.loads(job_info.replace('\"', '"'))
+
+            # Validate user input: we need enzymes + substrates to build the docking config
+            if 'enzymes' not in job_config or 'substrates' not in job_config:
+                raise HTTPException(status_code=400,
+                    detail='"job_info" requires "enzymes" and "substrates"')
+
+            enzymes = job_config['enzymes']
+            substrates = job_config['substrates']
+            if not isinstance(enzymes, list) or not isinstance(substrates, list):
+                raise HTTPException(status_code=400,
+                    detail='"enzymes" and "substrates" must be lists')
+            if not 1 <= len(enzymes) <= EZSPEC_MAX_ENZYMES:
+                raise HTTPException(status_code=400,
+                    detail=f'Expected 1-{EZSPEC_MAX_ENZYMES} enzyme(s), got {len(enzymes)}')
+            if not 1 <= len(substrates) <= EZSPEC_MAX_SUBSTRATES:
+                raise HTTPException(status_code=400,
+                    detail=f'Expected 1-{EZSPEC_MAX_SUBSTRATES} substrate(s), got {len(substrates)}')
+
+            # Validate each uploaded enzyme structure. The PDBs were already uploaded
+            # to {job_id}/in/ via the /upload endpoint; we re-check them here (server-side,
+            # where we can actually parse the file content) before kicking off the pipeline.
+            for enzyme in enzymes:
+                filename = enzyme.get('filename')
+                if not filename:
+                    raise HTTPException(status_code=400, detail='Each enzyme requires a "filename"')
+                content = service.get_file(job_type, f"{job_id}/in/{filename}")
+                if content is None:
+                    raise HTTPException(status_code=400,
+                        detail=f'Enzyme structure not found in uploads: {filename}')
+                if not is_valid_pdb_file(content):
+                    raise HTTPException(status_code=400,
+                        detail=f'Invalid PDB structure: {filename}')
+
+            # Write job_config.json into the parent job's input dir. coordinator.py copies
+            # the parent's in/ into each subjob, so unidock + inference both receive this
+            # config (the containers read job_config.json, not the job_info API field).
+            container_config = {
+                'enzymes': enzymes,
+                'substrates': substrates,
+            }
+            if 'docking' in job_config:
+                container_config['docking'] = job_config['docking']
+            if service.ensure_bucket_exists(job_type):
+                service.upload_file(
+                    job_type,
+                    f"{job_id}/in/job_config.json",
+                    json.dumps(container_config).encode('utf-8'),
+                )
+
+            # Generate subjob_ids, store these in job_info / pass along as environment
+            ezspec_unidock_job_id = str(kubejob_service.generate_uuid())
+            ezspec_inference_job_id = str(kubejob_service.generate_uuid())
+
+            # Preserve these subjob_ids in our job_info
+            job_config = job_config | {
+                'parent_job_id': job_id,
+                'ezspec_unidock_job_id': ezspec_unidock_job_id,
+                'ezspec_inference_job_id': ezspec_inference_job_id,
+            }
+            job_info = json.dumps(job_config).replace('"', '\"')
+
+            # Pass parent / subjob_ids along as envvars
+            environment += app_config['kubernetes_jobs'][job_type]['env']
+            environment += [
+                { "name": "PARENT_JOB_ID", "value": job_id },
+                { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": ezspec_unidock_job_id },
+                { "name": "EZSPEC_INFERENCE_JOB_ID", "value": ezspec_inference_job_id }
+            ]
+
+        # all EZspecificity subjobs / job steps share the same handling
+        elif job_type == JobType.EZSPEC_UNIDOCK or job_type == JobType.EZSPEC_INFERENCE:
+            # TODO: update command to handle ez-specificity jobs
+            #command = app_config['kubernetes_jobs'][job_type]['command']
+
+            # Grab our subjob_ids from the passed job_info
+            job_config = json.loads(job_info.replace('\"', '"'))
+            if job_type == JobType.EZSPEC_UNIDOCK:
+                job_id = job_config['ezspec_unidock_job_id']
+            elif job_type == JobType.EZSPEC_INFERENCE:
+                job_id = job_config['ezspec_inference_job_id']
+
+            # Pass parent / subjob_ids along as envvars
+            environment += app_config['kubernetes_jobs'][job_type]['env']
+            environment += [
+                { "name": "PARENT_JOB_ID",  "value": job_config['parent_job_id'] },
+                { "name": "EZSPEC_UNIDOCK_JOB_ID", "value": job_config['ezspec_unidock_job_id'] },
+                { "name": "EZSPEC_INFERENCE_JOB_ID", "value": job_config['ezspec_inference_job_id'] }
+            ]
+
         # Run a Kubernetes Job with the given image + command + environment
         try:
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
