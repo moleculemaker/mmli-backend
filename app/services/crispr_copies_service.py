@@ -36,11 +36,6 @@ JOB_OUTPUT_DIR = "${JOB_OUTPUT_DIR}"
 OUTPUT_FILE_NAME = "output.csv"
 
 
-def _int_or_str(value: str) -> Any:
-    """Chromosome may be numeric (1, 2, ...) or a name (e.g. 'chrX')."""
-    return int(value) if value.isdigit() else value
-
-
 # Maps each output.csv header to (jsonKey, value-converter). Mirrors
 # convert_crispr_copies_output_csv_to_json.py.
 _COLUMN_MAP = {
@@ -48,7 +43,7 @@ _COLUMN_MAP = {
     "PAM": ("pam", str),
     "Accession": ("accession", str),
     "Self-Complementarity": ("selfComplementarity", int),
-    "Chromosome": ("chromosome", _int_or_str),
+    "Chromosome": ("chromosome", str),
     "Strand": ("strand", str),
     "Location": ("location", int),
     "Chromosome Length": ("chromosomeLength", int),
