@@ -262,8 +262,12 @@ class KubeEventWatcher:
         labels = job_object.metadata.labels
         if labels is None or any(x not in labels for x in required_labels):
             return
-        job_id = labels['jobId']
-        job_type = labels['jobType']
+        # jobId/jobType are separate from required_labels; a job tagged type=mmli-job but
+        # missing these can't be mapped to a DB row, so skip it (don't raise).
+        job_id = labels.get('jobId')
+        job_type = labels.get('jobType')
+        if not job_id or not job_type:
+            return
         conditions = job_object.status.conditions
 
         new_phase = None
@@ -320,7 +324,13 @@ class KubeEventWatcher:
                 # reached a terminal state while the watcher was down or mid-reconnect would
                 # otherwise never be updated (stuck at 'processing'). This catches them up.
                 for existing_job in (namespaced_jobs.items or []):
-                    self._reconcile_job_phase(existing_job, ignored_namespaces, required_labels)
+                    # Isolate per-job failures: one malformed job must never break the watch
+                    # loop (otherwise the except below would reconnect → re-reconcile → loop
+                    # forever, and no live events would ever be processed).
+                    try:
+                        self._reconcile_job_phase(existing_job, ignored_namespaces, required_labels)
+                    except Exception as e:
+                        self.logger.error(f'Reconcile skipped a job due to error: {e}')
 
                 # Then, watch for new events using the most recent resource_version
                 # Resource version is used to keep track of stream progress (in case of resume/retry)
