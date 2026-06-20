@@ -31,6 +31,8 @@ from fetch_organism import (
     FEATURE_TABLE_NAME as FETCHED_FEATURE_TABLE_NAME,
     PROTEIN_NAME as FETCHED_PROTEIN_NAME,
 )
+# Fixed name convert_annotations.py writes a converted GFF3 → feature_table to.
+from convert_annotations import CONVERTED_NAME as CONVERTED_FEATURE_TABLE_NAME
 
 log = get_logger(__name__)
 
@@ -136,9 +138,16 @@ class CRISPRCopiesService:
             genome_path = uploaded_genome
             if not genome_path:
                 raise HTTPException(status_code=400, detail="organism.genome is required")
-            annotations_path = CRISPRCopiesService._resolve_input_path(_get(job_info, "organism.annotations"))
+            annotations_meta = _get(job_info, "organism.annotations")
+            annotations_path = CRISPRCopiesService._resolve_input_path(annotations_meta)
             if not annotations_path:
                 raise HTTPException(status_code=400, detail="organism.annotations is required")
+            # The method + genome-viewer read NCBI feature_table.txt, not GFF. An uploaded
+            # GFF3 is converted in the init container (convert_annotations.py) to a fixed-name
+            # feature table; point --Gene_table at that converted file instead of the raw GFF.
+            ann_name = (CRISPRCopiesService._resolve_input_path(annotations_meta) or "").lower()
+            if ann_name.endswith(".gff") or ann_name.endswith(".gff3"):
+                annotations_path = f"{JOB_INPUT_DIR}/{CONVERTED_FEATURE_TABLE_NAME}"
         args.append(("--Genome", genome_path))
         args.append(("--Gene_table", annotations_path))
 
