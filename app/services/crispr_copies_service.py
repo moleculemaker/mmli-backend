@@ -222,7 +222,9 @@ class CRISPRCopiesService:
         args.append(("--num_threads", str(int(num_threads))))
 
         rendered = " ".join(f'{flag} "{value}"' for flag, value in args)
-        inner = f"python main.py {rendered}{protein_runtime_suffix}"
+        # The copies image is WORKDIR /app with the script at code/main.py
+        # (CMD ["python", "code/main.py"]) — invoke it by that path, not bare main.py.
+        inner = f"python code/main.py {rendered}{protein_runtime_suffix}"
         # Mirror the CLEAN command wrapper: tee logs, list outputs on success,
         # and drop an `error` sentinel + fail the container on any error.
         # `set -o pipefail` is REQUIRED: without it the pipeline's exit status is

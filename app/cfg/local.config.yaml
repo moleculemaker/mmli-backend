@@ -44,6 +44,9 @@ data:
       crispr-copies:
         image: ghcr.io/ibiofoundry/copies:latest
         imagePullPolicy: Always
+        # Init-container step (after prejob.py): resolve a dropdown organism accession to
+        # input files + convert any uploaded GFF3 to feature_table.txt. No-op otherwise.
+        prejob_command: "python fetch_organism.py && python convert_annotations.py"
         securityContext:
           runAsGroup: 0
           runAsUser: 0
