@@ -13,7 +13,14 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     openjdk-11-jdk \
     tzdata \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# NCBI `datasets` CLI. The CRISPR-COPIES init container uses it to fetch a genome +
+# protein by accession when a user picks an organism from the dropdown (app/fetch_organism.py).
+RUN curl -fsSL 'https://ftp.ncbi.nlm.nih.gov/pub/datasets/command-line/v2/linux-amd64/datasets' \
+        -o /usr/local/bin/datasets \
+    && chmod +x /usr/local/bin/datasets
 
 # Set JAVA_HOME environment variable
 ENV JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64

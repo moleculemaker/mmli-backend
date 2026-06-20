@@ -393,6 +393,10 @@ kubernetes_jobs:
   crispr-copies:
     image: "ghcr.io/ibiofoundry/copies:latest"
     imagePullPolicy: "Always"
+    # Runs in the init container after prejob.py. When the user picks an organism from the
+    # dropdown, fetch_organism.py resolves $ORGANISM_ACCESSION to genome/feature-table/protein
+    # files in $JOB_INPUT_DIR (cached in MinIO by accession). No-op for the upload path.
+    prejob_command: "python fetch_organism.py"
     volumes: []
     securityContext:
       runAsUser: 0

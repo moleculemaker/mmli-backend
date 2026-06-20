@@ -168,9 +168,15 @@ async def create_job(
             log.debug(f'    environment: {environment}')
 
         elif job_type == JobType.CRISPR_COPIES:
-            # Inputs (genome/annotations/protein) are uploaded by the frontend to
-            # MinIO {job_id}/in/ and synced into ${JOB_INPUT_DIR} before the job runs.
+            # Inputs come from either uploaded files (synced from MinIO {job_id}/in/ by
+            # prejob.py) or a dropdown organism accession that the init container's
+            # fetch_organism.py resolves into ${JOB_INPUT_DIR}. Pass the accession (if the
+            # dropdown path was used) so the init container knows what to fetch.
             job_config = json.loads(job_info.replace('\"', '"'))
+            organism_accession = (
+                (job_config.get("organism") or {}).get("organismIdentifier") or {}
+            ).get("value") or ""
+            environment = [{'name': 'ORGANISM_ACCESSION', 'value': organism_accession}]
             command = CRISPRCopiesService.build_crispr_copies_job_command(job_id=job_id, job_info=job_config)
 
         elif job_type == JobType.EZ_SPECIFICITY:
