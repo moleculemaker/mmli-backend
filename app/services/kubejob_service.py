@@ -246,6 +246,49 @@ class KubeEventWatcher:
             # Job failed with an error, email was sent indicating error
             self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
 
+    def _reconcile_job_phase(self, job_object, ignored_namespaces, required_labels):
+        """Derive a job's phase from its current k8s status and persist it.
+
+        Shared by the live watch-event loop and the on-(re)connect reconciliation pass.
+        The watch stream only delivers events NEWER than the listed resourceVersion, so a
+        job that reached a terminal state while the watcher was down or mid-reconnect would
+        otherwise be stuck at its last-seen phase (e.g. 'processing') forever. The DB write
+        is guarded on an actual phase change; email notifications stay idempotent (gated by
+        a MinIO marker in send_notification_email), so reconciling an already-notified job
+        will not re-send.
+        """
+        if job_object.metadata.namespace in ignored_namespaces:
+            return
+        labels = job_object.metadata.labels
+        if labels is None or any(x not in labels for x in required_labels):
+            return
+        job_id = labels['jobId']
+        job_type = labels['jobType']
+        conditions = job_object.status.conditions
+
+        new_phase = None
+        if conditions is None:
+            new_phase = JobStatus.PROCESSING
+        elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
+            new_phase = JobStatus.COMPLETED
+        elif job_object.status.failed is not None and job_object.status.failed > 0:
+            new_phase = JobStatus.ERROR
+        if new_phase is None:
+            return
+
+        with Session(self.engine) as session:
+            updated_job = session.get(Job, job_id)
+            if updated_job is None:
+                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
+                return
+            if updated_job.phase != new_phase:
+                self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
+                updated_job.phase = new_phase
+                session.add(updated_job)
+                session.commit()
+                session.flush()
+            self.send_notification_email(job_id, job_type, updated_job, new_phase)
+
     def run(self):
         # Ignore kube-system namespace
         # TODO: Parameterize this?
@@ -272,6 +315,13 @@ class KubeEventWatcher:
                 namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(namespace=get_namespace())
                 resource_version = namespaced_jobs.metadata.resource_version if namespaced_jobs.metadata.resource_version else resource_version
 
+                # Reconcile existing jobs from the current list BEFORE watching. The watch
+                # stream only delivers events newer than resource_version, so any job that
+                # reached a terminal state while the watcher was down or mid-reconnect would
+                # otherwise never be updated (stuck at 'processing'). This catches them up.
+                for existing_job in (namespaced_jobs.items or []):
+                    self._reconcile_job_phase(existing_job, ignored_namespaces, required_labels)
+
                 # Then, watch for new events using the most recent resource_version
                 # Resource version is used to keep track of stream progress (in case of resume/retry)
                 k8s_event_stream = w.stream(func=api_batch_v1.list_namespaced_job,
@@ -284,68 +334,7 @@ class KubeEventWatcher:
                 # Parse events in the stream for Pod phase updates
                 for event in k8s_event_stream:
                     resource_version = event['object'].metadata.resource_version
-
-                    # Skip Pods in ignored namespaces
-                    if event['object'].metadata.namespace in ignored_namespaces:
-                        self.logger.debug('Skipping event in excluded namespace')
-                        continue
-
-                    # Examine labels, ignore if not uws-job
-                    # self.logger.debug('Event recv\'d: %s' % event)
-                    labels = event['object'].metadata.labels
-                    self.logger.debug(f'Job Labels: {labels}')
-
-                    if labels is None and len(required_labels) > 0:
-                        self.logger.warning(
-                            'WARNING: Skipping due to missing label(s): ' + str(required_labels))
-                        continue
-
-                    missing_labels = [x for x in required_labels if x not in labels]
-                    if len(missing_labels) > 0:
-                        self.logger.warning(
-                            'WARNING: Skipping due to missing required label(s): ' + str(missing_labels))
-                        continue
-
-                    # LEGACY: mmli-job-jobtype-jobid => we want last 2 segments
-                    # More Reliable: Read job_type and job_id from labels
-                    job_id = labels['jobId']
-                    job_type = labels['jobType']
-
-                    type = event['type']
-                    status = event['object'].status
-                    conditions = status.conditions
-
-                    # Calculate new status
-                    self.logger.debug(f'Event: job_id={job_id}   type={type}   status={status}')
-                    new_phase = None
-                    if conditions is None:
-                        new_phase = JobStatus.PROCESSING
-                    elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
-                        new_phase = JobStatus.COMPLETED
-                    elif status.failed is not None and status.failed > 0:
-                        new_phase = JobStatus.ERROR
-                    else:
-                        self.logger.info(f'>> Skipped job update: {job_id}-> {new_phase}')
-                        self.logger.debug(f'>> Status: {str(status)}')
-
-                    # Write status update back to database
-                    if new_phase is not None:
-                        self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
-
-                        # create session and add objects
-                        with Session(self.engine) as session:
-                            updated_job = session.get(Job, job_id)
-                            if updated_job is not None:
-                                updated_job.phase = new_phase
-
-                                session.add(updated_job)
-                                session.commit()
-                                session.flush()
-                            else:
-                                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
-                                self.logger.warning('Skipping database update...')
-
-                            self.send_notification_email(job_id, job_type, updated_job, new_phase)
+                    self._reconcile_job_phase(event['object'], ignored_namespaces, required_labels)
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
