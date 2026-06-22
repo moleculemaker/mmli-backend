@@ -394,6 +394,10 @@ kubernetes_jobs:
   crispr-copies:
     image: "ghcr.io/ibiofoundry/copies:latest"
     imagePullPolicy: "Always"
+    # Runs in the init container after prejob.py. fetch_organism.py resolves a dropdown
+    # $ORGANISM_ACCESSION to genome/feature-table/protein files (no-op for uploads);
+    # convert_annotations.py converts an uploaded GFF3 to feature_table.txt (no-op otherwise).
+    prejob_command: "python fetch_organism.py && python convert_annotations.py"
     volumes: []
     securityContext:
       runAsUser: 0

@@ -31,6 +31,7 @@ from services.oed_service import OEDService
 from services.reactionminer_service import ReactionMinerService
 from services.simplefold_service import SimpleFoldService
 from services.somn_service import SomnService
+from services.genome_viewer_service import gene_annotations as gv_gene_annotations, protein_translation as gv_protein_translation
 
 
 from typing import Optional, List
@@ -266,3 +267,34 @@ async def export_results(bucket_name: str, requestBody: ExportRequestBody, servi
             return FileResponse(filename, media_type='application/zip', filename=filename)
         else:
             raise HTTPException(status_code=400, detail="Bad Request")
+
+
+@router.get(
+    "/{job_type}/genes/{job_id}", tags=['Files'],
+    operation_id="getGeneAnnotations",
+    summary="Per-chromosome gene annotations for the genome viewer",
+    description=(
+        "Genes parsed from the job's feature_table.txt, keyed by the same `Chromosome` value "
+        "the result rows use, filtered to the candidate-site window per chromosome. "
+        "Returns {chromosome: [{name, start, end}]}."
+    ),
+)
+async def get_gene_annotations(job_type: str, job_id: str):
+    if job_type not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown job type: {job_type}")
+    return gv_gene_annotations(job_type, job_id)
+
+
+@router.get(
+    "/{job_type}/protein/{job_id}", tags=['Files'],
+    operation_id="getProteinTranslation",
+    summary="Translated amino-acid track for a chromosome window (genome-viewer detail mode)",
+    description=(
+        "AA string across [start, end] bp on `chromosome` at codon resolution; non-coding "
+        "positions are '-'. `chromosome`/`start`/`end` are query params. Returns {sequence}."
+    ),
+)
+async def get_protein_translation(job_type: str, job_id: str, chromosome: str, start: int, end: int):
+    if job_type not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown job type: {job_type}")
+    return {"sequence": gv_protein_translation(job_type, job_id, chromosome, start, end)}
