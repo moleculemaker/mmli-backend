@@ -46,6 +46,12 @@ JOB_OUTPUT_DIR = "${JOB_OUTPUT_DIR}"
 
 OUTPUT_FILE_NAME = "output.csv"
 
+# The method emits the closest off-target as a single comma-joined field
+# "<edit-distance>,<off-target guide sequence>", e.g. "6,TCTATTTTTTTGTCGTTTCC"
+# (pandas to_csv quotes it so it survives as one CSV field). We split it into a
+# numeric distance (for the frontend's range filter/sort) and the sequence string.
+OFF_TARGET_COLUMN = "Distance, Closest off-target"
+
 
 # Maps each output.csv header to (jsonKey, value-converter). Mirrors
 # convert_crispr_copies_output_csv_to_json.py.
@@ -60,7 +66,9 @@ _COLUMN_MAP = {
     "Strand": ("strand", str),
     "Location": ("location", int),
     "Chromosome Length": ("chromosomeLength", int),
-    "Distance, Closest off-target": ("closestOffTargetDistance", float),  # column NAME contains a comma
+    # "Distance, Closest off-target" is handled specially in resultPostProcess: the
+    # method packs the edit distance AND the closest off-target's guide sequence into
+    # one comma-joined field, so it splits into two JSON keys rather than one.
     "Intergenic Size": ("intergenicSize", int),
     "Left Gene": ("leftGene", str),
     "Right Gene": ("rightGene", str),
@@ -258,6 +266,14 @@ class CRISPRCopiesService:
         for row in reader:
             converted = {}
             for header, value in row.items():
+                if header == OFF_TARGET_COLUMN:
+                    distance, _, sequence = (value or "").partition(",")
+                    try:
+                        converted["closestOffTargetDistance"] = int(distance)
+                    except (ValueError, TypeError):
+                        converted["closestOffTargetDistance"] = None
+                    converted["closestOffTargetSequence"] = sequence or None
+                    continue
                 mapping = _COLUMN_MAP.get(header)
                 if mapping is None:
                     # Tolerate columns the method emits that we don't surface (forward-proof
