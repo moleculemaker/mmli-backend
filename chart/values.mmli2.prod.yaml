@@ -183,6 +183,14 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     ez-specificity:
+      # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
+      # or it can't schedule on the dedicated job nodes (general nodes are full).
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
       env:
         - name: MINIO_SERVER
           value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
