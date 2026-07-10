@@ -579,7 +579,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
         #     'readOnly': True,
         # }]
 
-        default_job_vols = app_config['kubernetes_jobs']['defaults']['volumes']
+        default_job_vols = app_config['kubernetes_jobs']['defaults'].get('volumes', [])
         individual_job_vols = app_config['kubernetes_jobs'][job_type]['volumes'] if 'volumes' in app_config['kubernetes_jobs'][job_type] else []
 
         all_volumes = []
