@@ -182,6 +182,55 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    ez-specificity:
+      # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
+      # or it can't schedule on the dedicated job nodes (general nodes are full).
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
+      env:
+        - name: MINIO_SERVER
+          value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
+        - name: MMLI_BACKEND_HOST
+          value: "http://mmli-backend.alphasynthesis.svc.cluster.local:8080"
+    ezspec-unidock:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
+    ezspec-inference:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
@@ -190,6 +239,7 @@ config:
   # Change to prod service URLs (used for email notifications)
   chemscraper_url: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.platform.moleculemaker.org"
+  ezspecificity_frontend_url: "https://ezspecificity.platform.moleculemaker.org"
   novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
   somn_frontend_url: "https://somn.platform.moleculemaker.org"
   clean_frontend_url: "https://clean.platform.moleculemaker.org"

@@ -61,6 +61,8 @@ origins = [
     "https://reactionminer.frontend.mmli1.ncsa.illinois.edu",
     "https://ezspecificity.frontend.staging.mmli1.ncsa.illinois.edu",
     "https://ezspecificity.frontend.mmli1.ncsa.illinois.edu",
+    "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu",
+    "https://ezspecificity.frontend.mmli2.ncsa.illinois.edu",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 

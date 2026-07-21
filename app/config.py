@@ -5,6 +5,8 @@ import yaml
 from collections import ChainMap
 from dotenv import load_dotenv
 
+from models.enums import JobTypes
+
 
 def get_logger(name):
     logger = logging.getLogger(name)
@@ -46,7 +48,8 @@ with open(CONFIG_FILEPATH, "r") as server_yaml_file:
     except Exception as ex:
         log.error(f'Failed to load secrets file: {ex}')
 
-log.info('Server configuration: ', app_config)
+log.info(f'Valid job types : {str(JobTypes)}')
+log.info(f'Server configuration: {str(app_config)}', )
 
 # Override app_config with some individual environment variables
 # TODO: Is this needed??

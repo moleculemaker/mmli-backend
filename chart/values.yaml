@@ -4,6 +4,9 @@ ingress:
   tls: false
   annotations: {}
 
+service:
+  type: ClusterIP
+
 # Custom ingress configuration for only /chemscraper/analyze endpoint
 analyzeIngress:
   hostname: mmli.fastapi.localhost
@@ -12,6 +15,7 @@ analyzeIngress:
 
 controller:
   image: moleculemaker/mmli-backend:latest
+  imagePullPolicy: Always
 
 sharedStorage:
   existingClaim: mmli-shared-job-data
@@ -67,6 +71,7 @@ config:
   # TODO: Default these to local cluster? For now, default is staging and we override for prod
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
   novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
   somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"
@@ -486,35 +491,64 @@ config:
           cpu: "1"
           memory: "12Gi"
 
-    # TODO: update to use correct image later
+
     ez-specificity:
-      # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
-      kubeconfig: "/opt/kubeconfig"
-      # Namespace where this job should run
-      namespace: "mmli"
-
       # Example job image name + command combo
-      image: "perl:5.34.0"
-      command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
+      image: "moleculemaker/mmli-backend:latest"
+      command: "python ./coordinator.py"
+      steps:
+        # Define names / order for steps here
+        - ezspec-unidock
+        - ezspec-inference
 
-      ## Server working directory to store generated job data
-      workingVolume:
-        claimName: "mmli-shared-job-data"
-        mountPath: "/uws"
-        subPath: "uws"
-      ## Central data volumes to be mounted in job containers
-      volumes: []
+      # Parent job doesn't need many resources
+      resources:
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+        requests:
+          cpu: "1"
+          memory: "1Gi"
 
-      ## Abort jobs after 3 days regardless of their behavior
-      activeDeadlineSeconds: 259200
-      ## Cleanup completed/failed jobs after 12 hours
-      ttlSecondsAfterFinished: 43200
-      ## Poll the log file for changes every `logFilePollingPeriod` seconds
-      logFilePollingPeriod: 300
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-        # fsGroup: 202
+
+    ezspec-unidock:
+      image: moleculemaker/ezspec-unidock:latest
+      #command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/out
+          claimName: mmli-shared-job-data
+
+
+    ezspec-inference:
+      image: moleculemaker/ezspec-inference:latest
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      #command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
+          subPath: uws/jobs/ezspec-inference/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
+          subPath: uws/jobs/ezspec-inference/JOB_ID/out
+          claimName: mmli-shared-job-data
 
   external:
     chemscraper:

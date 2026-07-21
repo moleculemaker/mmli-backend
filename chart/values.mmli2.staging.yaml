@@ -166,6 +166,54 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    ez-specificity:
+      # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
+      # or it can't schedule on the dedicated job nodes (general nodes are full).
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
+      env:
+        - name: MINIO_SERVER
+          value: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
+        - name: MMLI_BACKEND_HOST
+          value: "http://mmli-backend-staging.staging.svc.cluster.local:8080"
+    ezspec-unidock:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
+    ezspec-inference:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli2.ncsa.illinois.edu"
@@ -177,6 +225,7 @@ config:
   # Change to staging service URLs (used for email notifications)
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
   chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
   novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
   somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"

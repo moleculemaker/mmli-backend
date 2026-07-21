@@ -57,17 +57,30 @@ class MinIOService:
             urls = []
             objects = self.client.list_objects(bucket_name, prefix=path, recursive=True)
             for obj in objects:
-                url = self.client.presigned_get_object(bucket_name, obj.object_name)
-                url = url.split('?', 1)[0]
-                parsed_url = urlparse(url)
-                minio_api_url = urlunparse(
-                    ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
-                )
-                # urls.append(url)
-                urls.append(minio_api_url)
+                urls.append(self._public_object_url(bucket_name, obj.object_name))
             return urls
         except S3Error as err:
             log.error("Error: ", err)
+
+    def get_file_url(self, bucket_name, object_name):
+        """Build a public (unsigned) download URL for a single object.
+
+        Mirrors get_file_urls but for a known object path, so callers can turn a
+        MinIO object into a URL the frontend can fetch directly (e.g. a docked
+        complex PDB rendered in the 3D viewer).
+        """
+        try:
+            return self._public_object_url(bucket_name, object_name)
+        except S3Error as err:
+            log.error("Error: ", err)
+
+    def _public_object_url(self, bucket_name, object_name):
+        url = self.client.presigned_get_object(bucket_name, object_name)
+        url = url.split('?', 1)[0]
+        parsed_url = urlparse(url)
+        return urlunparse(
+            ("https", self.minio_api_baseURL, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
+        )
 
     def ensure_bucket_exists(self, bucket_name):
         if self.client.bucket_exists(bucket_name):

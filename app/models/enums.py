@@ -19,6 +19,8 @@ class JobType(str, Enum):
     OED_CATPRED = 'oed-catpred'
     DEFAULT = 'defaults'
     EZ_SPECIFICITY = 'ez-specificity'
+    EZSPEC_UNIDOCK = 'ezspec-unidock'
+    EZSPEC_INFERENCE = 'ezspec-inference'
     ML_SIMPLEFOLD = 'ml-simplefold'
 
     def __str__(self) -> str:
@@ -36,3 +38,4 @@ class JobStatus(str, Enum):
 
 
 JobTypes = [str(job_type) for job_type in JobType]
+ExampleJobTypes = [JobType.DEFAULT]
