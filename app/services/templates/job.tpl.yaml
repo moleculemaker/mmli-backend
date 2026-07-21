@@ -119,7 +119,7 @@ spec:
             subPath: secret.yaml
       {%- endfor %}
       - name: init
-        image: moleculemaker/mmli-backend:pr-103
+        image: moleculemaker/mmli-backend:main
         imagePullPolicy: Always
         # securityContext:
         #   runAsUser: 0
