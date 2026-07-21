@@ -110,7 +110,7 @@ config:
       - effect: NoSchedule  
         key: mmli.role  
         operator: Exists
-    oed-dlkcat-dla:
+    oed-dlkcat:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
