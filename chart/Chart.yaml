@@ -5,9 +5,9 @@ version: 1.0.0
 dependencies:
 - name: postgresql
   version: ~12.2.2
-  repository: "https://charts.bitnami.com/bitnami"
+  repository: "https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami"
   condition: postgresql.enabled
 - name: minio
   version: ~12.6.4
-  repository: "https://charts.bitnami.com/bitnami"
+  repository: "https://raw.githubusercontent.com/bitnami/charts/archive-full-index/bitnami"
   condition: minio.enabled

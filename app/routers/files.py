@@ -17,6 +17,7 @@ from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
 from models.enums import JobType
+from services.ezspecificity_service import EzSpecificityService
 from services.molli_service import MolliService
 from services.clean_service import CleanService
 
@@ -27,6 +28,7 @@ from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
 from services.reactionminer_service import ReactionMinerService
 from services.oed_service import OEDService
+from services.simplefold_service import SimpleFoldService
 
 
 from typing import Optional, List
@@ -106,6 +108,22 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.OED_DLKCAT or bucket_name == JobType.OED_UNIKP or bucket_name == JobType.OED_CATPRED:
         return await OEDService.propertyPredictionResultPostProcess(bucket_name, job_id, service, db)
 
+    elif bucket_name == JobType.ML_SIMPLEFOLD:
+        print("Getting ML-SIMPLEFOLD job result")
+        return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZ_SPECIFICITY:
+        print("Getting EZ-SPECIFICITY job result")
+        return await EzSpecificityService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZSPEC_UNIDOCK:
+        print("Getting EZSPEC-UNIDOCK job result")
+        return await EzSpecificityService.unidockResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.EZSPEC_INFERENCE:
+        print("Getting EZSPEC-INFERENCE job result")
+        return await EzSpecificityService.inferenceResultPostProcess(bucket_name, job_id, service, db)
+
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)
 
@@ -126,12 +144,6 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
         filename = job_id + "/errors.txt"
         raise HTTPException(status_code=404, detail=f"File {filename} not found")
     return error_content
-
-
-# FIXME: Temporary workaround to force FastAPI to generate a model for Molecule
-@router.post("/{bucket_name}/exxample", tags=['Files'])
-async def delete_me() -> List[Molecule]:
-    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
 # TODO: Refactor this to make it more generic?

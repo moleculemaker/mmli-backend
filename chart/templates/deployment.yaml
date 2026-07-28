@@ -64,6 +64,7 @@ spec:
       containers:
         - name: mmli-fastapi
           image: {{ .Values.controller.image }}
+          imagePullPolicy: {{ .Values.controller.imagePullPolicy | default "Always" }}
           volumeMounts:
             - name: server-config
               mountPath: /code/app/cfg/config.yaml

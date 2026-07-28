@@ -7,7 +7,7 @@ from kubernetes.client.rest import ApiException
 import os
 import yaml
 import json
-from jinja2 import Template
+from jinja2 import Template, Environment, BaseLoader
 import uuid
 
 import time
@@ -19,7 +19,7 @@ from sqlmodel import Session
 
 from config import app_config, get_logger, RELEASE_NAME, STATUS_OK, STATUS_ERROR, DEBUG, MINIO_SERVER, MINIO_ACCESS_KEY, \
     MINIO_SECRET_KEY, SQLALCHEMY_DATABASE_URL
-from models.enums import JobStatus, JobType
+from models.enums import JobStatus, JobType, JobTypes, ExampleJobTypes
 from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
@@ -29,6 +29,11 @@ from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
+# Initialize your environment
+env = Environment(loader=BaseLoader())
+
+# Register the to_json filter
+env.filters['to_json'] = json.dumps
 
 ## Load Kubernetes cluster config. Unhandled exception if not in Kubernetes environment.
 try:
@@ -80,7 +85,7 @@ def download_remote_directory_from_minio(remote_path: str, bucket_name: str, tar
 
 
 # Upload a local directory recursively to MinIO
-def upload_local_directory_to_minio(local_path: str, bucket_name: str):
+def upload_local_directory_to_minio(local_path: str, bucket_name: str, minio_prefix: str = ""):
     if not os.path.isdir(local_path):
         log.warning('Not a directory: ' + local_path)
         return False
@@ -95,14 +100,13 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str):
     for local_file in glob.glob(local_path + '/**'):
         local_file = local_file.replace(os.sep, "/")
         if not os.path.isfile(local_file):
-            upload_local_directory_to_minio(local_file, bucket_name)
+            dir_name = os.path.basename(local_file)
+            sub_prefix = os.path.join(minio_prefix, dir_name) if minio_prefix else dir_name
+            upload_local_directory_to_minio(local_file, bucket_name, sub_prefix)
         else:
-            log.debug(f'Examining {str(local_file)}...')
-            file_path_head = os.path.split(local_file)[0]
-            remote_prefix = os.sep.join(file_path_head.split(os.sep)[-2:])
-
-            remote_path = os.path.join(remote_prefix, local_file[1 + len(local_path):])
-            log.info(f'Uploading {local_path} -> {remote_path}...')
+            file_name = os.path.basename(local_file)
+            remote_path = os.path.join(minio_prefix, file_name) if minio_prefix else file_name
+            log.info(f'Uploading {local_file} -> {remote_path}...')
             minioClient.fput_object(bucket_name=bucket_name, object_name=remote_path, file_path=local_file)
 
 
@@ -131,6 +135,10 @@ class KubeEventWatcher:
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
         job_type_name = 'Unknown'
+        if job_type in ExampleJobTypes:
+            log.debug(f'Skipping notification email for ExampleJobType: {str(job_type)}')
+            return
+
         if 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
@@ -146,7 +154,7 @@ class KubeEventWatcher:
                 results_url = f'{novostoic_frontend_url}/thermodynamical-feasibility/result/{updated_job.job_id}'
                 job_type_name = 'dGPredictor'
             else:
-                raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {JobType}")
+                raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {str(JobTypes)}")
         elif job_type == JobType.SOMN:
             somn_frontend_url = app_config['somn_frontend_url']
             results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
@@ -168,26 +176,33 @@ class KubeEventWatcher:
             results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'ReactionMiner'
         elif job_type == JobType.OED_CHEMINFO:
-            reactionminer_frontend_url = app_config['openenzymedb_frontend_url']
-            results_url = f'{reactionminer_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
+            openenzyemdb_frontend_url = app_config['openenzymedb_frontend_url']
+            results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
-
-        # OED & CLEANDB jobs are very fast - no need to send notification email
-        elif job_type.startswith('oed-') or job_type.startswith('cleandb-'):
-            #self.logger.warning(f'WARNING: Skipping sending notification email for {job_type} - {job_id}')
+        elif job_type == JobType.EZ_SPECIFICITY:
+            ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
+            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
+            job_type_name = 'EZspecificity'
+        elif job_type in JobTypes:
+            # OED & CLEANDB jobs are very fast - no need to send notification email
+            # No need to notify about EZspec intermediary steps
+            # No need to notify about ML Simplefold
+            log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
             return
 
-        else: 
-            raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {JobType}")
+        else:
+            raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {str(JobTypes)}")
 
         job_id = updated_job.job_id
 
         # Send email notification about success/failure
         if new_phase == JobStatus.COMPLETED and updated_job.email and self.should_send_email(job_type, job_id):
             try:
-                self.email_service.send_email(updated_job.email,
-                                              f'''Result for your {job_type_name} Job ({job_id}) is ready''',
-                                              f'''The result for your {job_type_name} Job is available at {results_url}''')
+                self.email_service.send_email(
+                    updated_job.email,
+                    f'''Result for your {job_type_name} Job ({job_id}) is ready''',
+                    f'''The result for your {job_type_name} Job is available at {results_url}'''
+                )
                 self.mark_email_as_sent(job_type, job_id, success=True)
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')
@@ -534,6 +549,8 @@ def delete_job(job_id: str) -> None:
     except Exception as e:
         log.error(f'''Error deleting Kubernetes Job: {e}''')
         raise
+
+    # XXX: Jobs don't currently use a configmap, but they could...
     # try:
     #     api_response = api_v1.delete_namespaced_config_map(
     #         namespace=namespace,
@@ -550,7 +567,9 @@ def delete_job(job_id: str) -> None:
     #     raise
 
 
-def create_job(job_type, job_id, run_id=None, image_name=None, command=None, owner_id=None, replicas=1, environment=[]):
+def create_job(job_type, job_id, run_id=None, image_name=None, command=None, owner_id=None, replicas=1, environment=None):
+    if environment is None:
+        environment = []
     log.info(f'Creating KubeJob with ID={job_id}')
 
     if job_type not in app_config['kubernetes_jobs']:
@@ -574,7 +593,8 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
     try:
         pullPolicy = app_config['kubernetes_jobs'][job_type]['imagePullPolicy']
     except:
-        pullPolicy = 'Always' if image_name in [':latest', ':dev'] else 'IfNotPresent'
+        pullPolicy = 'Always'
+        log.debug(f"Using default: pullPolicy=Always")
 
     response = {
         'job_id': None,
@@ -607,11 +627,15 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
         #     'subPath': 'positions.csv',
         #     'readOnly': True,
         # }]
+
+        default_job_vols = app_config['kubernetes_jobs']['defaults']['volumes']
+        individual_job_vols = app_config['kubernetes_jobs'][job_type]['volumes'] if 'volumes' in app_config['kubernetes_jobs'][job_type] else []
+
         all_volumes = []
-        for volume in app_config['kubernetes_jobs']['defaults']['volumes']:
+        for volume in default_job_vols:
             all_volumes.append(volume)
         if job_type != JobType.DEFAULT:
-            for volume in app_config['kubernetes_jobs'][job_type]['volumes']:
+            for volume in individual_job_vols:
                 all_volumes.append(volume)
 
         # Include secrets, if necessary (e.g. ReactionMiner for HuggingFace API token)
@@ -628,9 +652,9 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
 
         with open(os.path.join(os.path.dirname(__file__), 'templates', templateFile)) as f:
             templateText = f.read()
-        jinja_template = Template(templateText)
+        jinja_template = env.from_string(templateText)
 
-        log.info(f'Creating jinja with jinja_template={jinja_template}')
+        log.debug(f'Creating jinja with jinja_template={templateText}')
 
         yaml_template = jinja_template.render(
             name=job_name,
@@ -651,6 +675,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
                 'pull_secrets': pullSecrets
             },
             command=command,
+            runtimeClassName=app_config['kubernetes_jobs'][job_type]['runtimeClassName'] if 'runtimeClassName' in app_config['kubernetes_jobs'][job_type] else None,
             nodeSelector=app_config['kubernetes_jobs'][job_type]['nodeSelector'] if 'nodeSelector' in app_config['kubernetes_jobs'][job_type] else None,
             tolerations=app_config['kubernetes_jobs'][job_type]['tolerations'] if 'tolerations' in app_config['kubernetes_jobs'][job_type] else None,
             prejob_command=app_config['kubernetes_jobs'][job_type]['prejob_command'] if 'prejob_command' in app_config['kubernetes_jobs'][job_type] else None,
@@ -660,6 +685,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             job_output_dir=job_output_dir,
             job_input_dir=job_input_dir,
             project_subpath=project_subpath,
+            initContainers=app_config['kubernetes_jobs'][job_type]['initContainers'] if 'initContainers' in app_config['kubernetes_jobs'][job_type] else [],
             securityContext=app_config['kubernetes_jobs'][job_type]['securityContext'] if 'securityContext' in app_config['kubernetes_jobs'][job_type] else None,
             workingVolume=app_config['kubernetes_jobs']['defaults']['workingVolume'],
             volumes=all_volumes,
@@ -672,18 +698,18 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             ttlSecondsAfterFinished=app_config['kubernetes_jobs']['defaults']['ttlSecondsAfterFinished'],
             activeDeadlineSeconds=app_config['kubernetes_jobs']['defaults']['activeDeadlineSeconds'],
         )
-        log.info(f'After jinja with jinja_template...')
+        log.debug(f'After jinja with jinja_template...')
         job_body = yaml.safe_load(yaml_template)
         if DEBUG:
             log.debug("Job {}:\n{}".format(job_name, yaml.dump(job_body, indent=2)))
-        log.info(f'After safe_load')
+        log.debug(f'After safe_load')
         api_response = api_batch_v1.create_namespaced_job(
             namespace=namespace, body=job_body
         )
-        log.info(f'After api_batch_v1.')
+        log.debug(f'After api_batch_v1.')
         response['job_id'] = job_id
 
-        log.debug(f"Job {job_name} created: {job_id}")
+        log.info(f"Job {job_name} created: {job_id}")
     # TODO: Is there additional information to obtain from the ApiException?
     # except ApiException as e:
     #     msg = str(e)

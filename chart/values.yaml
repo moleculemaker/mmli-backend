@@ -4,24 +4,29 @@ ingress:
   tls: false
   annotations: {}
 
+service:
+  type: ClusterIP
+
 # Custom ingress configuration for only /chemscraper/analyze endpoint
 analyzeIngress:
   hostname: mmli.fastapi.localhost
   tls: false
   annotations: {}
 
-
 controller:
   image: moleculemaker/mmli-backend:latest
+  imagePullPolicy: Always
 
 sharedStorage:
-  existingClaim: mmli-clean-job-weights
+  existingClaim: mmli-shared-job-data
   mountPath: /uws
   subPath: uws
 
 # https://artifacthub.io/packages/helm/bitnami/postgresql?modal=values
 postgresql:
   enabled: true
+  image:
+    repository: bitnamilegacy/postgresql
   autoschema: false
   hostname: ""
   auth:
@@ -41,6 +46,8 @@ postgresql:
 # https://artifacthub.io/packages/helm/bitnami/minio?modal=values
 minio:
   enabled: true
+  image:
+    repository: bitnamilegacy/minio
   apiIngress:
     enabled: true
     tls: false
@@ -49,7 +56,7 @@ minio:
   ingress:
     enabled: true
     tls: false
-    hostname: minio.mmli.fastapi.localhost 
+    hostname: minio.mmli.fastapi.localhost
     annotations: {}
   auth:
     # Use an existing secret - this overrides username, password, and rootPassword
@@ -59,18 +66,18 @@ minio:
     # rootUser: "admin"
     # rootPassword: ""
 
-
 config:
   # Change frontend service URLs depending on where they're deployed (used for email notifications)
   # TODO: Default these to local cluster? For now, default is staging and we override for prod
   chemscraper_url: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
-  chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
-  novostoic_frontend_url: "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu"
-  somn_frontend_url: "https://somn.frontend.staging.mmli1.ncsa.illinois.edu"
-  clean_frontend_url: "https://clean.frontend.staging.mmli1.ncsa.illinois.edu"
-  molli_frontend_url: "https://molli.frontend.staging.mmli1.ncsa.illinois.edu"
-  aceretro_frontend_url: "https://aceretro.frontend.staging.mmli1.ncsa.illinois.edu"
-  openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu"
+  chemscraper_frontend_url: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+  ezspecificity_frontend_url: "https://ezspecificity.frontend.staging.mmli2.ncsa.illinois.edu"
+  novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
+  somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
+  clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"
+  molli_frontend_url: "https://molli.frontend.staging.mmli2.ncsa.illinois.edu"
+  aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
+  openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -81,16 +88,16 @@ config:
     apiBasePath: "api/v1"
     basePath: ""
     ## API hostname. Must match the ingress.hostname value.
-    hostName: "mmli.fastapi.mmli1.ncsa.illinois.edu"
+    hostName: "mmli.fastapi.mmli2.ncsa.illinois.edu"
 
   db:
-    url: ''
+    url: ""
 
   minio:
     server: "mmli-backend-minio.mmli.svc.cluster.local:9000"
     apiBaseUrl: "minioapi.mmli.fastapi.localhost"
-    accessKey: ''
-    secretKey: ''
+    accessKey: ""
+    secretKey: ""
 
   auth:
     userInfoUrl: "http://oauth2.proxy.local/oauth2/userinfo"
@@ -115,15 +122,20 @@ config:
       image: "kastanday/aceretro:slimer"
       imagePullPolicy: "Always"
       # command: "python entrypoint.py" # defined in job.py
+      env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
       volumes:
-      - name: 'shared-storage'
-        mountPath: '/uws/jobs/aceretro/JOB_ID/in'
-        subPath: 'uws/jobs/aceretro/JOB_ID/in'
-        claimName: 'mmli-clean-job-weights'
-      - name: 'shared-storage'
-        mountPath: '/uws/jobs/aceretro/JOB_ID/out'
-        subPath: 'uws/jobs/aceretro/JOB_ID/out'
-        claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/aceretro/JOB_ID/in"
+          subPath: "uws/jobs/aceretro/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/aceretro/JOB_ID/out"
+          subPath: "uws/jobs/aceretro/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
       resources:
         limits:
           cpu: "4"
@@ -132,43 +144,59 @@ config:
           cpu: "2"
           memory: 12Gi
 
+    # Config for running ChemScraper job
+    chemscraper:
+      image: moleculemaker/chemscraper-job:latest
+      imagePullPolicy: Always
+      env:
+        - name: CHEMSCRAPER_BASE_URL
+          value: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"
+      volumes:
+        - claimName: "mmli-shared-job-data"
+          mountPath: /usr/app/inputs/
+          name: shared-storage
+          subPath: uws/jobs/chemscraper/JOB_ID/in
+        - claimName: "mmli-shared-job-data"
+          mountPath: /usr/app/outputs/
+          name: shared-storage
+          subPath: uws/jobs/chemscraper/JOB_ID/out
+
     # Config for running CLEAN job
     clean:
       image: "moleculemaker/clean-image-amd64:latest"
       imagePullPolicy: "Always"
       volumes:
         # TODO: Refactor volumes in CLEAN
-        - name: 'shared-storage'
-          mountPath: '/app/data/inputs'
-          subPath: 'uws/jobs/clean/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/app/results/inputs'
-          subPath: 'output'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/root/.cache/torch/hub/checkpoints'
-          subPath: 'weights'
-          claimName: 'mmli-clean-job-weights'
-
+        - name: "shared-storage"
+          mountPath: "/app/data/inputs"
+          subPath: "uws/jobs/clean/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/app/results/inputs"
+          subPath: "uws/jobs/clean/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/root/.cache/torch/hub/checkpoints"
+          subPath: "uws/jobs/clean/.hub"
+          claimName: "mmli-shared-job-data"
 
     # Config for running CLEANDB MEP-ESM2 job
     cleandb-mepesm:
-      image: 'moleculemaker/cleandb-mepesm2'
-      imagePullPolicy: 'Always'
+      image: "moleculemaker/cleandb-mepesm2"
+      imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/in'
-          subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/cleandb-mepesm/JOB_ID/out'
-          subPath: 'uws/jobs/cleandb-mepesm/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/cleandb-mepesm/JOB_ID/in"
+          subPath: "uws/jobs/cleandb-mepesm/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/cleandb-mepesm/JOB_ID/out"
+          subPath: "uws/jobs/cleandb-mepesm/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
         - mountPath: /root/.cache/torch/hub
           name: shared-storage
           subPath: uws/jobs/cleandb-mepesm/.hub
-          claimName: 'mmli-clean-job-weights'
+          claimName: "mmli-shared-job-data"
 
 
     # Config for running MOLLI job
@@ -180,60 +208,59 @@ config:
         - regcred
       volumes:
         # TODO: Refactor volumes in MOLLI
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/clean/JOB_ID/in'
-          subPath: 'uws/jobs/clean/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/app/results/inputs'
-          subPath: 'output'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/root/.cache/torch/hub/checkpoints'
-          subPath: 'weights'
-          claimName: 'mmli-clean-job-weights'
-
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/molli/JOB_ID/in"
+          subPath: "uws/jobs/molli/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/app/results/inputs"
+          subPath: "uws/jobs/molli/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/root/.cache/torch/hub/checkpoints"
+          subPath: "uws/jobs/molli/.hub"
+          claimName: "mmli-shared-job-data"
 
     # Config for running OpenEnzymeDB DLKcat job
     oed-dlkcat:
-      image: 'moleculemaker/oed-dlkcat-dla'
-      imagePullPolicy: 'Always'
+      image: "moleculemaker/oed-dlkcat-dla"
+      imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/in'
-          subPath: 'uws/jobs/oed-dlkcat/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-dlkcat/JOB_ID/out'
-          subPath: 'uws/jobs/oed-dlkcat/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-dlkcat/JOB_ID/in"
+          subPath: "uws/jobs/oed-dlkcat/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-dlkcat/JOB_ID/out"
+          subPath: "uws/jobs/oed-dlkcat/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
 
     # Config for running OpenEnzymeDB UniKP job
     oed-unikp:
-      image: 'moleculemaker/oed-unikp'
-      imagePullPolicy: 'Always'
+      image: "moleculemaker/oed-unikp"
+      imagePullPolicy: "Always"
       volumes:
         - mountPath: /root/.cache/huggingface/hub
           name: shared-storage
           subPath: uws/jobs/oed-unikp/.cache
-          claimName: 'mmli-clean-job-weights'
+          claimName: "mmli-shared-job-data"
         - mountPath: /usr/app/UniKP
           name: shared-storage
           subPath: uws/jobs/oed-unikp/.models
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-unikp/JOB_ID/in'
-          subPath: 'uws/jobs/oed-unikp/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-unikp/JOB_ID/out'
-          subPath: 'uws/jobs/oed-unikp/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-unikp/JOB_ID/in"
+          subPath: "uws/jobs/oed-unikp/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-unikp/JOB_ID/out"
+          subPath: "uws/jobs/oed-unikp/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
       secrets:
-        - mountPath: '/root/.cache/token'
-          name: 'token'
-          subPath: 'token'
-          readOnly: 'true'
+        - mountPath: "/root/.cache/token"
+          name: "token"
+          subPath: "token"
+          readOnly: "true"
           secretName: huggingface-token
           # "itemList" takes the place of "items"
           # This should avoid overlap with the built-in items() function
@@ -241,53 +268,56 @@ config:
             - key: token
               path: token
 
-
     # Config for running OpenEnzymeDB CatPred job
     oed-catpred:
-      image: 'moleculemaker/oed-catpred'
-      imagePullPolicy: 'Always'
+      image: "moleculemaker/oed-catpred"
+      imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-catpred/JOB_ID/in'
-          subPath: 'uws/jobs/oed-catpred/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-catpred/JOB_ID/out'
-          subPath: 'uws/jobs/oed-catpred/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-catpred/JOB_ID/in"
+          subPath: "uws/jobs/oed-catpred/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-catpred/JOB_ID/out"
+          subPath: "uws/jobs/oed-catpred/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
         - mountPath: /catpred_pipeline/data
           name: shared-storage
           subPath: uws/jobs/oed-catpred/.pretrained
-          claimName: 'mmli-clean-job-weights'
+          claimName: "mmli-shared-job-data"
         - mountPath: /catpred_pipeline/catpred/production_models
           name: shared-storage
           subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
-          claimName: 'mmli-clean-job-weights'
+          claimName: "mmli-shared-job-data"
+        - mountPath: /root/.cache/torch/hub/checkpoints
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.hub
+          claimName: "mmli-shared-job-data"
 
     # Config for running ReactionMiner job
     reactionminer:
       image: "moleculemaker/reactionminer:ReactionMiner_v2"
       imagePullPolicy: "Always"
       env:
-      - name: HF_TOKEN_PATH
-        value: '/root/.cache/token'
-      - name: GROBID_SERVER
-        value: 'mmli-grobid-staging.staging.svc.cluster.local'
-      - name: CHEMSCRAPER_BASE_URL	
-        value: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"	
+        - name: HF_TOKEN_PATH
+          value: "/root/.cache/token"
+        - name: GROBID_SERVER
+          value: "mmli-grobid-staging.staging.svc.cluster.local"
+        - name: CHEMSCRAPER_BASE_URL
+          value: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/workspace/10test/'
-          subPath: 'uws/jobs/reactionminer/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/workspace/extraction/results_filtered/'
-          subPath: 'uws/jobs/reactionminer/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
-        - mountPath: '/root/.cache/huggingface/hub'
-          name: 'shared-storage'
-          subPath: 'uws/jobs/reactionminer/.cache'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/workspace/10test/"
+          subPath: "uws/jobs/reactionminer/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/workspace/extraction/results_filtered/"
+          subPath: "uws/jobs/reactionminer/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - mountPath: "/root/.cache/huggingface/hub"
+          name: "shared-storage"
+          subPath: "uws/jobs/reactionminer/.cache"
+          claimName: "mmli-shared-job-data"
 
       # Create a secret named HuggingFace API token
       # We use a SealedSecret in staging + prod for this
@@ -301,10 +331,10 @@ config:
       #   data:
       #     token: YOUR_API_TOKEN
       secrets:
-        - mountPath: '/root/.cache/token'
-          name: 'token'
-          subPath: 'token'
-          readOnly: 'true'
+        - mountPath: "/root/.cache/token"
+          name: "token"
+          subPath: "token"
+          readOnly: "true"
           secretName: huggingface-token
           # "itemList" takes the place of "items"
           # This should avoid overlap with the built-in items() function
@@ -315,7 +345,7 @@ config:
     # Config for running SOMN job
     somn:
       image: "ianrinehart/somn:1.2.1"
-      projectDirectory: '/tmp/somn_root/somn_scratch/IID-Models-2024'
+      projectDirectory: "/tmp/somn_root/somn_scratch/IID-Models-2024"
       command: "cp ${JOB_INPUT_DIR}/example_request.csv ${SOMN_PROJECT_DIR}/scratch/test_request.csv && micromamba run -n base somn predict last latest asdf && cp -r ${SOMN_PROJECT_DIR}/outputs/asdf/*/* ${JOB_OUTPUT_DIR}"
       imagePullPolicy: "Always"
       securityContext:
@@ -325,14 +355,14 @@ config:
         runAsGroup: 0
         #fsGroup: 57439
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/somn/JOB_ID/in'
-          subPath: 'uws/jobs/somn/JOB_ID/in'
-          claimName: 'mmli-clean-job-weights'
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/somn/JOB_ID/out'
-          subPath: 'uws/jobs/somn/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/somn/JOB_ID/in"
+          subPath: "uws/jobs/somn/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/somn/JOB_ID/out"
+          subPath: "uws/jobs/somn/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
 
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
@@ -340,10 +370,10 @@ config:
       command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/novostoic-optstoic/JOB_ID/out'
-          subPath: 'uws/jobs/novostoic-optstoic/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-optstoic/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-optstoic/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
       resources:
         limits:
           cpu: "1"
@@ -358,10 +388,10 @@ config:
       command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
-          subPath: 'uws/jobs/novostoic-pathways/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
 
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
@@ -369,10 +399,10 @@ config:
       command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/novostoic-dgpredictor/JOB_ID/out'
-          subPath: 'uws/jobs/novostoic-dgpredictor/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-dgpredictor/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-dgpredictor/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
 
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
@@ -380,20 +410,52 @@ config:
       command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
       imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/novostoic-enzrank/JOB_ID/out'
-          subPath: 'uws/jobs/novostoic-enzrank/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-enzrank/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-enzrank/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
 
     oed-cheminfo:
       image: "moleculemaker/mmli-cheminfo-service"
       command: "python ./main.py --oed"
       imagePullPolicy: "Always"
       volumes:
-        - name: 'shared-storage'
-          mountPath: '/uws/jobs/oed-cheminfo/JOB_ID/out'
-          subPath: 'uws/jobs/oed-cheminfo/JOB_ID/out'
-          claimName: 'mmli-clean-job-weights'
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-cheminfo/JOB_ID/out"
+          subPath: "uws/jobs/oed-cheminfo/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+
+    # Config for running SimpleFold protein structure prediction job
+    ml-simplefold:
+      image: "davidbianchi/ml-simplefold:version1"
+      imagePullPolicy: "IfNotPresent"
+      env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/workspace/input"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/workspace/output"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/root/.cache/torch/hub"
+          subPath: "uws/jobs/ml-simplefold/.cache"
+          claimName: "mmli-shared-job-data"
+      resources:
+        limits:
+          cpu: "16"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "4"
+          memory: "24Gi"
+          nvidia.com/gpu: "1"
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
@@ -402,12 +464,12 @@ config:
       namespace: "mmli"
 
       # Example job image name + command combo
-      image: 'perl:5.34.0'
+      image: "perl:5.34.0"
       command: "perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out"
 
       ## Server working directory to store generated job data
       workingVolume:
-        claimName: "mmli-clean-job-weights"
+        claimName: "mmli-shared-job-data"
         mountPath: "/uws"
         subPath: "uws"
       ## Central data volumes to be mounted in job containers
@@ -429,9 +491,69 @@ config:
           cpu: "1"
           memory: "12Gi"
 
+
+    ez-specificity:
+      # Example job image name + command combo
+      image: "moleculemaker/mmli-backend:latest"
+      command: "python ./coordinator.py"
+      steps:
+        # Define names / order for steps here
+        - ezspec-unidock
+        - ezspec-inference
+
+      # Parent job doesn't need many resources
+      resources:
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+        requests:
+          cpu: "1"
+          memory: "1Gi"
+
+
+    ezspec-unidock:
+      image: moleculemaker/ezspec-unidock:latest
+      #command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/out
+          claimName: mmli-shared-job-data
+
+
+    ezspec-inference:
+      image: moleculemaker/ezspec-inference:latest
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      #command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
+          subPath: uws/jobs/ezspec-inference/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
+          subPath: uws/jobs/ezspec-inference/JOB_ID/out
+          claimName: mmli-shared-job-data
+
   external:
     chemscraper:
-      apiBaseUrl: "https://chemscraper.backend.staging.mmli1.ncsa.illinois.edu"
-      frontendBaseUrl: "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu"
+      apiBaseUrl: "https://chemscraper.backend.staging.mmli2.ncsa.illinois.edu"
+      frontendBaseUrl: "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu"
+
 
 

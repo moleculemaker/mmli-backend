@@ -5,7 +5,7 @@ metadata:
 spec:
   selector:
     app: mmli-fastapi
-  type: ClusterIP
+  type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
     - protocol: "TCP"
       port: 8080
