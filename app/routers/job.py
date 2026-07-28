@@ -301,6 +301,43 @@ async def create_job(
                     raise HTTPException(status_code=400, detail="Failed to upload file to MinIO")
             command = app_config['kubernetes_jobs'][job_type]['command']
 
+        # TODO: Set user_agent based on requestor
+        user_agent = ''
+
+        # TODO: Validation
+        # TODO: Set internal metadata / fields
+        #
+        # Write the DB row BEFORE creating the Kubernetes Job. KubeWatcher looks this row up
+        # by jobId for every event it receives and drops events whose row does not exist yet;
+        # since the watch never replays old events, a Job that got created (and, for the short
+        # ones, finished) inside that window is stranded at 'queued' even after Kubernetes
+        # reports it complete.
+        created_new_job = not db_job
+        if created_new_job:
+            # Create a new DB job from user input
+            db_job: Job = Job(
+                # User input
+                email=email,
+                job_info=job_info,
+                job_id=job_id,
+                run_id=run_id,
+
+                type=job_type,
+                command=command,
+                image=image_name,
+
+                # Job metadata
+                deleted=0,
+                time_created=int(time.time()),
+
+                # Set ser metadata
+                user_agent=user_agent,
+            )
+
+            db.add(db_job)
+            await db.commit()
+            await db.refresh(db_job)
+
         # Run a Kubernetes Job with the given image + command + environment
         try:
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
@@ -308,47 +345,26 @@ async def create_job(
         except Exception as ex:
             log.error("Failed to create Job: " + str(ex))
             log.error(traceback.format_exc())
+            # The row we just wrote is already visible to clients, and nothing will ever run
+            # to move it along - fail it here rather than leaving it polling 'queued' forever.
+            # Only ever touch a row this request created: a duplicate POST for an existing
+            # job_id must not knock that job out of whatever phase it legitimately reached.
+            if created_new_job:
+                db_job.phase = JobStatus.ERROR
+                db.add(db_job)
+                await db.commit()
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
+
+        if created_new_job:
+            return JSONResponse(status_code=status.HTTP_201_CREATED, content={
+                'job_id': str(db_job.job_id),
+                'run_id': str(db_job.run_id),
+                'email': str(db_job.email),
+                'job_info': str(db_job.job_info),
+            })
 
     else:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
-
-    # TODO: Set user_agent based on requestor
-    user_agent = ''
-
-    # TODO: Validation
-    # TODO: Set internal metadata / fields
-    if not db_job:
-        # Create a new DB job from user input
-        db_job: Job = Job(
-            # User input
-            email=email,
-            job_info=job_info,
-            job_id=job_id,
-            run_id=run_id,
-
-            type=job_type,
-            command=command,
-            image=image_name,
-
-            # Job metadata
-            deleted=0,
-            time_created=int(time.time()),
-
-            # Set ser metadata
-            user_agent=user_agent,
-        )
-
-        db.add(db_job)
-        await db.commit()
-        await db.refresh(db_job)
-
-        return JSONResponse(status_code=status.HTTP_201_CREATED, content={
-            'job_id': str(db_job.job_id),
-            'run_id': str(db_job.run_id),
-            'email': str(db_job.email),
-            'job_info': str(db_job.job_info),
-        })
 
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'job_id': str(db_job.job_id),
