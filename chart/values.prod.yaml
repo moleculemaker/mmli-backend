@@ -32,6 +32,7 @@ config:
           key: mmli.role
           operator: Exists
     ez-specificity:
+      image: "moleculemaker/mmli-backend:main"
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
