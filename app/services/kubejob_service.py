@@ -115,7 +115,7 @@ class KubeEventWatcher:
 
     def __init__(self):
         self.logger = log
-        #self.logger.setLevel('DEBUG')
+        self.logger.setLevel('DEBUG')
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
         # Get global instance of the job handler database interface
 
