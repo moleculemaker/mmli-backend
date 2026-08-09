@@ -5,13 +5,6 @@
 pytest==7.4.4
 pytest-asyncio==0.21.2
 
-# starlette 0.22 (pinned transitively by fastapi 0.89) builds its TestClient by passing
-# app= to httpx.Client. httpx removed that argument in 0.28, so an unpinned install
-# fails with "Client.__init__() got an unexpected keyword argument 'app'". Test-only
-# pin; the runtime requirements are untouched. This can be dropped once the framework
-# upgrade lands.
-httpx==0.23.3
-
 # Async SQLite driver: lets the characterization tests run against a throwaway
 # file-backed DB instead of requiring a live Postgres.
 aiosqlite==0.19.0

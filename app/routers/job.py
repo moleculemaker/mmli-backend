@@ -8,12 +8,12 @@ import csv
 import io
 import traceback
 
-from typing import List
+from typing import List, Optional
 
-from fastapi import Depends, HTTPException, APIRouter, UploadFile
-from fastapi.openapi.models import Response
-from fastapi.params import Path, Body, File
-from pydantic.fields import Annotated, Optional
+# Body/Path come from `fastapi`, not `fastapi.params`. The latter holds the underlying
+# parameter classes; the public helpers are what the framework expects as defaults, and
+# only they accept the keyword form used below.
+from fastapi import Body, Depends, HTTPException, APIRouter, Path, UploadFile
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -65,16 +65,26 @@ async def create_job(
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
-    # Check if this job_id already exists for this job_type
-    statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
-    existing_jobs = await db.exec(statement)
-    db_job: Job = existing_jobs.first()
-    #if db_job:
-    #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
-
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type in JobTypes:
+        # Look the job up only once the type is known to be valid, so this cannot
+        # depend on how strictly the database enforces the column.
+        #
+        # The deployed schema (built by alembic) stores `type` as a varchar and would
+        # simply match no rows. A schema built from the SQLModel metadata instead - which
+        # is what SQLModel.metadata.create_all() produces, and what the test suite uses -
+        # maps JobType to a native Postgres enum, where an unrecognized value makes the
+        # driver raise InvalidTextRepresentationError and the request 500s.
+        #
+        # Validating first makes the behavior identical under both, which matters
+        # because those two schemas are not currently guaranteed to agree.
+        statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
+        existing_jobs = await db.exec(statement)
+        db_job: Job = existing_jobs.first()
+        #if db_job:
+        #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+
         log.debug(f"Creating Kubernetes job: {job_type}")
         # runs in Kubernetes, read Docker image name from config
         image_name = app_config['kubernetes_jobs'][job_type]['image']
@@ -616,6 +626,13 @@ async def patch_existing_job(job: JobUpdate, job_type: str, db: AsyncSession = D
 @router.delete("/{job_type}/jobs/{job_id}/{run_id}", tags=['Jobs'], description="Delete a single Job by type, job_id, and run_id")
 async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_id: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
+    # Validate before querying, as every other route on this router does. Filtering on
+    # an unrecognized type is only harmless if the column is a plain varchar; against a
+    # schema built from the SQLModel metadata it is a native enum and the driver raises.
+    job_types = [e for e in JobType]
+    if job_type not in job_types:
+        raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
+
     result = await db.execute(select(Job).where(Job.type == job_type).where(Job.job_id == job_id).where(Job.run_id == run_id))
     db_job = result.first()
     if not db_job:
