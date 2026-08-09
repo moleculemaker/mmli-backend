@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReactionMiner input",
+  "description": "Extracts reactions from PDFs. Takes no job_info: upload one or more PDFs to this job's input directory before submission.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
