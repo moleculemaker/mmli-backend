@@ -26,7 +26,7 @@ class NovostoicService:
     async def optstoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         job = await db.get(Job, job_id)
         if not job:
-            return HTTPException(status_code=404, detail="Job not found")
+            raise HTTPException(status_code=404, detail="Job not found")
         
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:
@@ -59,7 +59,7 @@ class NovostoicService:
     async def novostoicResultPostProcess(bucket_name: str, job_id: str, service: MinIOService, db: AsyncSession):
         job = await db.get(Job, job_id)
         if not job:
-            return HTTPException(status_code=404, detail="Job not found")
+            raise HTTPException(status_code=404, detail="Job not found")
         
         file = service.get_file(bucket_name, f"{job_id}/out/output.json")
         if not file:

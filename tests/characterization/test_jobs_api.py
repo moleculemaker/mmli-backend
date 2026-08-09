@@ -11,6 +11,7 @@ import json
 import pytest
 
 from models.enums import JobStatus
+from services import kubejob_service
 
 
 DEFAULTS = "defaults"
@@ -66,35 +67,99 @@ class TestCreateJob:
 class TestCreateJobWithExistingId:
     """The collision branch: POSTing a job_id that already exists.
 
-    Every assertion in this class documents a defect. See PR "legacy fixes".
+    This endpoint is unauthenticated, so naming an existing id proves only that the
+    caller can name it. Each test here previously asserted a defect; see the diff of
+    this file in the "legacy fixes" change for what the behavior used to be.
     """
 
-    def test_returns_200_and_discloses_the_stored_email(self, client):
+    def test_does_not_disclose_the_stored_email(self, client):
         _post_job(client, job_id="victim", email="owner@illinois.edu", job_info='{"secret": 1}')
 
         resp = _post_job(client, job_id="victim")
 
-        # DEFECT: unauthenticated information disclosure. A caller who guesses an
-        # existing job_id is told the owner's email address.
+        # Was: returned the owner's address, making the endpoint an oracle for
+        # harvesting researchers' emails from guessed job_ids.
         assert resp.status_code == 200
-        assert resp.json()["email"] == "owner@illinois.edu"
+        assert resp.json()["email"] is None
 
-    def test_overwrites_the_stored_job_info(self, client):
+    def test_does_not_disclose_the_stored_job_info(self, client):
         _post_job(client, job_id="victim", email="owner@illinois.edu", job_info='{"secret": 1}')
 
-        resp = _post_job(client, job_id="victim", job_info='{"tampered": true}')
+        resp = _post_job(client, job_id="victim")
 
-        # DEFECT: unauthenticated data tampering. The caller's job_info replaces the
-        # owner's stored input, destroying the record of what was actually run.
-        assert resp.json()["job_info"] == '{"tampered": true}'
+        # Was: returned the owner's submitted inputs.
+        assert resp.json()["job_info"] is None
 
-    def test_submits_a_second_kubernetes_job(self, client):
+    def test_still_returns_the_job_id(self, client):
+        """coordinator.py reads job_id from a 200 or a 201, so it must survive."""
+        _post_job(client, job_id="victim")
+
+        resp = _post_job(client, job_id="victim")
+
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == "victim"
+        assert set(resp.json()) == {"job_id", "run_id", "email", "job_info"}
+
+    def test_does_not_overwrite_the_stored_job_info(self, client):
+        _post_job(client, job_id="victim", email="owner@illinois.edu", job_info='{"secret": 1}')
+
+        _post_job(client, job_id="victim", job_info='{"tampered": true}')
+
+        # Was: the caller's job_info replaced the owner's, destroying the record of
+        # what was actually run.
+        stored = client.get(f"/{DEFAULTS}/jobs/victim").json()[0]["job_info"]
+        assert stored == '{"secret": 1}'
+
+    def test_does_not_submit_a_second_kubernetes_job(self, client):
         _post_job(client, job_id="victim")
         _post_job(client, job_id="victim")
 
-        # DEFECT: create_job runs before the existence check, so a duplicate POST
-        # launches a second pod against the same job_id.
-        assert len(client.k8s_jobs) == 2
+        # Was: create_job ran before the existence check, so a duplicate POST forked a
+        # second run of the same job.
+        assert len(client.k8s_jobs) == 1
+
+    def test_does_not_disturb_the_existing_jobs_phase(self, client):
+        _post_job(client, job_id="victim")
+
+        _post_job(client, job_id="victim")
+
+        assert client.get(f"/{DEFAULTS}/jobs/victim").json()[0]["phase"] == JobStatus.QUEUED
+
+
+class TestKubernetesRejection:
+    """create_job swallows ApiException and reports failure via its return value."""
+
+    def test_a_rejected_submission_returns_400(self, client, monkeypatch):
+        monkeypatch.setattr(
+            kubejob_service,
+            "create_job",
+            lambda **kw: {"status": "error", "message": "jobs.batch already exists"},
+        )
+
+        resp = _post_job(client, job_id="rejected")
+
+        # Was: 201, because the exception never propagated and the return value was
+        # ignored -- the caller was told the job started when no pod existed.
+        assert resp.status_code == 400
+        assert "already exists" in resp.json()["detail"]
+
+    def test_a_rejected_submission_leaves_the_job_in_error_not_queued(self, client, monkeypatch):
+        monkeypatch.setattr(
+            kubejob_service,
+            "create_job",
+            lambda **kw: {"status": "error", "message": "exceeded quota"},
+        )
+
+        _post_job(client, job_id="rejected")
+
+        # Was: stranded at 'queued' forever, with nothing running to advance it.
+        assert client.get(f"/{DEFAULTS}/jobs/rejected").json()[0]["phase"] == JobStatus.ERROR
+
+    def test_a_successful_submission_is_unaffected(self, client):
+        resp = _post_job(client, job_id="fine")
+
+        assert resp.status_code == 201
+        assert client.get(f"/{DEFAULTS}/jobs/fine").json()[0]["phase"] == JobStatus.QUEUED
 
 
 class TestReadJobs:
@@ -135,20 +200,33 @@ class TestReadJobs:
 
 
 class TestDeleteJob:
-    def test_delete_removes_the_row_but_leaves_the_kubernetes_job_running(self, client):
+    def test_delete_removes_the_row_and_the_kubernetes_job(self, client, deleted_k8s_jobs):
         _post_job(client, job_id="j1", run_id="r1")
-        client.k8s_jobs.clear()
 
         resp = client.delete(f"/{DEFAULTS}/jobs/j1/r1")
 
         assert resp.status_code == 200
         assert client.get(f"/{DEFAULTS}/jobs/j1").json() == []
-        # DEFECT: kubejob_service.delete_job() is never called, so the pod keeps
-        # running with no DB row to track it.
-        assert client.k8s_jobs == []
+        # Was: the row was dropped but the pod kept running, consuming cluster
+        # resources with nothing left to observe or stop it.
+        assert deleted_k8s_jobs == [{"job_type": DEFAULTS, "job_id": "j1"}]
 
-    def test_delete_unknown_job_returns_404(self, client):
+    def test_delete_succeeds_even_if_the_cluster_call_fails(self, client, monkeypatch):
+        """A cluster problem must not leave a user unable to delete their own record."""
+        def _boom(**kwargs):
+            raise RuntimeError("cluster unreachable")
+
+        monkeypatch.setattr(kubejob_service, "delete_job", _boom)
+        _post_job(client, job_id="j1", run_id="r1")
+
+        resp = client.delete(f"/{DEFAULTS}/jobs/j1/r1")
+
+        assert resp.status_code == 200
+        assert client.get(f"/{DEFAULTS}/jobs/j1").json() == []
+
+    def test_delete_unknown_job_returns_404(self, client, deleted_k8s_jobs):
         assert client.delete(f"/{DEFAULTS}/jobs/nope/nope").status_code == 404
+        assert deleted_k8s_jobs == []
 
 
 class TestPerToolInputValidation:

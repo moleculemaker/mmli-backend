@@ -30,37 +30,42 @@ router = APIRouter()
 
 @router.post("/chemscraper/analyze", tags=['ChemScraper'], response_model=List[Molecule], deprecated=True)
 async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: BackgroundTasks, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session), email_service: EmailService = Depends()):
+    # An empty fileList or jobId used to fall out of the function with no return
+    # statement at all, which FastAPI renders as HTTP 200 with a null body - reporting
+    # success for a request that was never accepted and no job that will ever run.
+    if len(requestBody.fileList) == 0 or requestBody.jobId == "":
+        raise HTTPException(status_code=400, detail='"fileList" must be non-empty and "jobId" must be set')
+
     # Analyze only one document for NSF demo
-    if len(requestBody.fileList) > 0 and requestBody.jobId != "":
-        # Create a new job and add to the DB
-        separator = "|"
-        curr_time = time.time()
-        db_job: Job = await db.get(Job, requestBody.jobId)
-        if not db_job:
-            db_job = Job(
-                email=requestBody.user_email,
-                job_info=separator.join(requestBody.fileList),
-                job_id=requestBody.jobId,
-                phase=JobStatus.PROCESSING,
-                # Run ID takes the default value since the app doesn't support multiple runs right now
-                type=JobType.CHEMSCRAPER,
-                user_agent='',
-                time_created=int(curr_time)
-            )
+    # Create a new job and add to the DB
+    separator = "|"
+    curr_time = time.time()
+    db_job: Job = await db.get(Job, requestBody.jobId)
+    if not db_job:
+        db_job = Job(
+            email=requestBody.user_email,
+            job_info=separator.join(requestBody.fileList),
+            job_id=requestBody.jobId,
+            phase=JobStatus.PROCESSING,
+            # Run ID takes the default value since the app doesn't support multiple runs right now
+            type=JobType.CHEMSCRAPER,
+            user_agent='',
+            time_created=int(curr_time)
+        )
 
-        try: 
-            db.add(db_job)
-            await db.commit()
-        except Exception as e:
-            content = {"jobId": requestBody.jobId, "error_message": "Database Error Occurred.", "error_details": str(e)}
-            return JSONResponse(content=content, status_code=400) 
+    try:
+        db.add(db_job)
+        await db.commit()
+    except Exception as e:
+        content = {"jobId": requestBody.jobId, "error_message": "Database Error Occurred.", "error_details": str(e)}
+        return JSONResponse(content=content, status_code=400)
 
-        filename = requestBody.fileList[0]
-        chemscraperService = ChemScraperService(db=db)
-        objectPath = f"{requestBody.jobId}/in/{filename}"
-        background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
-        content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
-        return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
+    filename = requestBody.fileList[0]
+    chemscraperService = ChemScraperService(db=db)
+    objectPath = f"{requestBody.jobId}/in/{filename}"
+    background_tasks.add_task(chemscraperService.runChemscraperOnDocument, 'chemscraper', filename, objectPath, requestBody.jobId, service, email_service)
+    content = {"jobId": requestBody.jobId, "submitted_at": datetime.now().isoformat()}
+    return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
 @router.get("/chemscraper/similarity-sorted-order/{job_id}")

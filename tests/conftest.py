@@ -54,7 +54,10 @@ from sqlmodel import SQLModel, create_engine  # noqa: E402
 import main  # noqa: E402
 from services.minio_service import MinIOService  # noqa: E402
 
-# db.py builds its engine with echo=True, which makes every test emit the full SQL log.
+# db.py builds its engine with echo=True. SQLAlchemy implements echo by setting the
+# logger's level when the engine is constructed, so this has to run after that import
+# rather than before it, or the engine simply raises the level back to INFO and every
+# test emits a full SQL log.
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
 
@@ -134,7 +137,19 @@ def created_k8s_jobs(monkeypatch):
 
 
 @pytest.fixture
-def client(fake_minio, created_k8s_jobs):
+def deleted_k8s_jobs(monkeypatch):
+    """Record calls to kubejob_service.delete_job instead of talking to Kubernetes."""
+    calls = []
+
+    def _record(job_type=None, job_id=None):
+        calls.append({"job_type": job_type, "job_id": job_id})
+
+    monkeypatch.setattr(kubejob_service, "delete_job", _record)
+    return calls
+
+
+@pytest.fixture
+def client(fake_minio, created_k8s_jobs, deleted_k8s_jobs):
     main.app.dependency_overrides[MinIOService] = lambda: fake_minio
     with TestClient(main.app) as test_client:
         test_client.minio = fake_minio
