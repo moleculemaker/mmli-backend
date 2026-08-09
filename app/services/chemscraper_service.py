@@ -227,7 +227,8 @@ class ChemScraperService:
         molecules_data_idx = 0
 
         # Setting Pubchem results directly to CSV
-        data = [m.dict() for m in molecules]
+        # .dict() still works in Pydantic 2 but is deprecated and goes away in 3
+        data = [m.model_dump() for m in molecules]
         for d in data:
             d['chemicalSafety'] = ', '.join(d['chemicalSafety'])
             d['OtherInstances'] = ', '.join(otherInstancesDict.get(d['SMILE'], []))

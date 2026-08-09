@@ -27,8 +27,15 @@ async def lifespan(app_: FastAPI):
     global watcher
     global log
     log.info("Starting up...")
-    log.info("Starting KubeWatcher...")
-    watcher.run()
+    # KubeEventWatcher starts its own daemon thread in __init__, so there is nothing to
+    # start here. Do NOT call watcher.run(): it is the thread body, an endless watch
+    # loop, and calling it inline blocks the event loop so startup never completes.
+    #
+    # This mattered only in theory until now. FastAPI 0.89 discarded the lifespan
+    # argument entirely, so this handler never ran; the upgrade in this commit makes it
+    # live, which turns a dormant hazard into a hang on boot. The open PR that fixes the
+    # stranded-job bug removes the same call, so expect a small conflict if both land.
+    log.info(f"KubeWatcher running: {watcher.is_alive()}")
     yield
     log.info("Shutting down...")
     watcher.close()

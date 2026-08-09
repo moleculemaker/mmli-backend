@@ -21,6 +21,43 @@ The image is pinned to `linux/amd64`. This is not optional: `python-terrier` dep
 `pytrec-eval-terrier`, which publishes no `aarch64` wheel and cannot build from source,
 so an arm64 build fails to install the application's dependencies at all.
 
+### Running the tests against Postgres
+
+By default the suite uses a throwaway SQLite file, so it needs no running services. Set
+`TEST_DATABASE_URL` to run the identical tests against the driver production uses:
+
+```bash
+docker network create mmli-test-net
+docker run -d --name mmli-pg --network mmli-test-net \
+  -e POSTGRES_PASSWORD=pw -e POSTGRES_USER=postgres -e POSTGRES_DB=mmli postgres:15
+
+docker run --rm --network mmli-test-net \
+  -e TEST_DATABASE_URL="postgresql+asyncpg://postgres:pw@mmli-pg:5432/mmli" \
+  mmli-backend-test pytest -q
+```
+
+Worth doing whenever the ORM layer changes. SQLite exercises neither `asyncpg` nor
+Postgres type handling, so a whole class of driver-level problem is invisible to the
+default run.
+
+### Known limitation: the test schema is not the deployed schema
+
+The suite builds its tables with `SQLModel.metadata.create_all()`. Deployments build
+them with `alembic upgrade head`. **These do not produce the same schema.** The clearest
+example is `job.type`: the migrations declare it as `AutoString` (a plain `varchar`),
+while the SQLModel metadata maps the `JobType` enum to a *native Postgres enum*. Under
+the migration-built schema an unrecognized value simply matches no rows; under the
+metadata-built one the driver raises `InvalidTextRepresentationError`.
+
+So a test can pass or fail for reasons that do not apply in production, in either
+direction. Treat behavior that depends on column-level type enforcement as unverified
+until it has been checked against a migrated database.
+
+Fixing this properly means building the test schema from migrations, which is not
+currently possible on SQLite — several migrations use `ALTER COLUMN ... SET NOT NULL`,
+which SQLite does not support — so it would make Postgres mandatory for running tests.
+That trade-off has not been made.
+
 ### About `tests/characterization/`
 
 These tests pin the **current** behavior of the legacy API, including behavior that is

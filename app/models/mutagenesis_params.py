@@ -13,7 +13,7 @@ See MUTAGENESIS_INTEGRATION_SPEC.md.
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, validator
 
 # Tm methods the method understands (`-tm`); SantaLucia (NN) is the default.
 TM_METHODS = ("SantaLucia", "Wallace")
@@ -56,10 +56,14 @@ class MutagenesisJobInfo(BaseModel):
     codonTableValue: int = Field(1)
     tmMethod: str = Field("SantaLucia")
 
-    @validator("orfFile", "mutationList")
-    def _required_file_has_name(cls, v, field):
+    # field_validator rather than the deprecated validator shim: this is the one
+    # validator here that needs the field's name, and v2 supplies that through a
+    # ValidationInfo argument which the shim does not accept. The message is unchanged.
+    @field_validator("orfFile", "mutationList")
+    @classmethod
+    def _required_file_has_name(cls, v, info):
         if not v or not v.resolved_name():
-            raise ValueError(f"{field.name} must reference an uploaded file (filename required)")
+            raise ValueError(f"{info.field_name} must reference an uploaded file (filename required)")
         return v
 
     @validator("codonTableValue")
