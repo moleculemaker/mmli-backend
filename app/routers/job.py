@@ -20,7 +20,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette import status
 from starlette.responses import JSONResponse
 
-from config import get_logger, app_config
+from config import get_logger, app_config, STATUS_ERROR
 from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
@@ -41,6 +41,17 @@ log = get_logger(__name__)
 # EZSpecificity input limits (mirror the frontend's MAX_ENZYMES / substrate cap)
 EZSPEC_MAX_ENZYMES = 5
 EZSPEC_MAX_SUBSTRATES = 10
+
+
+async def _mark_job_failed(db: AsyncSession, db_job: Job) -> None:
+    """Move a just-created job to 'error' when nothing will ever run to advance it.
+
+    Only ever called for a row this request created. A job that already existed must
+    keep whatever phase it legitimately reached.
+    """
+    db_job.phase = JobStatus.ERROR
+    db.add(db_job)
+    await db.commit()
 
 
 CREATE_JOB_DESCRIPTION = """
@@ -463,10 +474,68 @@ async def create_job(
                 'value': somn_project_dir
             }]
 
+        # TODO: Set user_agent based on requestor
+        user_agent = ''
+
+        # Write the DB row BEFORE creating the Kubernetes Job. KubeWatcher looks this row
+        # up by jobId for every event it receives and drops events whose row does not
+        # exist yet; since the watch never replays old events, a Job that got created
+        # (and, for the short ones, finished) inside that window is stranded at 'queued'
+        # even after Kubernetes reports it complete.
+        #
+        # The same reordering exists on the open PR that fixes that stranding bug. It is
+        # repeated here rather than depended upon, because the duplicate-submission
+        # handling below needs the row to already exist and this branch does not build on
+        # that PR. Expect a small conflict if both land.
+        created_new_job = not db_job
+        if created_new_job:
+            db_job: Job = Job(
+                # User input
+                email=email,
+                job_info=job_info,
+                job_id=job_id,
+                run_id=run_id,
+
+                type=job_type,
+                command=command,
+                image=image_name,
+
+                # Job metadata
+                deleted=0,
+                time_created=int(time.time()),
+
+                # Set ser metadata
+                user_agent=user_agent,
+            )
+
+            db.add(db_job)
+            await db.commit()
+            await db.refresh(db_job)
+
+        # A POST naming a job_id that already exists is not a resubmission, and this
+        # endpoint has no authentication: the caller has proved only that they can name
+        # an id, which is not authority over the job that holds it. Stop here.
+        #
+        # Previously this path fell through and (a) launched a second Kubernetes Job
+        # under the same name, (b) replaced the stored job_info with the caller's, and
+        # (c) returned the owner's email address and inputs in the response body.
+        # The response keys and status code are unchanged so existing clients - notably
+        # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
+        if not created_new_job:
+            log.warning(f'Ignoring duplicate job submission for existing job_id={job_id} (type={job_type})')
+            return JSONResponse(status_code=status.HTTP_200_OK, content={
+                'job_id': str(db_job.job_id),
+                'run_id': str(db_job.run_id),
+                # Withheld: naming an id is not authorisation to read its owner's
+                # address or the inputs they submitted.
+                'email': None,
+                'job_info': None,
+            })
+
         # Run a Kubernetes Job with the given image + command + environment
         try:
             log.debug(f"Creating Kubernetes job[{job_type}]: " + job_id)
-            kubejob_service.create_job(
+            create_response = kubejob_service.create_job(
                 job_type=job_type,
                 job_id=job_id,
                 run_id=run_id,
@@ -477,42 +546,21 @@ async def create_job(
         except Exception as ex:
             log.error("Failed to create Job: " + str(ex))
             log.error(traceback.format_exc())
+            # The row we just wrote is already visible to clients, and nothing will ever run
+            # to move it along - fail it here rather than leaving it polling 'queued' forever.
+            await _mark_job_failed(db, db_job)
             raise HTTPException(status_code=400, detail="Failed to create Job: " + str(ex))
 
-    else:
-        log.error("Failed to create job - invalid job type: " + str(job_type))
-        log.error(traceback.format_exc())
-        raise HTTPException(status_code=400, detail="Invalid job type: " + str(job_type))
-
-    # TODO: Set user_agent based on requestor
-    user_agent = ''
-
-    # TODO: Validation
-    # TODO: Set internal metadata / fields
-    if not db_job:
-        # Create a new DB job from user input
-        db_job: Job = Job(
-            # User input
-            email=email,
-            job_info=job_info,
-            job_id=job_id,
-            run_id=run_id,
-
-            type=job_type,
-            command=command,
-            image=image_name,
-
-            # Job metadata
-            deleted=0,
-            time_created=int(time.time()),
-
-            # Set ser metadata
-            user_agent=user_agent,
-        )
-
-        db.add(db_job)
-        await db.commit()
-        await db.refresh(db_job)
+        # create_job catches ApiException internally, logs it, and returns a response
+        # carrying status=error rather than propagating it. Kubernetes rejections -
+        # an exceeded quota, an unpullable image, a name that already exists - are
+        # therefore invisible to the except clause above. Without this check the caller
+        # is told 201 while the row sits at 'queued' forever with no pod behind it.
+        if isinstance(create_response, dict) and create_response.get('status') == STATUS_ERROR:
+            message = create_response.get('message', 'unknown error')
+            log.error(f'Kubernetes rejected job[{job_type}] {job_id}: {message}')
+            await _mark_job_failed(db, db_job)
+            raise HTTPException(status_code=400, detail="Failed to create Job: " + str(message))
 
         return JSONResponse(status_code=status.HTTP_201_CREATED, content={
             'job_id': str(db_job.job_id),
@@ -520,19 +568,10 @@ async def create_job(
             'email': str(db_job.email),
             'job_info': str(db_job.job_info),
         })
+
     else:
-        db_job.job_info = job_info
-
-        await db.merge(db_job)
-        await db.commit()
-        await db.refresh(db_job)
-
-    return JSONResponse(status_code=status.HTTP_200_OK, content={
-        'job_id': str(db_job.job_id),
-        'run_id': str(db_job.run_id),
-        'email': str(db_job.email),
-        'job_info': str(db_job.job_info),
-    })
+        log.error("Failed to create job - invalid job type: " + str(job_type))
+        raise HTTPException(status_code=400, detail="Invalid job type: " + str(job_type))
 
 
 @router.get("/{job_type}/jobs", tags=['Jobs'], description="Get a list of all job runs by type")
@@ -619,6 +658,20 @@ async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, r
     db_job = result.first()
     if not db_job:
         raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job_id} and run_id={run_id}")
+
+    # Delete the Kubernetes Job before dropping the row. Removing only the row leaves a
+    # pod running with nothing tracking it: KubeWatcher looks each event up by jobId and
+    # discards events whose row is gone, so the work continues, consumes cluster
+    # resources, and writes its output to MinIO with no way to observe or stop it.
+    #
+    # Deliberately best-effort. delete_job already swallows ApiException (a Job that
+    # Kubernetes has since reaped is a 404, which is the expected case for anything
+    # older than ttlSecondsAfterFinished), and a cluster problem must not leave the
+    # caller unable to delete their own record.
+    try:
+        kubejob_service.delete_job(job_type=job_type, job_id=job_id)
+    except Exception as ex:
+        log.error(f'Failed to delete Kubernetes job[{job_type}] {job_id}, deleting DB row anyway: {ex}')
 
     await db.execute(delete(Job).where(Job.type == job_type).where(Job.job_id == job_id).where(Job.run_id == run_id))
     await db.commit()
