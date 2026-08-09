@@ -1,6 +1,34 @@
 # mmli-backend
 Unified FastAPI based backend for ChemScraper, (CLEAN job-manager and Molli - future scope)
 
+## Running the tests
+
+The suite runs inside the same base image the service ships from, so it exercises the
+pinned interpreter and library versions rather than whatever is on your machine:
+
+```bash
+docker build -f Dockerfile.test -t mmli-backend-test .
+docker run --rm mmli-backend-test pytest -q
+```
+
+To iterate on tests without rebuilding, mount them in:
+
+```bash
+docker run --rm -v "$PWD/tests:/code/tests" mmli-backend-test pytest -q
+```
+
+The image is pinned to `linux/amd64`. This is not optional: `python-terrier` depends on
+`pytrec-eval-terrier`, which publishes no `aarch64` wheel and cannot build from source,
+so an arm64 build fails to install the application's dependencies at all.
+
+### About `tests/characterization/`
+
+These tests pin the **current** behavior of the legacy API, including behavior that is
+wrong. Assertions covering known defects carry a `DEFECT:` comment naming the problem.
+Their purpose is to make behavioral change visible: when a later change alters one of
+these responses, the test diff is the record of that decision. A failure here means
+"something changed" — decide whether the change was intended before editing the test.
+
 ## ⭐️ Recommended local development (Docker)
 
 ### (1/4) Create a `.env`
