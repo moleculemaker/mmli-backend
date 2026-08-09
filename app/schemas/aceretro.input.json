@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ACERetro input",
+  "description": "Retrosynthesis planning for a single target molecule.",
+  "type": "object",
+  "required": [
+    "smiles"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "smiles": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SMILES string of the target molecule to plan a route to.",
+      "examples": [
+        "O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO"
+      ]
+    }
+  }
+}

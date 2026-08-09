@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "novoStoic pathway search input",
+  "description": "Searches for enzymatic pathways realising a given overall stoichiometry. The server assembles the 'stoic' string the container expects from these fields.",
+  "type": "object",
+  "required": [
+    "substrate",
+    "product",
+    "reactants",
+    "products",
+    "max_steps",
+    "iterations"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "amountMolecule": {
+      "type": "object",
+      "required": [
+        "amount",
+        "molecule"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "amount": {
+          "type": [
+            "number",
+            "string"
+          ],
+          "description": "Stoichiometric coefficient."
+        },
+        "molecule": {
+          "type": "string",
+          "minLength": 1,
+          "description": "MetaNetX identifier."
+        }
+      }
+    }
+  },
+  "properties": {
+    "substrate": {
+      "$ref": "#/$defs/amountMolecule",
+      "description": "Primary substrate."
+    },
+    "product": {
+      "$ref": "#/$defs/amountMolecule",
+      "description": "Target product."
+    },
+    "reactants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/amountMolecule"
+      },
+      "description": "Co-reactants. May be empty."
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/amountMolecule"
+      },
+      "description": "Co-products. May be empty."
+    },
+    "max_steps": {
+      "type": "integer",
+      "minimum": 1,
+      "examples": [
+        2
+      ],
+      "description": "Maximum number of enzymatic steps in a returned pathway."
+    },
+    "iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "examples": [
+        10
+      ],
+      "description": "Number of search iterations to run."
+    },
+    "num_enzymes": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Number of enzyme candidates to report per step. Defaults to 0."
+    }
+  }
+}
