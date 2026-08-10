@@ -49,12 +49,19 @@ origins = [
     "http://test.mydomain.com",
     "http://localhost:4200",
     "http://127.0.0.1:4200",
+    "https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://chemscraper.frontend.mmli1.ncsa.illinois.edu",
     "https://chemscraper.frontend.staging.mmli2.ncsa.illinois.edu",
     "https://chemscraper.frontend.mmli2.ncsa.illinois.edu",
+    "https://novostoic.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://novostoic.frontend.mmli1.ncsa.illinois.edu",
     "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu",
     "https://novostoic.frontend.mmli2.ncsa.illinois.edu",
+    "https://somn.frontend.staging.mmli1.ncsa.illinois.edu",
+    "https://somn.frontend.mmli1.ncsa.illinois.edu",
     "https://somn.frontend.staging.mmli2.ncsa.illinois.edu",
     "https://somn.frontend.mmli2.ncsa.illinois.edu",
+    "https://frontend.staging.openenzymedb.mmli1.ncsa.illinois.edu",
     "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu",
     "https://openenzymedb.platform.moleculemaker.org",
     "https://reactionminer.frontend.staging.mmli1.ncsa.illinois.edu",
@@ -69,6 +76,18 @@ origins = [
     "https://crispr-copies.frontend.mmli2.ncsa.illinois.edu",
     "https://mutagenesis.frontend.staging.mmli2.ncsa.illinois.edu",
     "https://mutagenesis.frontend.mmli2.ncsa.illinois.edu",
+    # The hostnames the charts/config actually serve CRISPR-Copies and Mutagenesis at.
+    # These tools use the `frontend.staging.<tool>.<cluster>` shape on staging (see
+    # chart/values.staging.yaml, chart/values.mmli2.staging.yaml, app/cfg/config.yaml)
+    # and ibiofoundry.illinois.edu on prod (chart/values.prod.yaml,
+    # chart/values.mmli2.prod.yaml) - NOT the `<tool>.frontend.<cluster>` shape above.
+    # Without these, both frontends are CORS-blocked in every environment.
+    "https://frontend.staging.crispr-copies.mmli1.ncsa.illinois.edu",
+    "https://frontend.staging.crispr-copies.mmli2.ncsa.illinois.edu",
+    "https://crispr-copies.platform.ibiofoundry.illinois.edu",
+    "https://frontend.staging.mutagenesis.mmli1.ncsa.illinois.edu",
+    "https://frontend.staging.mutagenesis.mmli2.ncsa.illinois.edu",
+    "https://mutagenesis.platform.ibiofoundry.illinois.edu",
     # "http://another.allowed-origin.com", # Add more origins if needed
 ]
 
