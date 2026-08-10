@@ -6,7 +6,7 @@ from typing import List, Optional
 # Body/Path come from `fastapi`, not `fastapi.params`. The latter holds the underlying
 # parameter classes; the public helpers are what the framework expects as defaults, and
 # only they accept the keyword form used below.
-from fastapi import Body, Depends, HTTPException, APIRouter, Path, UploadFile
+from fastapi import Body, Depends, HTTPException, APIRouter, Path, Request, UploadFile
 from sqlalchemy import delete
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -18,14 +18,8 @@ from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
-from services.clean_service import CleanService
-from services.crispr_copies_service import CRISPRCopiesService
-from services.molli_service import MolliService
+from services import analytics, job_builder, kubejob_service
 from services.minio_service import MinIOService
-from services.mutagenesis_service import MutagenesisService
-from services.shared import is_valid_pdb_file
-from services.somn_service import SomnService
-from services import job_builder, kubejob_service
 
 router = APIRouter()
 
@@ -61,6 +55,7 @@ async def create_job(
         email: Optional[str] = Body(default=None),
         job_info: Optional[str] = Body(default="{}"),
         job_type: str = Path(),
+        request: Request = None,
         service: MinIOService = Depends(),
         db: AsyncSession = Depends(get_session)
 ):
@@ -102,8 +97,10 @@ async def create_job(
         environment = prepared.environment
         parent_job_id = prepared.parent_job_id
 
-        # TODO: Set user_agent based on requestor
-        user_agent = ''
+        # Attribution for usage reporting. user_agent was a TODO that left every
+        # legacy job with an empty string, so historical rows carry no caller
+        # information at all; from here they do.
+        attribution = analytics.attribution(request, surface=analytics.SURFACE_LEGACY)
 
         # TODO: Validation
         # TODO: Set internal metadata / fields
@@ -132,8 +129,8 @@ async def create_job(
                 deleted=0,
                 time_created=int(time.time()),
 
-                # Set ser metadata
-                user_agent=user_agent,
+                # Caller attribution
+                **attribution,
             )
 
             db.add(db_job)

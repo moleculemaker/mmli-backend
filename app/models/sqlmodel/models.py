@@ -68,6 +68,20 @@ class Job(JobBase, table=True):
     # owner: int = Relationship(link_model="User", back_populates="jobs")
     user_agent: str = Field(default=None, nullable=False)
 
+    # Which API the submission arrived through: legacy, v1 or mcp. Recorded so that
+    # adoption of the versioned API can be reported without inferring it from user
+    # agent strings, which are neither stable nor trustworthy.
+    client_surface: Optional[str] = Field(default=None, nullable=True, index=True)
+
+    # Origin header, when the caller sent one. Distinguishes our own frontends from a
+    # script or a notebook; scripts send no Origin at all, which is itself the signal.
+    client_origin: Optional[str] = Field(default=None, nullable=True)
+
+    # Pseudonymous, salted derivation of the client address, used only to approximate a
+    # distinct-user count for submissions that carry no email. Never the address itself.
+    # Null when no salt is configured, which is the default. See services/analytics.py.
+    client_fingerprint: Optional[str] = Field(default=None, nullable=True, index=True)
+
 
 # Anything additional that is passed to the API to create a new Job
 class JobCreate(JobBase):

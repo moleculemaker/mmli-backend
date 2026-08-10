@@ -30,7 +30,8 @@ from routers.v1.problems import (
     IDEMPOTENCY_CONFLICT, INVALID_INPUT, JOB_FAILED, JOB_NOT_FINISHED, NOT_CANCELABLE,
     UNKNOWN_JOB, UNKNOWN_TOOL, UPSTREAM_FAILURE, ProblemException,
 )
-from services import job_builder, kubejob_service, tool_registry
+from services import analytics, job_builder, kubejob_service, tool_registry
+from services.analytics import SURFACE_TOKEN
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -193,6 +194,15 @@ async def submit_job(
     inputs: Optional[str] = Form(default=None),
     files: Optional[List[UploadFile]] = File(default=None),
     idempotency_key: Optional[str] = Header(default=None, alias='Idempotency-Key'),
+    notify_email: Optional[str] = Header(
+        default=None, alias='X-Notify-Email',
+        description=(
+            'Optional. Where to send a message when the job finishes. Jobs here run for '
+            'minutes to hours, so without it there is nothing to tell you it is done. '
+            'Sent as a header so the request body stays exactly the published input '
+            'schema.'
+        ),
+    ),
     service: MinIOService = Depends(),
     db: AsyncSession = Depends(get_session),
 ):
@@ -278,11 +288,16 @@ async def submit_job(
         command=prepared.command,
         image=prepared.image_name,
         parent_job_id=prepared.parent_job_id,
-        email=None,
+        # Optional: drives the completion notification, and gives usage reporting a
+        # distinct-researcher count wherever a submitter chose to supply it.
+        email=notify_email,
         run_id=None,
         deleted=0,
         time_created=int(time.time()),
-        user_agent=request.headers.get('user-agent', ''),
+        # Records legacy/v1/mcp, Origin, user agent and a salted client fingerprint.
+        # The MCP adapter declares its own surface using a process-local token.
+        **analytics.attribution(request, surface=analytics.SURFACE_V1,
+                                surface_token=SURFACE_TOKEN),
     )
     db.add(db_job)
     await db.commit()

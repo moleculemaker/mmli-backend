@@ -116,6 +116,53 @@ Two limits worth knowing:
   is therefore per replica: with N replicas the effective ceiling is N times
   `SUBMIT_LIMIT`. Reads are not limited, so polling is never throttled.
 
+## Usage reporting
+
+`GET /internal/reports/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` returns aggregate counts by
+tool, by API surface and by job status. It requires membership of the OIDC group named
+by `REPORTING_GROUP` (or `auth.reportingGroup` in config). If that is unset the endpoint
+returns 503 rather than falling open.
+
+**It returns aggregates only** — never a job row, an email address, or a fingerprint.
+That is a deliberate constraint: an endpoint that returns rows becomes, sooner or later,
+how somebody exports the user table.
+
+### What is recorded, and what is not
+
+Recorded on each submission, on the job row that already exists:
+
+| Field | Purpose |
+|---|---|
+| `client_surface` | `legacy` / `v1` / `mcp` — whether the versioned API is being adopted |
+| `client_origin` | the `Origin` header, or null. Scripts send none, which is itself the signal |
+| `user_agent` | what the caller identified itself as |
+| `client_fingerprint` | salted derivation of the client address, for counting anonymous callers |
+| `email` | only when a submitter supplies `X-Notify-Email` |
+
+**Nothing is recorded about reads.** No request log, no page views, no polling data. The
+questions this answers are about submissions, and every submission is already a durable
+row. A single three-day job can generate ~26,000 status polls, so a request log would be
+dominated by one client's polling loop.
+
+**The client address is never stored.** `client_fingerprint` is
+`HMAC-SHA256(secret, year:address)`, truncated. It is null unless `ANALYTICS_SALT` is
+set, which it is not by default — a fingerprint derived from an empty or guessable salt
+is a reversible encoding of the address rather than a pseudonym.
+
+The salt rotates annually, so a pseudonym stays linkable for at most one reporting year.
+That is a deliberate trade: it keeps a unique-caller count computable across a full
+funding year, at the cost of a pseudonym that persists for that year. Rotating monthly
+would be more private and would make annual unique counts impossible.
+
+`identified_users` and `distinct_clients` measure different populations and must not be
+added together.
+
+### Retention
+
+There is none. Job rows are kept indefinitely — `deleted` exists but nothing sets it —
+and they now hold email addresses and pseudonymous fingerprints. **A retention period is
+a policy decision that has not been made.**
+
 ### How this differs from the legacy API
 
 The endpoints under `/{job_type}/...` are unchanged and remain supported. `/v1` differs
