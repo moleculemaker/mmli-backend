@@ -218,8 +218,17 @@ class CRISPRCopiesService:
         protein_runtime_suffix = ""
         if use_dropdown:
             fetched_protein = f"{JOB_INPUT_DIR}/{FETCHED_PROTEIN_NAME}"
+            # The `%s` is deliberately NOT quoted inside the printf format, unlike every
+            # other value below. The command substitution is unquoted so that it can expand
+            # to zero words when no protein file exists, and an unquoted expansion is
+            # word-split but NOT quote-removed - so an inner "%s" would put the quote
+            # characters themselves into argv and main.py would open a path that does not
+            # exist. Safe to leave bare: this path is entirely backend-built from
+            # ${JOB_INPUT_DIR} (/uws/jobs/<job_type>/<job_id>/in, where job_type is a
+            # JobType enum value and job_id a uuid hex) plus a literal filename, so it
+            # cannot contain whitespace or a glob character.
             protein_runtime_suffix = (
-                f' $( [ -s "{fetched_protein}" ] && printf -- \'--protein_file "%s"\' "{fetched_protein}" )'
+                f' $( [ -s "{fetched_protein}" ] && printf -- \'--protein_file %s\' "{fetched_protein}" )'
             )
         else:
             protein_path = CRISPRCopiesService._resolve_input_path(_get(job_info, "organism.protein"))
