@@ -147,7 +147,7 @@ class KubeEventWatcher:
             results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'CLEAN'
         elif job_type == JobType.CRISPR_COPIES:
-            crispr_copies_frontend_url = app_config['crispr_copies_frontend_url']
+            crispr_copies_frontend_url = app_config['crisprcopies_frontend_url']
             results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'CRISPR-Copies'
         elif job_type == JobType.EZ_SPECIFICITY:
