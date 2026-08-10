@@ -16,6 +16,9 @@ on:
       - develop
 
   pull_request:
+
+  # Allows us to trigger the workflow manually on a branch
+  workflow_dispatch: 
   
   # Trigger the workflow on release activity
   release:
