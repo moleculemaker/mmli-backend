@@ -91,7 +91,8 @@ class MutagenesisService:
         # Validate the (opaque) job_info against the typed contract → clean 422
         # rather than a broken `python main.py` invocation in the container.
         try:
-            params = MutagenesisJobInfo.parse_obj(job_info)
+            # 🔄 Migrated from parse_obj to model_validate
+            params = MutagenesisJobInfo.model_validate(job_info)
         except ValidationError as e:
             raise HTTPException(status_code=422, detail=e.errors())
 

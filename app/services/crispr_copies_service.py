@@ -121,7 +121,8 @@ class CRISPRCopiesService:
         # with a clean 422 here, rather than crashing or silently misbehaving inside the
         # `python main.py` container (see models/crispr_copies_params.py).
         try:
-            CrisprCopiesJobInfo.parse_obj(job_info)
+            # 🔄 Migrated from parse_obj to model_validate
+            CrisprCopiesJobInfo.model_validate(job_info)
         except ValidationError as e:
             raise HTTPException(
                 status_code=422,

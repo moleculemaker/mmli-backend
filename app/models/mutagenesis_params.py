@@ -1,4 +1,4 @@
-"""Typed validation for the mutagenesis (SDM primer design) job parameters (Pydantic v1).
+"""Typed validation for the mutagenesis (SDM primer design) job parameters (Pydantic v2).
 
 `POST /{job_type}/jobs` accepts `job_info` as an opaque JSON string, so this parameter
 contract is NOT described by the OpenAPI spec. This module makes it explicit and validates
@@ -13,7 +13,8 @@ See MUTAGENESIS_INTEGRATION_SPEC.md.
 
 from typing import Optional
 
-from pydantic import BaseModel, Field, validator
+# Using Pydantic V2 field_validator and ValidationInfo (replaces 'field' arg)
+from pydantic import BaseModel, Field, field_validator, ValidationInfo
 
 # Tm methods the method understands (`-tm`); SantaLucia (NN) is the default.
 TM_METHODS = ("SantaLucia", "Wallace")
@@ -29,7 +30,7 @@ VALID_NCBI_CODON_TABLE_IDS = frozenset(
 
 class FileMetadataModel(BaseModel):
     """A frontend FileMetadata reference. Only the name is needed downstream; the file
-    itself is already in MinIO. Extra fields are ignored (Pydantic v1 default)."""
+    itself is already in MinIO. Extra fields are ignored (Pydantic v2 default)."""
     filename: Optional[str] = None
     name: Optional[str] = None
     url: Optional[str] = None
@@ -40,7 +41,7 @@ class FileMetadataModel(BaseModel):
 
 class MutagenesisJobInfo(BaseModel):
     """Top-level mutagenesis `job_info` payload. Unknown keys (e.g. `email`) are ignored
-    by Pydantic v1's default behavior.
+    by Pydantic v2's default behavior.
 
     Inputs are uploaded files (materialized client-side from the form's text/upload
     fields, see Q1 in the spec):
@@ -53,17 +54,19 @@ class MutagenesisJobInfo(BaseModel):
     mutationList: FileMetadataModel
     leftOverhang: Optional[FileMetadataModel] = None
     rightOverhang: Optional[FileMetadataModel] = None
-    codonTableValue: int = Field(1)
-    tmMethod: str = Field("SantaLucia")
+    codonTableValue: int = Field(default=1)
+    tmMethod: str = Field(default="SantaLucia")
 
-    @validator("orfFile", "mutationList")
-    def _required_file_has_name(cls, v, field):
+    @field_validator("orfFile", "mutationList")
+    @classmethod
+    def _required_file_has_name(cls, v: FileMetadataModel, info: ValidationInfo) -> FileMetadataModel:
         if not v or not v.resolved_name():
-            raise ValueError(f"{field.name} must reference an uploaded file (filename required)")
+            raise ValueError(f"{info.field_name} must reference an uploaded file (filename required)")
         return v
 
-    @validator("codonTableValue")
-    def _valid_codon_table(cls, v):
+    @field_validator("codonTableValue")
+    @classmethod
+    def _valid_codon_table(cls, v: int) -> int:
         if v not in VALID_NCBI_CODON_TABLE_IDS:
             raise ValueError(
                 f"codonTableValue must be a valid NCBI genetic-code id "
@@ -71,8 +74,9 @@ class MutagenesisJobInfo(BaseModel):
             )
         return v
 
-    @validator("tmMethod")
-    def _valid_tm_method(cls, v):
+    @field_validator("tmMethod")
+    @classmethod
+    def _valid_tm_method(cls, v: str) -> str:
         if v not in TM_METHODS:
             raise ValueError(f"tmMethod must be one of {TM_METHODS}")
         return v
