@@ -19,6 +19,21 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: oauth2-proxy-cors-header@kubernetescrd,alphasynthesis-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
+# Rate limit job submission on /v1 (see chart/templates/v1-ratelimit.yaml).
+# extraMiddlewares mirrors the CORS middleware the other prod routers already attach:
+# the annotation form "oauth2-proxy-cors-header@kubernetescrd" is <namespace>-<name>.
+v1RateLimit:
+  enabled: true
+  average: 10
+  period: 1m
+  burst: 5
+  entryPoints:
+    - websecure
+  priority: 100
+  extraMiddlewares:
+    - name: cors-header
+      namespace: oauth2-proxy
+
 config:
   minio:
     server: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
