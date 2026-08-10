@@ -188,9 +188,14 @@ def deleted_k8s_jobs(monkeypatch):
 
 @pytest.fixture
 def client(fake_minio, created_k8s_jobs, deleted_k8s_jobs):
+    # A mounted sub-application keeps its own overrides, so /v1 needs the stub applied
+    # separately or it reaches for the real MinIO server.
     main.app.dependency_overrides[MinIOService] = lambda: fake_minio
+    main.v1_app.dependency_overrides[MinIOService] = lambda: fake_minio
     with TestClient(main.app) as test_client:
         test_client.minio = fake_minio
         test_client.k8s_jobs = created_k8s_jobs
+        test_client.sync_db_url = _sync_url
         yield test_client
     main.app.dependency_overrides.clear()
+    main.v1_app.dependency_overrides.clear()

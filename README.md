@@ -1,6 +1,95 @@
 # mmli-backend
 Unified FastAPI based backend for ChemScraper, (CLEAN job-manager and Molli - future scope)
 
+## The `/v1` API
+
+A self-describing API for running these tools from a script, a notebook, or an agent.
+Interactive documentation is at `/v1/docs`; the OpenAPI 3.1 document is at
+`/v1/openapi.json`.
+
+There is no authentication. A job is reachable by anyone holding its `job_id`, which is
+a server-assigned UUIDv4 and is never listed anywhere. **Treat a `job_id` as a secret.**
+`/v1/service-info` states this so a client does not have to guess.
+
+### Find a tool and read what it wants
+
+```bash
+BASE=https://mmli.fastapi.mmli1.ncsa.illinois.edu/v1
+
+curl -s $BASE/tools | jq '.itemListElement[] | {identifier, abstract}'
+curl -s $BASE/tools/novostoic-optstoic/input-schema | jq .
+```
+
+### Run it
+
+```bash
+JOB=$(curl -s -X POST $BASE/tools/novostoic-optstoic/jobs \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"primary_precursor": "MNXM1137670", "target_molecule": "MNXM26"}')
+
+echo "$JOB" | jq -r .job_id
+```
+
+`Idempotency-Key` is optional but worth sending: if the request times out, replaying the
+same key returns the original job rather than starting a second one.
+
+Inputs are validated against the published schema before anything runs. A rejection
+names the offending field:
+
+```json
+{
+  "type": ".../v1/problems/invalid-input",
+  "title": "Input failed schema validation",
+  "status": 422,
+  "errors": [
+    {"pointer": "/primary_precursor", "detail": "5 is not of type 'string'"}
+  ]
+}
+```
+
+### Wait for it, then read the results
+
+```bash
+ID=$(echo "$JOB" | jq -r .job_id)
+
+# 409 while running, 200 when finished. Status codes carry the meaning, so there is
+# nothing to parse in the polling loop.
+until curl -sf -o results.json "$BASE/jobs/$ID/results"; do sleep 10; done
+jq . results.json
+```
+
+`GET /v1/jobs/$ID` returns status, ISO-8601 timestamps, provenance (including the image
+digest that actually ran, once the pod reports it), and a `links` object — so a client
+never has to build a URL.
+
+Raw output files are listed at `/v1/jobs/$ID/artifacts`; add `?include=logs` for the
+tool's stdout/stderr. `POST /v1/jobs/$ID/cancel` stops a running job.
+
+### Tools that need files
+
+Send one multipart request. The server assigns the `job_id` and stores the files itself:
+
+```bash
+curl -X POST $BASE/tools/molli/jobs \
+  -F 'inputs={"CORES_FILE_NAME":"cores.cdxml","SUBS_FILE_NAME":"subs.cdxml"};type=application/json' \
+  -F 'files=@cores.cdxml' \
+  -F 'files=@subs.cdxml'
+```
+
+### Errors
+
+Every `/v1` error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `problem+json`
+with a stable `type` URI, so a client can branch on the kind of failure without matching
+on prose.
+
+### How this differs from the legacy API
+
+The endpoints under `/{job_type}/...` are unchanged and remain supported. `/v1` differs
+in that job ids are server-assigned, inputs are schema-validated, results return 409
+rather than `200` with a null body while a job is running, responses carry links, and
+errors are problem documents.
+
 ## Running the tests
 
 The suite runs inside the same base image the service ships from, so it exercises the

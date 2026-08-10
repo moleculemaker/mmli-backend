@@ -14,7 +14,7 @@ from models.enums import JobTypes
 from services import tool_registry
 
 
-REQUIRED_FIELDS = ["summary", "description", "execution", "schema_status"]
+REQUIRED_FIELDS = ["name", "summary", "description", "execution", "schema_status"]
 SME_FIELDS = ["license", "citation"]
 
 
