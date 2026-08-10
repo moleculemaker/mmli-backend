@@ -45,6 +45,18 @@ class Job(JobBase, table=True):
     image: str = Field(default=None, nullable=True)
     command: Optional[str] = Field(default=None, nullable=True)
 
+    # The image reference as configured, e.g. "moleculemaker/novostoic", is frequently
+    # untagged or points at a mutable tag, so it does not identify what actually ran.
+    # This is the immutable digest reported by the pod once it starts, which is what a
+    # result has to cite to be reproducible. Null for jobs that predate this column and
+    # for any job whose pod was reaped before the watcher could read it.
+    image_digest: Optional[str] = Field(default=None, nullable=True)
+
+    # Set on subjobs created by a parent job's coordinator. Until now this relationship
+    # existed only as keys inside the job_info JSON blob, so it could not be queried and
+    # was invisible to anything reading the schema.
+    parent_job_id: Optional[str] = Field(default=None, nullable=True, index=True)
+
     # Job timestamps
     time_created: int = Field(default=None, nullable=False)
     time_start: Optional[int] = Field(default=0, nullable=False)
@@ -76,6 +88,24 @@ class JobUpdate(SQLModel):
     image: Optional[str] = None
     command: Optional[str] = None
     phase: Optional[JobStatus] = None
+
+class IdempotencyKey(SQLModel, table=True):
+    """Maps a client-supplied Idempotency-Key to the job it created.
+
+    Submission is not naturally idempotent: every POST starts a container. A script
+    whose request times out mid-flight currently has no safe way to retry - it either
+    abandons a job that may be running or starts a second one. Replaying the same key
+    returns the original job instead.
+
+    Scoped by job type so two tools cannot collide on the same key.
+    """
+    __tablename__ = 'idempotency_key'
+
+    key: str = Field(primary_key=True)
+    job_type: str = Field(primary_key=True)
+    job_id: str = Field(index=True, nullable=False)
+    time_created: int = Field(nullable=False)
+
 
 class FlaggedMolecule(SQLModel, table=True):
     smile: str = Field(default=None, primary_key=True)

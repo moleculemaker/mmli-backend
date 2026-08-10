@@ -2,6 +2,8 @@ import glob
 import sys
 import traceback
 
+from typing import Optional
+
 from kubernetes import watch, client, config as kubeconfig
 from kubernetes.client.rest import ApiException
 import os
@@ -321,6 +323,27 @@ class KubeEventWatcher:
                 self.logger.warning('Skipping database update...')
                 return
 
+            # 'canceled' is ours, not Kubernetes'. A canceled job's Job object is
+            # deleted, and the events that produces derive to 'processing' (no terminal
+            # condition is ever set), which would silently resurrect it. Nothing the
+            # cluster reports about a job we deliberately stopped is more accurate than
+            # the fact that we stopped it.
+            if updated_job.phase == JobStatus.CANCELED:
+                self.logger.debug(f'Ignoring event for canceled job: {job_id}')
+                return
+
+            # Record which image actually ran, while the pod still exists to be asked.
+            # Attempted on every event until it succeeds: the digest is not readable
+            # until the image has been pulled, so the first event for a job usually
+            # cannot supply it.
+            if updated_job.image_digest is None:
+                digest = get_image_digest(job_type, job_id)
+                if digest:
+                    self.logger.debug(f'Recording image digest for {job_id}: {digest}')
+                    updated_job.image_digest = digest
+                    session.add(updated_job)
+                    session.commit()
+
             if updated_job.phase != new_phase:
                 self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
                 updated_job.phase = new_phase
@@ -541,6 +564,45 @@ def list_jobs(job_type=None, job_id=None):
         response['status'] = STATUS_ERROR
         response['message'] = msg
     return response
+
+
+def get_image_digest(job_type: str, job_id: str) -> Optional[str]:
+    """Return the immutable image digest the job's pod is running, if it can be read.
+
+    The configured image reference is not enough to reproduce a result: several tools
+    are configured without any tag at all, which resolves to :latest, and a tag can be
+    repointed at new content at any time. The digest is the only identifier that names
+    exactly what executed.
+
+    It has to come from the pod rather than the Job: a V1Job carries the pod *template*
+    (the same mutable reference already stored on the row), while the resolved digest
+    appears on the pod's containerStatuses once the image is pulled. That means it can
+    only be captured while the pod exists -- after ttlSecondsAfterFinished elapses there
+    is nothing left to ask.
+
+    Returns None rather than raising. Provenance is worth recording but never worth
+    failing a job over, and this runs inside the watch loop.
+    """
+    try:
+        pods = api_v1.list_namespaced_pod(
+            namespace=get_namespace(),
+            label_selector=f'job-name={get_job_name_from_id(job_type, job_id)}',
+        )
+        for pod in pods.items:
+            for container_status in (pod.status.container_statuses or []):
+                image_id = container_status.image_id
+                if not image_id:
+                    continue
+                # Runtimes report this inconsistently: containerd gives a bare
+                # "repo@sha256:...", older Docker gives "docker-pullable://repo@sha256:...".
+                # Keep the repo@digest portion, which is what identifies the content.
+                if '://' in image_id:
+                    image_id = image_id.split('://', 1)[1]
+                if '@' in image_id:
+                    return image_id
+    except Exception as ex:
+        log.debug(f'Could not read image digest for job[{job_type}] {job_id}: {ex}')
+    return None
 
 
 def delete_job(job_type: str, job_id: str) -> None:

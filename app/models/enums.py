@@ -34,6 +34,10 @@ class JobStatus(str, Enum):
     PROCESSING = 'processing'
     COMPLETED = 'completed'
     ERROR = 'error'
+    # Kubernetes has no concept of a canceled Job - a deleted one simply stops
+    # existing - so this phase is only ever set by us, and the watcher must not
+    # derive over the top of it.
+    CANCELED = 'canceled'
 
     def __str__(self) -> str:
         return self.value
