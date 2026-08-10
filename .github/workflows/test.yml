@@ -1,0 +1,37 @@
+name: Tests
+
+# Runs the test suite on every pull request and on pushes to the long-lived branches.
+# The suite is executed inside the same base image the runtime uses, so tests exercise
+# the interpreter and pinned library versions that actually ship rather than whatever a
+# GitHub runner happens to provide.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.test
+          push: false
+          load: true
+          tags: mmli-backend-test:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run pytest
+        run: docker run --rm mmli-backend-test:${{ github.sha }} pytest -q --tb=short

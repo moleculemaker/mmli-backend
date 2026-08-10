@@ -168,3 +168,6 @@ chart/charts/
 .idea/
 
 drafts/
+
+# Throwaway SQLite database created by the characterization test suite
+.pytest-characterization.db
