@@ -83,6 +83,39 @@ Every `/v1` error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `problem
 with a stable `type` URI, so a client can branch on the kind of failure without matching
 on prose.
 
+## The MCP server
+
+The same tools are exposed to AI agents over the [Model Context
+Protocol](https://modelcontextprotocol.io) at `/mcp`, using Streamable HTTP.
+
+```json
+{
+  "mcpServers": {
+    "alphasynthesis": {
+      "url": "https://mmli.fastapi.mmli1.ncsa.illinois.edu/mcp"
+    }
+  }
+}
+```
+
+An agent sees one `submit_*` tool per scientific tool, each carrying that tool's real
+published JSON Schema as its `inputSchema`, plus `get_job_status`, `get_job_results`,
+`list_job_artifacts`, `cancel_job` and `describe_tool`.
+
+It is an adapter over `/v1` rather than a second implementation: every handler issues an
+in-process request against the versioned API, so validation, error shapes and result
+semantics are the same ones an HTTP client gets, and the two cannot drift apart.
+
+Two limits worth knowing:
+
+- **Tools that need uploaded files** (`molli`, `chemscraper`, `ez-specificity`) cannot be
+  driven from MCP, because the protocol has no upload mechanism. Their descriptions say
+  so and point at the HTTP API rather than letting an agent call them and fail.
+- **Submission is rate limited in-process**, because MCP multiplexes every call over one
+  HTTP request stream and the ingress rule cannot see individual invocations. The limit
+  is therefore per replica: with N replicas the effective ceiling is N times
+  `SUBMIT_LIMIT`. Reads are not limited, so polling is never throttled.
+
 ### How this differs from the legacy API
 
 The endpoints under `/{job_type}/...` are unchanged and remain supported. `/v1` differs

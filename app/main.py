@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from config import app_config, get_logger
 from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer
+from routers.mcp_app import create_mcp_app
 from routers.v1 import create_v1_app
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,7 +33,13 @@ async def lifespan(app_: FastAPI):
     # here. Do NOT call watcher.run() - it is the thread body (an endless watch loop), and
     # calling it inline would block the event loop and hang startup.
     log.info(f"KubeWatcher running: {watcher.is_alive()}")
-    yield
+
+    # The MCP session manager owns a task group that has to be entered for the lifetime
+    # of the application, and can only be entered once per instance.
+    async with mcp_mount.run():
+        log.info("MCP server running at /mcp")
+        yield
+
     log.info("Shutting down...")
     watcher.close()
 
@@ -55,6 +62,12 @@ app = FastAPI(lifespan=lifespan)
 # its own dependency-override registry, so tests need a handle on it to stub MinIO.
 v1_app = create_v1_app()
 app.mount("/v1", v1_app)
+
+# The MCP server is an adapter over /v1, not a second implementation: its handlers issue
+# in-process requests against the application above, so agents and scripts cannot drift
+# apart. Mounted here for the same route-ordering reason as /v1.
+mcp_mount = create_mcp_app(v1_app)
+app.mount("/mcp", mcp_mount.asgi_app)
 
 app.include_router(files.router)
 app.include_router(job.router)
