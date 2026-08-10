@@ -29,3 +29,12 @@ psycopg2-binary==2.9.9
 # in app/schemas/. Pydantic cannot be used for this: those schemas are authored as
 # standalone artifacts for external consumers, not generated from models.
 jsonschema==4.23.0
+
+# Model Context Protocol server, exposing the same tools to AI agents.
+#
+# starlette is pinned explicitly alongside it. It is normally a transitive dependency of
+# fastapi, which constrains it to <0.42; the mcp package has no such upper bound, so an
+# unpinned resolve upgrades starlette past what fastapi supports and breaks the whole
+# application. Keep this pin inside fastapi's supported range when bumping either.
+mcp==1.12.4
+starlette==0.41.3
