@@ -42,6 +42,7 @@
 tools:
 
   aceretro:
+    name: ACERetro
     summary: Retrosynthesis route planning for a target molecule.
     description: >-
       Plans synthetic routes to a target molecule supplied as SMILES. Input is written
@@ -58,6 +59,7 @@ tools:
       topic: null                 # TODO(SME)
 
   chemscraper:
+    name: ChemScraper
     summary: Extracts chemical structures from a PDF document.
     description: >-
       Sends an uploaded PDF to the ChemScraper service, which returns recognized
@@ -75,6 +77,7 @@ tools:
       topic: null                 # TODO(SME)
 
   clean:
+    name: CLEAN
     summary: Predicts EC numbers for protein sequences.
     description: >-
       Takes one or more sequences and returns enzyme commission number predictions.
@@ -92,6 +95,7 @@ tools:
       topic: null                 # TODO(SME)
 
   cleandb-mepesm:
+    name: CLEANDB MEP-ESM2
     summary: Sequence search against CLEANDB using MEP-ESM2.
     description: >-
       Accepts a single amino-acid sequence. The submitted body may be either an object
@@ -109,6 +113,7 @@ tools:
       topic: null                 # TODO(SME)
 
   ez-specificity:
+    name: EZSpecificity
     summary: Enzyme/substrate specificity prediction.
     description: >-
       Predicts specificity for up to five enzymes against up to ten substrates. Runs as
@@ -127,6 +132,7 @@ tools:
       topic: null                 # TODO(SME)
 
   ezspec-unidock:
+    name: EZSpecificity Docking
     summary: Molecular docking step of the EZSpecificity pipeline.
     description: >-
       Created by the ez-specificity coordinator. Not submitted directly; its inputs come
@@ -144,6 +150,7 @@ tools:
       topic: null                 # TODO(SME)
 
   ezspec-inference:
+    name: EZSpecificity Inference
     summary: Inference step of the EZSpecificity pipeline.
     description: >-
       Created by the ez-specificity coordinator after docking completes. Not submitted
@@ -161,6 +168,7 @@ tools:
       topic: null                 # TODO(SME)
 
   ml-simplefold:
+    name: SimpleFold
     summary: Protein structure prediction from sequence.
     description: >-
       Runs SimpleFold over a supplied FASTA sequence and returns predicted structures
@@ -177,6 +185,7 @@ tools:
       topic: null                 # TODO(SME)
 
   molli:
+    name: MOLLI
     summary: Combinatorial generation of a ligand library.
     description: >-
       Builds a ligand library by combining a set of cores with a set of substituents,
@@ -194,6 +203,7 @@ tools:
       topic: null                 # TODO(SME)
 
   novostoic-optstoic:
+    name: novoStoic optStoic
     summary: Overall stoichiometry search between two molecules.
     description: >-
       Finds thermodynamically balanced overall stoichiometries converting a primary
@@ -211,6 +221,7 @@ tools:
       topic: null                 # TODO(SME)
 
   novostoic-pathways:
+    name: novoStoic Pathway Search
     summary: Enzymatic pathway search for a given overall stoichiometry.
     description: >-
       Searches for multi-step enzymatic pathways realising a stoichiometry built from a
@@ -228,6 +239,7 @@ tools:
       topic: null                 # TODO(SME)
 
   novostoic-enzrank:
+    name: novoStoic EnzRank
     summary: Ranks an enzyme sequence against a substrate.
     description: >-
       Scores how well an enzyme sequence acts on a given substrate. The sequence is
@@ -245,6 +257,7 @@ tools:
       topic: null                 # TODO(SME)
 
   novostoic-dgpredictor:
+    name: novoStoic dGPredictor
     summary: Predicts standard Gibbs free energy change for reactions.
     description: >-
       Estimates dG for one or more reactions at a given pH and ionic strength. A
@@ -262,6 +275,7 @@ tools:
       topic: null                 # TODO(SME)
 
   oed-cheminfo:
+    name: OpenEnzymeDB Cheminformatics
     summary: Cheminformatics similarity comparison.
     description: >-
       Compares a query molecule against a list of molecules using any combination of
@@ -279,6 +293,7 @@ tools:
       topic: null                 # TODO(SME)
 
   oed-dlkcat:
+    name: OpenEnzymeDB DLKcat
     summary: kcat prediction with DLKcat.
     description: >-
       Predicts turnover number for each supplied enzyme/substrate pair.
@@ -294,6 +309,7 @@ tools:
       topic: null                 # TODO(SME)
 
   oed-unikp:
+    name: OpenEnzymeDB UniKP
     summary: Kinetic parameter prediction with UniKP.
     description: >-
       Predicts kinetic parameters for each supplied enzyme/substrate pair.
@@ -309,6 +325,7 @@ tools:
       topic: null                 # TODO(SME)
 
   oed-catpred:
+    name: OpenEnzymeDB CatPred
     summary: Kinetic parameter prediction with CatPred.
     description: >-
       Predicts kinetic parameters for each supplied enzyme/substrate pair.
@@ -324,6 +341,7 @@ tools:
       topic: null                 # TODO(SME)
 
   reactionminer:
+    name: ReactionMiner
     summary: Extracts chemical reactions from documents.
     description: >-
       Mines reaction descriptions from uploaded PDFs. Takes no job_info; the documents
@@ -340,11 +358,12 @@ tools:
       topic: null                 # TODO(SME)
 
   somn:
+    name: SOMN
     summary: Yield prediction for Buchwald-Hartwig amination.
     description: >-
       Predicts reaction yield for pairs of electrophile and nucleophile. Structures may
       be given as SMILES, CML or CDXML, each with the index of the reacting atom.
-      SMILES are canonicalised and names de-duplicated before the job runs.
+      SMILES are canonicalized and names de-duplicated before the job runs.
     repository: https://github.com/moleculemaker/somn-frontend
     execution: kubernetes-job
     input_schema: somn.input.json

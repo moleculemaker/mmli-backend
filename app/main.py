@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from config import app_config, get_logger
 from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer
+from routers.v1 import create_v1_app
 from fastapi.middleware.cors import CORSMiddleware
 
 from services.kubejob_service import KubeEventWatcher
@@ -37,6 +38,23 @@ async def lifespan(app_: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Mounted BEFORE the routers below, and that order is load-bearing. Starlette matches
+# routes in registration order, and the legacy router declares
+# /{job_type}/jobs/{job_id}, which happily matches /v1/jobs/<id> with job_type="v1".
+# Registering the legacy routes first therefore shadows most of the versioned API and
+# answers it with "Invalid job type: v1".
+#
+# Mounted rather than included as a router because /v1 needs its own CORS policy (any
+# origin, no credentials) and its own error format (RFC 9457 problem+json); a
+# sub-application is what gives it an independent middleware stack and exception
+# handlers without disturbing the legacy surface. Its OpenAPI document is at
+# /v1/openapi.json and its docs at /v1/docs.
+#
+# Kept as a module-level name, not an inline expression: a mounted sub-application has
+# its own dependency-override registry, so tests need a handle on it to stub MinIO.
+v1_app = create_v1_app()
+app.mount("/v1", v1_app)
 
 app.include_router(files.router)
 app.include_router(job.router)
@@ -75,5 +93,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
