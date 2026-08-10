@@ -107,6 +107,8 @@ async def create_job(
         # Command + environment are set differently for each job (see below)
         command = ''
         environment = []
+        # Only set for subjobs created by a parent job's coordinator
+        parent_job_id = None
 
         # Mount in secrets/volumes at runtime
         #volumes = []
@@ -295,6 +297,11 @@ async def create_job(
                 job_id = job_config['ezspec_unidock_job_id']
             elif job_type == JobType.EZSPEC_INFERENCE:
                 job_id = job_config['ezspec_inference_job_id']
+
+            # Record the parent on the row itself. The relationship was already being
+            # passed to the container as an envvar, but nothing persisted it, so a
+            # subjob's DB row gave no indication it belonged to anything.
+            parent_job_id = job_config['parent_job_id']
 
             # Pass parent / subjob_ids along as envvars
             environment += app_config['kubernetes_jobs'][job_type]['env']
@@ -509,6 +516,7 @@ async def create_job(
                 type=job_type,
                 command=command,
                 image=image_name,
+                parent_job_id=parent_job_id,
 
                 # Job metadata
                 deleted=0,
