@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from starlette.routing import Route
 
 from config import app_config, get_logger
-from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer
+from routers import chemscraper, job, files, somn, novostoic, molli, shared, reactionminer, reports
 from routers.mcp_app import create_mcp_app
 from routers.v1 import create_v1_app
 from fastapi.middleware.cors import CORSMiddleware
@@ -94,6 +94,7 @@ app.include_router(novostoic.router)
 app.include_router(somn.router)
 app.include_router(molli.router)
 app.include_router(shared.router)
+app.include_router(reports.router)
 
 origins = [
     "http://test.mydomain.com",

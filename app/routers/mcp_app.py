@@ -38,6 +38,7 @@ from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 
 from config import get_logger
 from services import tool_registry
+from services.analytics import SURFACE_MCP, SURFACE_HEADER, SURFACE_TOKEN, SURFACE_TOKEN_HEADER
 
 log = get_logger(__name__)
 
@@ -257,6 +258,11 @@ def create_mcp_app(v1_app: Any, client_key_provider=None):
             transport=httpx.ASGITransport(app=v1_app),
             base_url='http://mcp.internal',
             timeout=60.0,
+            # Declare the surface so submissions are recorded as agent traffic rather
+            # than as whatever user agent this client happens to send -- which, without
+            # this, is httpx's default and indistinguishable from an external script.
+            # The token proves the claim came from in-process code.
+            headers={SURFACE_HEADER: SURFACE_MCP, SURFACE_TOKEN_HEADER: SURFACE_TOKEN},
         )
 
     @server.list_tools()
