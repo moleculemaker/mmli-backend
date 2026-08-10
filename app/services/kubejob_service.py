@@ -543,9 +543,11 @@ def list_jobs(job_type=None, job_id=None):
     return response
 
 
-def delete_job(job_id: str) -> None:
+def delete_job(job_type: str, job_id: str) -> None:
+    # job_type is required: Kubernetes Job names are built from both parts, so calling
+    # this with only an id raised TypeError on every invocation. Nothing called it.
     namespace = get_namespace()
-    job_name = get_job_name_from_id(job_id)
+    job_name = get_job_name_from_id(job_type, job_id)
     # config_map_name = f'''{job_name}-positions'''
     body = client.V1DeleteOptions(propagation_policy='Background')
     api_response = None

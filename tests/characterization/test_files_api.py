@@ -71,19 +71,29 @@ class TestResults:
         assert resp.status_code == 200
         assert resp.json() is None
 
-    def test_unknown_job_id_returns_200_with_a_serialized_exception(self, client):
+    def test_unknown_job_id_returns_404(self, client):
         resp = client.get(f"/{NOVOSTOIC_OPTSTOIC}/results/never-existed")
 
-        # DEFECT: the service `return`s (rather than `raise`s) an HTTPException, so
-        # FastAPI serializes the exception object as an ordinary response body. The
-        # HTTP status is 200 and the 404 is buried inside the payload, where no
-        # standard client will look for it.
+        # Was: the service `return`ed (rather than `raise`d) an HTTPException, so
+        # FastAPI serialized the exception object as an ordinary response body -- HTTP
+        # 200, with the 404 buried inside the payload where no standard client looks.
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Job not found"
+
+    def test_a_known_job_with_no_output_still_returns_200_null(self, client):
+        """Deliberately unchanged.
+
+        Frontends poll this endpoint while a job runs and treat a null body as "not
+        ready yet". Turning that into a 404 or a 409 is the right answer, but it is a
+        contract change for every existing client, so it belongs with the versioned
+        API rather than in a security fix.
+        """
+        client.post(f"/{NOVOSTOIC_OPTSTOIC}/jobs", json={"job_id": "j1"})
+
+        resp = client.get(f"/{NOVOSTOIC_OPTSTOIC}/results/j1")
+
         assert resp.status_code == 200
-        assert resp.json() == {
-            "detail": "Job not found",
-            "headers": None,
-            "status_code": 404,
-        }
+        assert resp.json() is None
 
     def test_invalid_bucket_returns_400(self, client):
         resp = client.get("/not-a-real-tool/results/j1")
