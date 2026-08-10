@@ -1,7 +1,7 @@
 #!/bin/env python3
 import os
 
-from config import get_logger, MINIO_SERVER
+from config import get_logger
 from services.kubejob_service import download_remote_directory_from_minio
 
 bucket_name = os.getenv('JOB_TYPE')
