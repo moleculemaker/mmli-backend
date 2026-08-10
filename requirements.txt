@@ -24,3 +24,8 @@ SQLAlchemy==2.0.36
 pydantic==2.10.4
 
 psycopg2-binary==2.9.9
+
+# Validates job inputs against the published per-tool JSON Schema 2020-12 documents
+# in app/schemas/. Pydantic cannot be used for this: those schemas are authored as
+# standalone artifacts for external consumers, not generated from models.
+jsonschema==4.23.0

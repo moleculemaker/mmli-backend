@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MOLLI input",
+  "description": "Combinatorial ligand library generation. Both files must be uploaded to this job before submission.",
+  "type": "object",
+  "required": [
+    "CORES_FILE_NAME",
+    "SUBS_FILE_NAME"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "CORES_FILE_NAME": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Filename of the uploaded cores file."
+    },
+    "SUBS_FILE_NAME": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Filename of the uploaded substituents file."
+    }
+  }
+}

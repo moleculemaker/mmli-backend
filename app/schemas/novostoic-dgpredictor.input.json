@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "novoStoic dGPredictor input",
+  "description": "Predicts standard Gibbs free energy change for reactions.",
+  "type": "object",
+  "required": [
+    "ph",
+    "ionic_strength",
+    "reactions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "reactionSmiles": {
+      "type": "object",
+      "required": [
+        "type",
+        "smiles"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Discriminator identifying this as a SMILES reaction."
+        },
+        "smiles": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Reaction written as SMILES."
+        }
+      }
+    },
+    "reactionKeggId": {
+      "type": "object",
+      "required": [
+        "type",
+        "reaction_keggid",
+        "molecule_number",
+        "molecule_inchi_or_smiles"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "examples": [
+            "keggId"
+          ],
+          "description": "Discriminator identifying this as a KEGG reaction."
+        },
+        "reaction_keggid": {
+          "type": "string",
+          "minLength": 1,
+          "examples": [
+            "C01745 + C00004 <=> N00001 + C00003 + C00001"
+          ],
+          "description": "Reaction written with KEGG compound ids."
+        },
+        "molecule_number": {
+          "type": "string",
+          "examples": [
+            "N00001"
+          ],
+          "description": "Placeholder id used in the reaction for a molecule absent from KEGG."
+        },
+        "molecule_inchi_or_smiles": {
+          "type": "string",
+          "description": "Structure of that novel molecule, as InChI or SMILES."
+        }
+      }
+    }
+  },
+  "properties": {
+    "ph": {
+      "type": "number",
+      "examples": [
+        7
+      ],
+      "description": "pH at which to evaluate the reaction."
+    },
+    "ionic_strength": {
+      "type": "number",
+      "examples": [
+        0.3
+      ],
+      "description": "Ionic strength in molar."
+    },
+    "reactions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/reactionSmiles"
+          },
+          {
+            "$ref": "#/$defs/reactionKeggId"
+          }
+        ]
+      },
+      "description": "Reactions to evaluate. Each is given either as SMILES or as a KEGG reaction."
+    }
+  }
+}

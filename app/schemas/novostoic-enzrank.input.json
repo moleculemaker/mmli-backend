@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "novoStoic EnzRank input",
+  "description": "Scores an enzyme sequence against a substrate.",
+  "type": "object",
+  "required": [
+    "enzyme_sequence",
+    "primary_precursor"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "enzyme_sequence": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Enzyme sequence, prefixed by an identifier and a colon: '<id>:<sequence>'. The identifier is echoed back in the result.",
+      "examples": [
+        "A0A4P8WFA8:MTKRVLVTGGAGFLGSHLCERLL"
+      ]
+    },
+    "primary_precursor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Substrate identifier (KEGG compound id).",
+      "examples": [
+        "C00149"
+      ]
+    }
+  }
+}

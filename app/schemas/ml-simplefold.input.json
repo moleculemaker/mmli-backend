@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimpleFold input",
+  "description": "Protein structure prediction from sequence.",
+  "type": "object",
+  "required": [
+    "fasta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "fasta": {
+      "type": "string",
+      "minLength": 1,
+      "description": "FASTA content, written to the job's input directory."
+    }
+  }
+}

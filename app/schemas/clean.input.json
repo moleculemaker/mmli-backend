@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLEAN input",
+  "description": "EC-number prediction for one or more protein sequences.",
+  "type": "object",
+  "required": [
+    "input_fasta"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "input_fasta": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Sequences to annotate. Each record is converted to a FASTA entry.",
+      "items": {
+        "type": "object",
+        "required": [
+          "header",
+          "sequence",
+          "DNA_sequence"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "header": {
+            "type": "string",
+            "minLength": 1,
+            "description": "FASTA header, written after '>'."
+          },
+          "sequence": {
+            "type": "string",
+            "description": "Amino-acid sequence. Used when it matches ^[ACDEFGHIKLMNPQRSTVWY]+$. Send an empty string when supplying DNA_sequence instead.",
+            "pattern": "^[ACDEFGHIKLMNPQRSTVWY]*$"
+          },
+          "DNA_sequence": {
+            "type": "string",
+            "description": "Nucleotide sequence, translated to protein when 'sequence' is empty or not a valid peptide.",
+            "pattern": "^[ACGTURYSWKMBDHVN]*$"
+          }
+        }
+      }
+    }
+  }
+}
