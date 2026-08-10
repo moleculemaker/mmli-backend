@@ -1,52 +1,58 @@
 """Characterization tests for application startup.
 
-These record an unusual situation: the application's lifespan handler is written, is
-correct, and has never executed.
+Before the framework upgrade, FastAPI 0.89 did not accept a `lifespan` argument -- it
+gained that in 0.93.0 -- so the one main.py passes was swallowed by **extra and
+silently discarded. The application's lifespan handler had never run, in either its
+startup or its shutdown half.
+
+It runs now. These tests record that transition and guard the hazard it activates.
 """
 import inspect
 import pathlib
 
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 import main
 
 
-def test_fastapi_silently_ignores_the_lifespan_argument():
-    """main.py passes `lifespan=` to FastAPI, but this version does not support it.
+def test_fastapi_supports_lifespan():
+    """Was: asserted the opposite, because 0.89 silently discarded the argument."""
+    assert "lifespan" in inspect.signature(FastAPI.__init__).parameters
 
-    FastAPI gained lifespan support in 0.93.0. On the pinned 0.89.0 the argument is
-    swallowed by **extra and discarded, so neither the startup half of `main.lifespan`
-    nor its `watcher.close()` shutdown half has ever run.
 
-    The KubeEventWatcher works regardless, because its constructor starts its own
-    daemon thread. Nothing depends on the lifespan today.
+def test_the_custom_lifespan_actually_executes(monkeypatch):
+    """Was: asserted the opposite, since 0.89 discarded the handler entirely.
+
+    Checked by observing a side effect rather than by inspecting the callable's name:
+    FastAPI wraps user lifespans (the attribute is `merged_lifespan`), so the name says
+    nothing about whether ours is among them. main.lifespan calls watcher.close() on
+    the way out, so spying on that proves both halves ran.
     """
-    assert "lifespan" not in inspect.signature(FastAPI.__init__).parameters
+    shutdown_ran = []
+    monkeypatch.setattr(main.watcher, "close", lambda: shutdown_ran.append(True))
 
+    with TestClient(main.app) as client:
+        assert client.get("/openapi.json").status_code == 200
+        assert shutdown_ran == []  # startup done, shutdown not yet
 
-def test_the_custom_lifespan_is_not_wired_into_the_app():
-    """Corollary of the above, asserted against the app object rather than the library."""
-    lifespan_context = main.app.router.lifespan_context
-
-    # Starlette's default, not main.lifespan
-    assert getattr(lifespan_context, "__name__", None) != "lifespan"
+    assert shutdown_ran == [True]
 
 
 def test_lifespan_does_not_call_the_watcher_thread_body():
-    """Regression guard on the fix that makes the lifespan safe to activate.
+    """The hazard this upgrade activates.
 
     `watcher.run()` is the KubeEventWatcher thread body: an unbroken `while True` with
-    no break or return. Calling it from the lifespan would run a second copy of the
-    loop synchronously on the event loop, and startup would never complete.
+    no break or return. The watcher is already running, started by its own constructor.
+    Calling run() from the lifespan runs a second copy of that loop synchronously on
+    the event loop, and startup never completes.
 
-    That call was removed, but because the lifespan is inert (see above) the fix is
-    currently dormant -- no test or deployment exercises it. It becomes load-bearing
-    the moment FastAPI is upgraded past 0.93 and the lifespan goes live. This test
-    exists so the call cannot be reintroduced in the meantime, when doing so would
-    appear harmless.
+    Under the previous FastAPI this was inert and unreachable. It is now live, so this
+    assertion is the thing standing between the service and a permanent hang on boot.
 
-    Asserted against source text because the lifespan is never executed, so there is
-    no runtime behavior to observe.
+    Asserted against source text on purpose: conftest replaces the watcher with a stub,
+    so test_the_custom_lifespan_actually_executes above would pass even if the call
+    were reintroduced. A runtime check here would hang the suite rather than fail it.
     """
     lifespan_source = inspect.getsource(main.lifespan)
 
@@ -54,7 +60,7 @@ def test_lifespan_does_not_call_the_watcher_thread_body():
 
 
 def test_the_watcher_thread_is_started_by_its_constructor():
-    """Why the inert lifespan has gone unnoticed: startup does not depend on it.
+    """Why the lifespan being inert went unnoticed for so long: startup never needed it.
 
     Asserted against the module's source text because conftest replaces the real
     __init__ with a stub, so inspecting the live class would only describe the stub.

@@ -8,7 +8,9 @@ router = APIRouter()
 @router.get("/smiles/draw", tags=['Shared'])
 async def draw_smiles(
     smiles: str,
-    highlightAtoms: Annotated[list[int] | None, Query()] = Query(default=None)
+    # The default must be a plain value, not a second Query(). Declaring Query() in
+    # both the annotation and the default is rejected outright by newer FastAPI.
+    highlightAtoms: Annotated[list[int] | None, Query()] = None
 ):
     if type(smiles) != str:
         raise HTTPException(status_code=400, detail=f"Input must be a single SMILES string. Got type: `{type(smiles)}` with SMILES = `{smiles}`")

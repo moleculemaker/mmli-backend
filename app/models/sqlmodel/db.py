@@ -2,10 +2,10 @@ import os
 import time
 
 from dotenv import load_dotenv
-from sqlmodel import SQLModel, create_engine
-from sqlmodel.ext.asyncio.session import AsyncSession, AsyncEngine
+from sqlmodel import SQLModel
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from config import get_logger, SQLALCHEMY_DATABASE_URL, SERVER_LOGLEVEL
 from models.enums import JobStatus
@@ -17,11 +17,13 @@ load_dotenv()
 
 # app_secrets['db']['url'] = "postgresql://user:password@postgresserver/db"
 def create_db_engine():
-    return AsyncEngine(
-        create_engine(
-            SQLALCHEMY_DATABASE_URL,
-            echo=(True if SERVER_LOGLEVEL == 'DEBUG' else False),
-            future=True)
+    # SQLAlchemy 2.0 builds async engines through create_async_engine. The old
+    # AsyncEngine(create_engine(...)) wrapper is gone, and sqlmodel no longer re-exports
+    # AsyncEngine at all. `future=True` is dropped because 2.0 behavior is the only
+    # behavior now and passing it is an error.
+    return create_async_engine(
+        SQLALCHEMY_DATABASE_URL,
+        echo=(True if SERVER_LOGLEVEL == 'DEBUG' else False),
     )
 
 
@@ -38,7 +40,7 @@ async def init_db():
 
 
 async def get_session() -> AsyncSession:
-    async_session = sessionmaker(
+    async_session = async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
     async with async_session() as session:

@@ -21,10 +21,25 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 APP_DIR = REPO_ROOT / "app"
 
 # (1) + (2): configure the app before anything imports `config`.
+#
+# Defaults to a throwaway SQLite file so the suite needs no services. Set
+# TEST_DATABASE_URL to an async Postgres URL to run the same tests against the driver
+# production actually uses:
+#
+#   TEST_DATABASE_URL=postgresql+asyncpg://postgres:pw@host:5432/mmli pytest
+#
+# Worth doing when changing anything in the ORM layer: SQLite exercises neither asyncpg
+# nor Postgres type handling, so it cannot catch a whole class of driver-level problem.
 _db_file = REPO_ROOT / ".pytest-characterization.db"
+_async_url = os.getenv("TEST_DATABASE_URL", f"sqlite+aiosqlite:///{_db_file}")
+
 os.environ["CONFIG_FILEPATH"] = str(APP_DIR / "cfg" / "config.yaml")
 os.environ["SECRET_FILEPATH"] = str(APP_DIR / "cfg" / "does-not-exist.yaml")
-os.environ["SQLALCHEMY_DATABASE_URL"] = f"sqlite+aiosqlite:///{_db_file}"
+os.environ["SQLALCHEMY_DATABASE_URL"] = _async_url
+
+# The schema reset below runs through a synchronous driver (see fresh_database), so the
+# async URL needs its driver swapped for the blocking equivalent.
+_sync_url = _async_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 os.environ.setdefault("MINIO_SERVER", "localhost:9000")
 os.environ.setdefault("MINIO_ACCESS_KEY", "test")
 os.environ.setdefault("MINIO_SECRET_KEY", "test")
@@ -49,10 +64,23 @@ import logging  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+from sqlalchemy.pool import NullPool  # noqa: E402
 from sqlmodel import SQLModel, create_engine  # noqa: E402
 
 import main  # noqa: E402
+from models.sqlmodel import db as db_module  # noqa: E402
 from services.minio_service import MinIOService  # noqa: E402
+
+# Rebuild the app's engine without connection pooling, for tests only.
+#
+# TestClient runs the ASGI app on a fresh event loop per instantiation, and this suite
+# builds one per test. asyncpg connections are bound to the loop that opened them, so a
+# pooled connection handed to a later test raises "attached to a different loop". The
+# production process has a single long-lived loop and is unaffected, so this is a
+# property of the harness rather than of the application. NullPool opens and closes a
+# connection per checkout, which removes the cross-loop reuse entirely.
+db_module.engine = create_async_engine(_async_url, poolclass=NullPool)
 
 # db.py builds its engine with echo=True. SQLAlchemy implements echo by setting the
 # logger's level when the engine is constructed, so this has to run after that import
@@ -107,7 +135,7 @@ def fresh_database():
     async engine from the test's loop risks cross-loop errors that surface as flakes.
     DDL through a sync connection sidesteps that entirely.
     """
-    sync_engine = create_engine(f"sqlite:///{_db_file}")
+    sync_engine = create_engine(_sync_url)
     SQLModel.metadata.drop_all(sync_engine)
     SQLModel.metadata.create_all(sync_engine)
     sync_engine.dispose()

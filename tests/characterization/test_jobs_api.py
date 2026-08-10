@@ -228,6 +228,24 @@ class TestDeleteJob:
         assert client.delete(f"/{DEFAULTS}/jobs/nope/nope").status_code == 404
         assert deleted_k8s_jobs == []
 
+    def test_delete_with_an_invalid_job_type_returns_400(self, client):
+        """Every other route on this router validates the type before querying.
+
+        Whether filtering on an unrecognized type is harmless depends on the schema.
+        The deployed schema (built by alembic) stores `type` as a varchar and simply
+        matches nothing. A schema built from the SQLModel metadata - which is what
+        SQLModel.metadata.create_all() produces, and what this suite uses - maps
+        JobType to a native Postgres enum, where the driver raises
+        InvalidTextRepresentationError and the request 500s.
+
+        Validating first makes the route behave the same either way. See the README
+        note on schema divergence.
+        """
+        resp = client.delete("/not-a-real-tool/jobs/j1/r1")
+
+        assert resp.status_code == 400
+        assert "Invalid job type" in resp.json()["detail"]
+
 
 class TestPerToolInputValidation:
     def test_chemscraper_requires_input_file(self, client):
