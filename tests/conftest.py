@@ -143,6 +143,16 @@ def fresh_database():
 
 
 @pytest.fixture
+def sync_db_url():
+    """Blocking URL for the test database.
+
+    KubeEventWatcher uses a synchronous engine, so tests that drive it directly need
+    this rather than the async URL the app is configured with.
+    """
+    return _sync_url
+
+
+@pytest.fixture
 def fake_minio():
     return FakeMinIO()
 
