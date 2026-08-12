@@ -35,11 +35,17 @@ class _FakePodList:
 
 @pytest.fixture
 def fake_pods(monkeypatch):
-    """Control what list_namespaced_pod returns."""
-    state = {"pods": []}
+    """Control what list_namespaced_pod returns, and count how often it is asked.
+
+    The call count matters because the reconcile pass now runs every 600s over every
+    listed Job, so "does the watcher stop asking" is a behavior worth asserting and not
+    just an efficiency note.
+    """
+    state = {"pods": [], "calls": 0}
 
     class _FakeCoreApi:
         def list_namespaced_pod(self, namespace, label_selector=None):
+            state["calls"] += 1
             return _FakePodList(state["pods"])
 
     monkeypatch.setattr(kubejob_service, "api_v1", _FakeCoreApi())
@@ -117,9 +123,10 @@ class TestParentJobLink:
 class _FakeJobObject:
     """Minimal stand-in for a V1Job as the watcher sees it.
 
-    conditions defaults to None rather than an empty list, because this watcher treats
-    "no conditions yet" as still processing while an empty list matches nothing and is
-    ignored entirely. Tests that need the watcher to act have to produce a phase.
+    conditions defaults to None, which _derive_phase reads as "still processing" -- as it
+    does an empty list, since neither carries a terminal condition. Phase derivation is
+    covered in detail in test_kube_phase.py; these tests only need a job object that
+    lands on a given phase.
     """
 
     def __init__(self, job_id, job_type, conditions=None, succeeded=None, failed=None):
@@ -188,15 +195,69 @@ class TestCancellationIsTerminal:
     def test_an_ordinary_job_still_advances(self, watcher):
         self._seed(watcher, JobStatus.QUEUED)
 
-        # This watcher recognizes completion by a 'SuccessCriteriaMet' condition at the
-        # head of the list. (Widening that to the whole condition set is the subject of a
-        # separate open PR; this test follows the code as it stands here.)
         watcher._reconcile_job_phase(
             _FakeJobObject("j1", "somn", conditions=[_Condition("SuccessCriteriaMet")]),
             ignored_namespaces=[], required_labels={"type": "mmli-job"},
         )
 
         assert self._phase(watcher) == JobStatus.COMPLETED
+
+
+class TestDigestIsNotRetriedForever:
+    """The digest read costs a list_namespaced_pod call, and the reconcile pass now
+    revisits every listed Job every 600s rather than only on reconnect.
+
+    A job that reached a terminal phase without yielding a digest never will: its pod is
+    gone, and nothing about it will change. Re-reading it would cost one cluster call per
+    job per pass, forever, for a value that cannot arrive.
+    """
+
+    def _seed(self, watcher_instance, phase):
+        with Session(watcher_instance.engine) as session:
+            session.add(Job(
+                job_id="j1", type=JobType.SOMN, phase=phase,
+                time_created=0, user_agent="", deleted=0,
+            ))
+            session.commit()
+
+    def _reconcile(self, watcher_instance, conditions):
+        watcher_instance._reconcile_job_phase(
+            _FakeJobObject("j1", "somn", conditions=conditions),
+            ignored_namespaces=[], required_labels={"type": "mmli-job"},
+        )
+
+    def test_a_settled_terminal_job_is_not_asked_again(self, watcher, fake_pods):
+        """Already 'completed' in the DB and still completed in the cluster: no phase
+        change, nothing left to learn, so the pod must not be listed."""
+        self._seed(watcher, JobStatus.COMPLETED)
+        fake_pods["calls"] = 0
+
+        self._reconcile(watcher, [_Condition("Complete")])
+
+        assert fake_pods["calls"] == 0
+
+    def test_the_transition_into_a_terminal_phase_still_captures_it(self, watcher, fake_pods):
+        """The completion event is usually the last moment the pod exists. Skipping it
+        would lose the digest for exactly the short jobs whose whole lifecycle fits
+        between two reconcile passes."""
+        fake_pods["pods"] = [_FakePod("ianrinehart/somn@sha256:deadbeef")]
+        self._seed(watcher, JobStatus.PROCESSING)
+
+        self._reconcile(watcher, [_Condition("Complete")])
+
+        with Session(watcher.engine) as session:
+            assert session.get(Job, "j1").image_digest == "ianrinehart/somn@sha256:deadbeef"
+
+    def test_a_running_job_is_still_retried(self, watcher, fake_pods):
+        """While the job runs the digest may simply not be readable yet -- the image has
+        to be pulled first -- so a null result must not stop later attempts."""
+        self._seed(watcher, JobStatus.PROCESSING)
+        fake_pods["calls"] = 0
+
+        self._reconcile(watcher, None)
+        self._reconcile(watcher, None)
+
+        assert fake_pods["calls"] == 2
 
 
 class TestDigestCapture:

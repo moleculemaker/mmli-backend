@@ -248,6 +248,37 @@ class KubeEventWatcher:
             # Job failed with an error, email was sent indicating error
             self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
 
+    @staticmethod
+    def _derive_phase(job_object):
+        """Map a Kubernetes Job's current status onto a JobStatus.
+
+        Terminal state is read from the WHOLE condition list, not conditions[0]: the Job
+        controller appends conditions in an order that varies by cluster version, and
+        'SuccessCriteriaMet' only exists on newer clusters - every successful Job gets
+        'Complete'. Matching a single type at a fixed index silently misses completions,
+        and a missed completion is permanent (the watch never replays old events), which
+        strands the job at whatever phase it last had. The succeeded/failed counters are a
+        last-resort fallback for the same reason.
+        """
+        status = job_object.status
+        if status is None:
+            return JobStatus.PROCESSING
+
+        met = {c.type for c in (status.conditions or []) if c.status == 'True'}
+        if met & {'Complete', 'SuccessCriteriaMet'}:
+            return JobStatus.COMPLETED
+        if met & {'Failed', 'FailureTarget'}:
+            return JobStatus.ERROR
+
+        completions = (job_object.spec.completions if job_object.spec else None) or 1
+        if status.succeeded is not None and status.succeeded >= completions:
+            return JobStatus.COMPLETED
+        # We always create Jobs with backoffLimit=0, so a single failed pod is terminal
+        if status.failed is not None and status.failed > 0:
+            return JobStatus.ERROR
+
+        return JobStatus.PROCESSING
+
     def _reconcile_job_phase(self, job_object, ignored_namespaces, required_labels):
         """Derive a job's phase from its current k8s status and persist it.
 
@@ -270,17 +301,8 @@ class KubeEventWatcher:
         job_type = labels.get('jobType')
         if not job_id or not job_type:
             return
-        conditions = job_object.status.conditions
 
-        new_phase = None
-        if conditions is None:
-            new_phase = JobStatus.PROCESSING
-        elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
-            new_phase = JobStatus.COMPLETED
-        elif job_object.status.failed is not None and job_object.status.failed > 0:
-            new_phase = JobStatus.ERROR
-        if new_phase is None:
-            return
+        new_phase = self._derive_phase(job_object)
 
         with Session(self.engine) as session:
             updated_job = session.get(Job, job_id)
@@ -298,10 +320,20 @@ class KubeEventWatcher:
                 return
 
             # Record which image actually ran, while the pod still exists to be asked.
-            # Attempted on every event until it succeeds: the digest is not readable
-            # until the image has been pulled, so the first event for a job usually
-            # cannot supply it.
-            if updated_job.image_digest is None:
+            # Retried rather than attempted once: the digest is not readable until the
+            # image has been pulled, so the first event for a job usually cannot supply it.
+            #
+            # Not retried forever, though. The reconcile pass now runs every
+            # timeout_seconds (600) rather than only on reconnect, and it lists every Job
+            # within ttlSecondsAfterFinished (12h). A job that reached a terminal phase
+            # without yielding a digest never will - its pod is gone, and nothing about it
+            # will change - so re-reading it costs one list_namespaced_pod call per pass,
+            # forever, for a value that cannot arrive. Attempt only while the job is still
+            # running, or on the event that carries it INTO a terminal phase: that one is
+            # usually the last moment the pod exists, and skipping it would lose the digest
+            # for exactly the short jobs whose whole lifecycle fits between two passes.
+            phase_changed = updated_job.phase != new_phase
+            if updated_job.image_digest is None and (new_phase == JobStatus.PROCESSING or phase_changed):
                 digest = get_image_digest(job_type, job_id)
                 if digest:
                     self.logger.debug(f'Recording image digest for {job_id}: {digest}')
@@ -309,7 +341,7 @@ class KubeEventWatcher:
                     session.add(updated_job)
                     session.commit()
 
-            if updated_job.phase != new_phase:
+            if phase_changed:
                 self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
                 updated_job.phase = new_phase
                 session.add(updated_job)
@@ -329,7 +361,13 @@ class KubeEventWatcher:
         }
         self.logger.info('KubeWatcher looking for required labels: ' + str(required_labels))
 
-        timeout_seconds = 0
+        # Let the watch expire on a known cadence instead of running open-ended: each
+        # reconnect re-lists and reconciles every Job, so this doubles as the recovery pass
+        # for any event we never saw (missed events are never replayed). Completed Jobs live
+        # for ttlSecondsAfterFinished (12h), so they are still listed when we catch up.
+        # Without this the reconcile pass below only ever runs when the API server drops the
+        # stream, so on a healthy connection the recovery path never executes at all.
+        timeout_seconds = 600
         resource_version = ''
         k8s_event_stream = None
 
@@ -355,6 +393,7 @@ class KubeEventWatcher:
                         self._reconcile_job_phase(existing_job, ignored_namespaces, required_labels)
                     except Exception as e:
                         self.logger.error(f'Reconcile skipped a job due to error: {e}')
+                        self.logger.error(traceback.format_exc())
 
                 # Then, watch for new events using the most recent resource_version
                 # Resource version is used to keep track of stream progress (in case of resume/retry)
@@ -368,14 +407,24 @@ class KubeEventWatcher:
                 # Parse events in the stream for Pod phase updates
                 for event in k8s_event_stream:
                     resource_version = event['object'].metadata.resource_version
-                    self._reconcile_job_phase(event['object'], ignored_namespaces, required_labels)
+                    # Isolate per-event failures for the same reason as the reconcile pass
+                    # above: dropping the stream costs us every Job transition that happens
+                    # before we are watching again, and those events are never replayed.
+                    try:
+                        self._reconcile_job_phase(event['object'], ignored_namespaces, required_labels)
+                    except Exception as e:
+                        self.logger.error(f'Skipped a Job event due to error: {e}')
+                        self.logger.error(traceback.format_exc())
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
                 if k8s_event_stream:
                     k8s_event_stream.close()
                 k8s_event_stream = None
-                if e.status == 410:
+                # requests' HTTPError has no .status - reading it unguarded raises inside this
+                # handler, which escapes run() and kills the watcher thread for good. Nothing
+                # checks is_alive() afterwards, so every job then stays at its last phase.
+                if getattr(e, 'status', None) == 410:
                     # Resource too old
                     resource_version = ''
                     self.logger.warning("Resource too old (410) - reconnecting: " + str(e))

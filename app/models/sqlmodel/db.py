@@ -7,7 +7,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from config import get_logger, SQLALCHEMY_DATABASE_URL
+from config import get_logger, DEBUG, SQLALCHEMY_DATABASE_URL
 from models.enums import JobStatus
 from models.sqlmodel.models import Job
 
@@ -21,7 +21,12 @@ def create_db_engine():
     # AsyncEngine(create_engine(...)) wrapper is gone, and sqlmodel no longer re-exports
     # AsyncEngine at all. `future=True` is dropped because 2.0 behavior is the only
     # behavior now and passing it is an error.
-    return create_async_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+    #
+    # echo follows LOGLEVEL rather than being pinned on. echo=True logs every statement
+    # and every parameter set at INFO, which on this service means the watcher's phase
+    # reconciliation - now running over every listed Job every 600s - drowns out the
+    # application's own logs, and job_info payloads end up in them.
+    return create_async_engine(SQLALCHEMY_DATABASE_URL, echo=DEBUG)
 
 
 engine = create_db_engine()
