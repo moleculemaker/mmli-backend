@@ -1,10 +1,61 @@
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy.types import TypeDecorator
 from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel.sql.sqltypes import AutoString
 from pydantic import BaseModel
 
 from ..enums import JobType, JobStatus
+
+
+class EnumValueString(TypeDecorator):
+    """Store an Enum by VALUE in a VARCHAR column, and read it back as the Enum.
+
+    Needed because the two ways this schema gets built disagree about enum columns, and
+    only one of them is what production runs.
+
+    SQLModel 0.0.8 mapped a str-Enum field to AutoString, so every migration in this repo
+    created `job.phase` and `job.type` as VARCHAR holding enum VALUES ('ml-simplefold').
+    SQLModel 0.0.9 changed that mapping to a native sa.Enum, so the upgrade to 0.0.22
+    silently redeclared both columns as Postgres types 'jobstatus' and 'jobtype' -- which
+    no migration creates and which exist in no deployed database. Every query filtering on
+    them rendered '$1::jobtype' and failed with UndefinedObjectError, which is every job
+    submission, via the duplicate check in routers/job.py.
+
+    Switching to a native enum for real is not an option: sa.Enum persists NAMES, so its
+    labels are 'ML_SIMPLEFOLD' while every existing row -- and every frontend,
+    coordinator.py, and the published /v1 input schema -- uses 'ml-simplefold'. Migrating
+    would have to rewrite every row and every client.
+
+    Plain AutoString fixes the outage but reads back a bare str, which leaves the model
+    holding a str where it declares an enum. Pydantic 2 warns on every serialization, and
+    the test suite -- which builds its schema from the metadata, where these were real
+    enums -- has always seen enum members. Converting on the way out keeps the column as
+    the VARCHAR the database has, and the attribute as the enum the code expects.
+    """
+    impl = AutoString
+    cache_ok = True
+
+    def __init__(self, enum_class, *args, **kwargs):
+        self.enum_class = enum_class
+        super().__init__(*args, **kwargs)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return value.value if isinstance(value, Enum) else str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        try:
+            return self.enum_class(value)
+        except ValueError:
+            # A stored value that is no longer a member -- a tool renamed or retired since
+            # the row was written. Those rows have to stay readable, so hand back the raw
+            # string rather than failing every query that happens to touch one.
+            return value
 
 # CREATE TABLE IF NOT EXISTS `job`(
 #     `id` int NOT NULL AUTO_INCREMENT,
@@ -40,8 +91,16 @@ class JobBase(SQLModel):
 class Job(JobBase, table=True):
     # Job metadata
     #queue_position: int = Field(default=0, nullable=False)
-    phase: JobStatus = Field(default=JobStatus.QUEUED, nullable=False)
-    type: JobType = Field(default=None, nullable=False)
+    # VARCHAR-backed, not native enums. See EnumValueString above: declaring these as bare
+    # JobStatus/JobType makes SQLModel 0.0.22 ask for Postgres types that no migration
+    # creates, which took down every job submission. These columns carry no validation of
+    # their own -- SQLModel skips Pydantic validation on table models -- so the input guard
+    # is the `job_type in JobTypes` check in routers/job.py, which is deliberate and
+    # commented there.
+    phase: JobStatus = Field(default=JobStatus.QUEUED, nullable=False,
+                             sa_type=EnumValueString(JobStatus))
+    type: JobType = Field(default=None, nullable=False,
+                          sa_type=EnumValueString(JobType))
     image: str = Field(default=None, nullable=True)
     command: Optional[str] = Field(default=None, nullable=True)
 
