@@ -17,6 +17,9 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd,staging-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
 config:
+  minio:
+    server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
+    apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli2.ncsa.illinois.edu"
   kubernetes_jobs:
     defaults:
       nodeSelector:
@@ -25,7 +28,8 @@ config:
       - effect: NoSchedule
         key: mmli.role
         operator: Exists
-    oed-dlkcat:
+        
+    aceretro:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -33,71 +37,17 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    oed-unikp:
-      runtimeClassName: nvidia
+    chemscraper:
+      env:
+        - name: LOG_LEVEL
+          value: DEBUG
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'http://chemscraper-services-staging.staging.svc.cluster.local:8000'
       nodeSelector:
-        nvidia.com/gpu.present: "true"
+        ncsa.role: worker-job
       tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    oed-catpred:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    novostoic-dgpredictor:
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
-        operator: Exists
-    novostoic-enzrank:
-      resources:
-        limits:
-          cpu: "1"
-          memory: 12Gi
-        requests:
-          cpu: "1"
-          memory: 8Gi
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    novostoic-optstoic:
-      resources:
-        limits:
-          cpu: "1"
-          memory: 12Gi
-        requests:
-          cpu: "1"
-          memory: 8Gi
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
-        operator: Exists
-    novostoic-pathways:
-      resources:
-        limits:
-          cpu: "1"
-          memory: 12Gi
-        requests:
-          cpu: "1"
-          memory: 8Gi
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     clean:
       nodeSelector:  
@@ -107,58 +57,6 @@ config:
         key: mmli.role  
         operator: Exists
     cleandb-mepesm:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    molli:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
-    aceretro:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    somn:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
-    reactionminer:
-      resources:	
-        limits:	
-          cpu: "1"	
-          memory: 24Gi	
-        requests:	
-          cpu: "1"	
-          memory: 20Gi
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    oed-cheminfo:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
-    ml-simplefold:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -214,9 +112,125 @@ config:
           cpu: "2"
           memory: 8Gi  # 16Gi ?
           nvidia.com/gpu: "1"
-  minio:
-    server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
-    apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli2.ncsa.illinois.edu"
+    ml-simplefold:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    novostoic-dgpredictor:
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
+    novostoic-enzrank:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    novostoic-optstoic:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      nodeSelector:	
+        ncsa.role: worker-job	
+      tolerations:	
+      - effect: NoSchedule	
+        key: mmli.role	
+        operator: Exists
+    novostoic-pathways:
+      resources:
+        limits:
+          cpu: "1"
+          memory: 12Gi
+        requests:
+          cpu: "1"
+          memory: 8Gi
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    oed-catpred:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-cheminfo:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    oed-dlkcat:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    oed-unikp:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    somn:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    reactionminer:
+      resources:	
+        limits:	
+          cpu: "1"	
+          memory: 24Gi	
+        requests:	
+          cpu: "1"	
+          memory: 20Gi
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
