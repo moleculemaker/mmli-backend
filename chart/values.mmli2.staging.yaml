@@ -78,7 +78,7 @@ config:
           value: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
           value: "http://mmli-backend-staging.staging.svc.cluster.local:8080"
-    ezspec-unidock:
+    ezspec-inference:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -95,7 +95,7 @@ config:
           cpu: "2"
           memory: 8Gi  # 16Gi ?
           nvidia.com/gpu: "1"
-    ezspec-inference:
+    ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -208,13 +208,6 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    somn:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
     reactionminer:
       resources:	
         limits:	
@@ -230,6 +223,13 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    somn:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
 
   external:
     chemscraper:
