@@ -287,8 +287,8 @@ config:
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
   reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli2.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu"
-  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli2.ncsa.illinois.edu"
-  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli2.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://crispr-copies.frontend.staging.mmli2.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://mutagenesis.frontend.staging.mmli2.ncsa.illinois.edu"
 
 postgresql:
   enabled: true
