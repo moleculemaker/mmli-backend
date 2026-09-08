@@ -11,6 +11,22 @@ name: Docker
 # - DOCKERHUB_PASSWORD : password asscoaited with the username
 on:
   push:
+    # Trigger the workflow when new commits are pushed to the "main" / "develop" branches
+    # Only run for paths that would affect the Docker image contents
+    # This would skip (for example) building a new image every time we 
+    # modify the README or GH action workflows
+    paths:
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'Dockerfile.test'
+      - 'environment.yml'
+      - 'requirements.txt'
+      - 'app/**'
+      - 'env.tpl'
+      - 'pytest.ini'
+      - 'alembic.ini'
+      - 'migrations/**'
+      - 'tests/**'
     branches:
       - main
       - develop
