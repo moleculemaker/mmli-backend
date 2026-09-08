@@ -32,6 +32,19 @@ on:
       - develop
 
   pull_request:
+    # Skip building image if PR only affects chart/docs/workflows
+    paths:
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'Dockerfile.test'
+      - 'environment.yml'
+      - 'requirements.txt'
+      - 'app/**'
+      - 'env.tpl'
+      - 'pytest.ini'
+      - 'alembic.ini'
+      - 'migrations/**'
+      - 'tests/**'
 
   # Allows us to trigger the workflow manually on a branch
   workflow_dispatch: 
