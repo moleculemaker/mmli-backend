@@ -138,7 +138,8 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
         if 'input_file' not in job_config:
             raise HTTPException(status_code=400, detail='"job_info" requires "input_file" for ChemScraper jobs')
 
-        environment = [
+        environment = app_config['kubernetes_jobs'][job_type]['env'] if 'env' in app_config['kubernetes_jobs'][job_type] else []
+        environment += [
             {
                 'name': 'CHEMSCRAPER_INPUT_FILE',
                 'value': job_config['input_file']
