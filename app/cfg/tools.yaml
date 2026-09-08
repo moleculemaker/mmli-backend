@@ -1,0 +1,413 @@
+# Scientific metadata for each job type.
+#
+# This file exists so that a person who is not a Kubernetes operator can describe a
+# tool. It is deliberately NOT part of the Helm values: the kubernetes_jobs blocks in
+# config.yaml are duplicated across config.yaml, local.config.yaml and
+# chart/values.yaml, so putting citations there would mean maintaining them in three
+# places and editing deployment config to fix a typo in an author list.
+#
+# Runtime facts (image, command, volumes, resources) stay in config.yaml. This file
+# holds only what a human needs to decide whether a tool is the right one to run.
+#
+# ---------------------------------------------------------------------------------
+# FOR SUBJECT-MATTER EXPERTS
+#
+# Every `null` below marked TODO(SME) is something no one has told us yet. They are
+# published as null rather than guessed at, because a wrong citation is worse than an
+# absent one. Filling one in is a one-line change to this file.
+#
+#   license   SPDX identifier for the tool itself, e.g. MIT, BSD-3-Clause, GPL-3.0-only.
+#             Not the license of this API.
+#   citation  How the tool should be cited. A DOI is ideal.
+#   edam      Terms from the EDAM ontology (https://edamontology.org). `operation` is
+#             what the tool does; `topic` is the field it belongs to. Full URIs please,
+#             e.g. http://edamontology.org/operation_2426
+#
+# `summary` and `description` were written from the source code and describe mechanics,
+# not science. Please correct anything that misrepresents the method.
+# ---------------------------------------------------------------------------------
+#
+# Field reference:
+#   summary        one line, shown in listings
+#   description    a paragraph; also what an AI agent reads to choose a tool
+#   repository     source of the tool itself, not of this API
+#   execution      kubernetes-job | parent-job | subjob
+#   input_schema   filename in app/schemas/, or null when the tool takes no job_info
+#   input_files    what must be uploaded to the job before submission, or null
+#   schema_status  verified   - derived from this repository's own parsing code
+#                  from-container - derived from the tool container's source or examples
+#                  unverified - inferred, needs confirmation
+#   internal       true for job types users never submit directly (created by a parent)
+
+tools:
+
+  aceretro:
+    name: ACERetro
+    summary: Retrosynthesis route planning for a target molecule.
+    description: >-
+      Plans synthetic routes to a target molecule supplied as SMILES. Input is written
+      to the job's input directory as input.json and the container reads it from there.
+    repository: null              # TODO(SME)
+    execution: kubernetes-job
+    input_schema: aceretro.input.json
+    input_files: null
+    schema_status: unverified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  chemscraper:
+    name: ChemScraper
+    summary: Extracts chemical structures from a PDF document.
+    description: >-
+      Sends an uploaded PDF to the ChemScraper service, which returns recognized
+      structures as SVG and CDXML plus a results table. Runs as a Kubernetes job that
+      wraps the HTTP call.
+    repository: https://github.com/moleculemaker/chemscraper-helm-chart
+    execution: kubernetes-job
+    input_schema: chemscraper.input.json
+    input_files: One PDF, uploaded before submission. Content is checked for a %PDF header.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  clean:
+    name: CLEAN
+    summary: Predicts EC numbers for protein sequences.
+    description: >-
+      Takes one or more sequences and returns enzyme commission number predictions.
+      Records are assembled into a FASTA file server-side; a record may carry either an
+      amino-acid sequence or a nucleotide sequence, which is translated first.
+    repository: null              # TODO(SME)
+    execution: kubernetes-job
+    input_schema: clean.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  cleandb-mepesm:
+    name: CLEANDB MEP-ESM2
+    summary: Sequence search against CLEANDB using MEP-ESM2.
+    description: >-
+      Accepts a single amino-acid sequence. The submitted body may be either an object
+      carrying a `sequence` key or a bare string; anything that fails to parse as JSON
+      is treated as the sequence itself.
+    repository: https://github.com/moleculemaker/CLEANDB-api
+    execution: kubernetes-job
+    input_schema: cleandb-mepesm.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  crispr-copies:
+    name: CRISPR-COPIES
+    summary: Finds chromosomal sites for stable integration.
+    description: >-
+      Identifies intergenic sites suitable for CRISPR-mediated chromosomal integration,
+      designing guide RNAs and homology arms for each. Genome and annotation files are
+      uploaded to the job before submission. Some parameter combinations are coupled:
+      an on-target scoring model must match the chosen CRISPR system.
+    repository: null              # TODO(SME)
+    execution: kubernetes-job
+    input_schema: crispr-copies.input.json
+    input_files: Genome and annotation files, uploaded before submission. A protein file is optional.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  mutagenesis:
+    name: Mutagenesis
+    summary: Designs primers for site-directed mutagenesis.
+    description: >-
+      Designs forward and reverse primers, and a picking worklist, for a set of requested
+      mutations against an ORF. The ORF sequence and the mutation list are uploaded to
+      the job before submission; flanking overhang sequences are optional.
+    repository: null              # TODO(SME)
+    execution: kubernetes-job
+    input_schema: mutagenesis.input.json
+    input_files: ORF sequence and mutation list, uploaded before submission. Overhang sequences are optional.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  ez-specificity:
+    name: EZSpecificity
+    summary: Enzyme/substrate specificity prediction.
+    description: >-
+      Predicts specificity for up to five enzymes against up to ten substrates. Runs as
+      a parent job whose coordinator creates and sequences two subjobs, docking then
+      inference. Enzyme structures are validated as PDB server-side before the pipeline
+      starts.
+    repository: https://github.com/moleculemaker/EZSpecificity
+    execution: parent-job
+    input_schema: ez-specificity.input.json
+    input_files: One PDB structure per enzyme, uploaded before submission.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  ezspec-unidock:
+    name: EZSpecificity Docking
+    summary: Molecular docking step of the EZSpecificity pipeline.
+    description: >-
+      Created by the ez-specificity coordinator. Not submitted directly; its inputs come
+      from the parent job's configuration.
+    repository: https://github.com/moleculemaker/ezspec-unidock-container
+    execution: subjob
+    internal: true
+    input_schema: null
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  ezspec-inference:
+    name: EZSpecificity Inference
+    summary: Inference step of the EZSpecificity pipeline.
+    description: >-
+      Created by the ez-specificity coordinator after docking completes. Not submitted
+      directly.
+    repository: https://github.com/moleculemaker/ezspec-inference-container
+    execution: subjob
+    internal: true
+    input_schema: null
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  ml-simplefold:
+    name: SimpleFold
+    summary: Protein structure prediction from sequence.
+    description: >-
+      Runs SimpleFold over a supplied FASTA sequence and returns predicted structures
+      with pLDDT confidence scores.
+    repository: https://github.com/moleculemaker/ml-simplefold
+    execution: kubernetes-job
+    input_schema: ml-simplefold.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  molli:
+    name: MOLLI
+    summary: Combinatorial generation of a ligand library.
+    description: >-
+      Builds a ligand library by combining a set of cores with a set of substituents,
+      and returns generated structures together with PCA and t-SNE projections of the
+      resulting chemical space.
+    repository: https://github.com/moleculemaker/molli
+    execution: kubernetes-job
+    input_schema: molli.input.json
+    input_files: A cores file and a substituents file, both uploaded before submission.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  novostoic-optstoic:
+    name: novoStoic optStoic
+    summary: Overall stoichiometry search between two molecules.
+    description: >-
+      Finds thermodynamically balanced overall stoichiometries converting a primary
+      precursor into a target molecule. Molecules are identified by MetaNetX id. The
+      coefficient search range is configurable.
+    repository: https://github.com/moleculemaker/novostoic-container
+    execution: kubernetes-job
+    input_schema: novostoic-optstoic.input.json
+    input_files: null
+    schema_status: from-container
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  novostoic-pathways:
+    name: novoStoic Pathway Search
+    summary: Enzymatic pathway search for a given overall stoichiometry.
+    description: >-
+      Searches for multi-step enzymatic pathways realising a stoichiometry built from a
+      substrate, a product and optional co-reactants and co-products. The API assembles
+      the stoichiometry string the container expects from those fields.
+    repository: https://github.com/moleculemaker/novostoic-container
+    execution: kubernetes-job
+    input_schema: novostoic-pathways.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  novostoic-enzrank:
+    name: novoStoic EnzRank
+    summary: Ranks an enzyme sequence against a substrate.
+    description: >-
+      Scores how well an enzyme sequence acts on a given substrate. The sequence is
+      supplied prefixed with an identifier and a colon; that identifier is echoed back
+      in the result.
+    repository: https://github.com/moleculemaker/novostoic-container
+    execution: kubernetes-job
+    input_schema: novostoic-enzrank.input.json
+    input_files: null
+    schema_status: from-container
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  novostoic-dgpredictor:
+    name: novoStoic dGPredictor
+    summary: Predicts standard Gibbs free energy change for reactions.
+    description: >-
+      Estimates dG for one or more reactions at a given pH and ionic strength. A
+      reaction may be given as SMILES or as a KEGG reaction with an accompanying
+      structure for any novel molecule.
+    repository: https://github.com/moleculemaker/novostoic-container
+    execution: kubernetes-job
+    input_schema: novostoic-dgpredictor.input.json
+    input_files: null
+    schema_status: from-container
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  oed-cheminfo:
+    name: OpenEnzymeDB Cheminformatics
+    summary: Cheminformatics similarity comparison.
+    description: >-
+      Compares a query molecule against a list of molecules using any combination of
+      Tanimoto similarity, fragment matching and maximum common substructure. Each
+      algorithm accepts its own options.
+    repository: https://github.com/moleculemaker/cheminfo-service
+    execution: kubernetes-job
+    input_schema: oed-cheminfo.input.json
+    input_files: null
+    schema_status: from-container
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  oed-dlkcat:
+    name: OpenEnzymeDB DLKcat
+    summary: kcat prediction with DLKcat.
+    description: >-
+      Predicts turnover number for each supplied enzyme/substrate pair.
+    repository: https://github.com/moleculemaker/oed-toolkit
+    execution: kubernetes-job
+    input_schema: oed-dlkcat.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  oed-unikp:
+    name: OpenEnzymeDB UniKP
+    summary: Kinetic parameter prediction with UniKP.
+    description: >-
+      Predicts kinetic parameters for each supplied enzyme/substrate pair.
+    repository: https://github.com/moleculemaker/oed-toolkit
+    execution: kubernetes-job
+    input_schema: oed-unikp.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  oed-catpred:
+    name: OpenEnzymeDB CatPred
+    summary: Kinetic parameter prediction with CatPred.
+    description: >-
+      Predicts kinetic parameters for each supplied enzyme/substrate pair.
+    repository: https://github.com/moleculemaker/oed-toolkit
+    execution: kubernetes-job
+    input_schema: oed-catpred.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  reactionminer:
+    name: ReactionMiner
+    summary: Extracts chemical reactions from documents.
+    description: >-
+      Mines reaction descriptions from uploaded PDFs. Takes no job_info; the documents
+      themselves are the input.
+    repository: https://github.com/moleculemaker/ReactionMiner
+    execution: kubernetes-job
+    input_schema: reactionminer.input.json
+    input_files: One or more PDFs, uploaded before submission.
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)
+
+  somn:
+    name: SOMN
+    summary: Yield prediction for Buchwald-Hartwig amination.
+    description: >-
+      Predicts reaction yield for pairs of electrophile and nucleophile. Structures may
+      be given as SMILES, CML or CDXML, each with the index of the reacting atom.
+      SMILES are canonicalized and names de-duplicated before the job runs.
+    repository: https://github.com/moleculemaker/somn-frontend
+    execution: kubernetes-job
+    input_schema: somn.input.json
+    input_files: null
+    schema_status: verified
+    license: null                 # TODO(SME)
+    citation: null                # TODO(SME)
+    edam:
+      operation: null             # TODO(SME)
+      topic: null                 # TODO(SME)

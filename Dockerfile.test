@@ -1,0 +1,30 @@
+# Test image. Mirrors the runtime Dockerfile's base and dependency install so the
+# characterization tests exercise the same interpreter and library versions that ship,
+# then adds the test-only dependencies on top.
+#
+# The platform is pinned to match the runtime Dockerfile. It is not optional:
+# python-terrier depends on pytrec-eval-terrier, which publishes no aarch64 wheel and
+# fails to build from source, so an arm64 build of this image cannot install the
+# application's dependencies at all.
+FROM --platform=linux/amd64 condaforge/mambaforge:24.1.2-0
+WORKDIR /code
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+
+# openbabel is imported by the somn router/service, so it is required to import the app
+RUN mamba install -y openbabel && mamba clean --all -y
+
+COPY ./requirements.txt /code/requirements.txt
+COPY ./requirements-dev.txt /code/requirements-dev.txt
+RUN pip install --no-cache-dir -r /code/requirements-dev.txt
+
+COPY ./pytest.ini /code/pytest.ini
+COPY ./app /code/app
+COPY ./tests /code/tests
+
+# kubejob_service loads a cluster config at import time and exits the process if it
+# finds none. cfg/config.yaml points at /opt/kubeconfig, so place a dummy there.
+COPY ./tests/fixtures/kubeconfig.yaml /opt/kubeconfig
+
+CMD ["pytest", "-q"]

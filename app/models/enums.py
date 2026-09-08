@@ -6,7 +6,9 @@ class JobType(str, Enum):
     CLEAN = 'clean'
     CLEANDB_MEPESM = 'cleandb-mepesm'
     CHEMSCRAPER = 'chemscraper'
+    CRISPR_COPIES = 'crispr-copies'
     MOLLI = 'molli'
+    MUTAGENESIS = 'mutagenesis'
     NOVOSTOIC_OPTSTOIC= 'novostoic-optstoic'
     NOVOSTOIC_PATHWAYS = 'novostoic-pathways'
     NOVOSTOIC_ENZRANK = 'novostoic-enzrank'
@@ -32,6 +34,10 @@ class JobStatus(str, Enum):
     PROCESSING = 'processing'
     COMPLETED = 'completed'
     ERROR = 'error'
+    # Kubernetes has no concept of a canceled Job - a deleted one simply stops
+    # existing - so this phase is only ever set by us, and the watcher must not
+    # derive over the top of it.
+    CANCELED = 'canceled'
 
     def __str__(self) -> str:
         return self.value

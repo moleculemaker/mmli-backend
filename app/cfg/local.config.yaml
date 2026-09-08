@@ -11,6 +11,8 @@ data:
     chemscraper_frontend_url: https://chemscraper.frontend.staging.mmli1.ncsa.illinois.edu
     chemscraper_url: http://chemscraper-services-staging.staging.svc.cluster.local:8000
     clean_frontend_url: https://clean.frontend.staging.mmli1.ncsa.illinois.edu
+    crisprcopies_frontend_url: https://crispr-copies.frontend.staging.mmli1.ncsa.illinois.edu
+    mutagenesis_frontend_url: https://mutagenesis.frontend.staging.mmli1.ncsa.illinois.edu
     db:
       url: ""
     email:
@@ -33,12 +35,22 @@ data:
           subPath: uws/jobs/clean/JOB_ID/in
         - claimName: mmli-clean-job-weights
           mountPath: /app/results/inputs
-        name: shared-storage
+          name: shared-storage
           subPath: output
         - claimName: mmli-clean-job-weights
           mountPath: /root/.cache/torch/hub/checkpoints
           name: shared-storage
           subPath: weights
+      crispr-copies:
+        image: ghcr.io/ibiofoundry/copies:latest
+        imagePullPolicy: Always
+        # Init-container step (after prejob.py): resolve a dropdown organism accession to
+        # input files + convert any uploaded GFF3 to feature_table.txt. No-op otherwise.
+        prejob_command: "python fetch_organism.py && python convert_annotations.py"
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
+        volumes: []
       defaults:
         activeDeadlineSeconds: 259200
         command: perl -Mbignum=bpi -wle 'print bpi(2000)' > ${JOB_OUTPUT_DIR}/pi.out
@@ -78,6 +90,13 @@ data:
           mountPath: /root/.cache/torch/hub/checkpoints
           name: shared-storage
           subPath: weights
+      mutagenesis:
+        image: ghcr.io/ibiofoundry/mutagenesis:latest
+        imagePullPolicy: Always
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
+        volumes: []
       novostoic-dgpredictor:
         command: python ./novostoic-job.py dgpredictor
         image: moleculemaker/novostoic

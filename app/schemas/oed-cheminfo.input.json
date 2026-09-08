@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenEnzymeDB cheminformatics input",
+  "description": "Compares a query molecule against a list of molecules using the selected algorithms.",
+  "type": "object",
+  "required": [
+    "query_smiles",
+    "smiles_list",
+    "algorithms"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "query_smiles": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SMILES of the molecule to compare against the list."
+    },
+    "smiles_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Molecules to compare the query against."
+    },
+    "algorithms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "tanimoto",
+          "fragment",
+          "mcs"
+        ]
+      },
+      "description": "Which comparisons to run."
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-algorithm options. Container defaults apply for anything omitted.",
+      "properties": {
+        "tanimoto": {
+          "type": "object",
+          "properties": {
+            "fptype": {
+              "type": "string",
+              "examples": [
+                "rdkit"
+              ],
+              "description": "Fingerprint type used to compute similarity."
+            }
+          },
+          "description": "Options for Tanimoto similarity."
+        },
+        "fragment": {
+          "type": "object",
+          "properties": {
+            "uniquify": {
+              "type": "boolean",
+              "description": "Collapse duplicate matches."
+            },
+            "useChirality": {
+              "type": "boolean",
+              "description": "Require chirality to match."
+            },
+            "useQueryQueryMatches": {
+              "type": "boolean",
+              "description": "Allow query-to-query atom matches."
+            },
+            "maxMatches": {
+              "type": "integer",
+              "description": "Cap on the number of matches returned."
+            }
+          },
+          "description": "Options for fragment matching."
+        },
+        "mcs": {
+          "type": "object",
+          "properties": {
+            "maximizeBonds": {
+              "type": "boolean",
+              "description": "Maximise matched bonds rather than atoms."
+            },
+            "threshold": {
+              "type": "number",
+              "description": "Fraction of molecules that must contain the substructure."
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Seconds before the search gives up."
+            },
+            "verbose": {
+              "type": "boolean",
+              "description": "Emit progress detail."
+            },
+            "matchValences": {
+              "type": "boolean",
+              "description": "Require valences to match."
+            },
+            "ringMatchesRingOnly": {
+              "type": "boolean",
+              "description": "Only match ring atoms to ring atoms."
+            },
+            "completeRingsOnly": {
+              "type": "boolean",
+              "description": "Only return substructures with whole rings."
+            },
+            "matchChiralTag": {
+              "type": "boolean",
+              "description": "Require chiral tags to match."
+            }
+          },
+          "description": "Options for maximum common substructure."
+        }
+      }
+    }
+  }
+}

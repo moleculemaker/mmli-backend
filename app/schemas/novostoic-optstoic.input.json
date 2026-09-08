@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "novoStoic optStoic input",
+  "description": "Finds overall stoichiometry converting a precursor to a target molecule. Identifiers are MetaNetX ids.",
+  "type": "object",
+  "required": [
+    "primary_precursor",
+    "target_molecule"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "primary_precursor": {
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "MNXM1137670"
+      ],
+      "description": "MetaNetX identifier of the starting molecule."
+    },
+    "target_molecule": {
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "MNXM26"
+      ],
+      "description": "MetaNetX identifier of the molecule to produce."
+    },
+    "min_int_val": {
+      "type": "integer",
+      "default": -5,
+      "description": "Lower bound on stoichiometric coefficients. Container default applies when omitted."
+    },
+    "max_int_val": {
+      "type": "integer",
+      "default": 5,
+      "description": "Upper bound on stoichiometric coefficients. Container default applies when omitted."
+    }
+  }
+}

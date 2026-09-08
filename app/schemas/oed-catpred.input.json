@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenEnzymeDB kinetic prediction input",
+  "description": "Predicts a kinetic parameter for each enzyme/substrate pair.",
+  "type": "object",
+  "required": [
+    "input_pairs"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "input_pairs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "sequence",
+          "type",
+          "smiles"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Label for this pair, echoed in results."
+          },
+          "sequence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Enzyme sequence."
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "FASTA"
+            ],
+            "description": "Format of 'sequence'."
+          },
+          "smiles": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Substrate SMILES."
+          }
+        }
+      },
+      "description": "Enzyme/substrate pairs to predict for."
+    }
+  }
+}

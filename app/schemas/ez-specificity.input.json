@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EZSpecificity input",
+  "description": "Enzyme/substrate specificity prediction. Runs as a parent job that coordinates docking and inference subjobs. Enzyme PDB files must be uploaded to this job before submission.",
+  "type": "object",
+  "required": [
+    "enzymes",
+    "substrates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "enzymes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": [
+          "filename"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Filename of an uploaded PDB structure. Validated server-side."
+          }
+        }
+      },
+      "description": "Enzyme structures to evaluate. At most five per job."
+    },
+    "substrates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Substrate structures."
+    },
+    "docking": {
+      "type": "object",
+      "description": "Optional docking options, passed through to the container unchanged."
+    }
+  }
+}

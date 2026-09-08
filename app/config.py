@@ -73,6 +73,16 @@ CHEMSCRAPER_API_BASE_URL = os.getenv('CHEMSCRAPER_API_BASE_URL', app_config['ext
 # HCAPTCHA_SECRET = os.getenv('HCAPTCHA_SECRET', app_config['auth']['hcaptcha_secret'])
 
 
+# Group membership required to read the usage reports. Reports are aggregate-only, but
+# they still describe who is using the service, so they are not public.
+REPORTING_GROUP = os.getenv('REPORTING_GROUP', app_config.get('auth', {}).get('reportingGroup', ''))
+
+# Secret used to derive the pseudonymous client fingerprint recorded on a submission.
+# Absent by default and absent means disabled: fingerprints are stored as null rather
+# than derived from a guessable or empty salt, because a fingerprint computed from a
+# known salt is just a reversible encoding of the client IP.
+ANALYTICS_SALT = os.getenv('ANALYTICS_SALT', '')
+
 STATUS_OK = 'ok'
 STATUS_ERROR = 'error'
 

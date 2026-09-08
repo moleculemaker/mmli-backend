@@ -21,7 +21,7 @@ class OEDService:
 
         job = await db.get(Job, job_id)
         if not job:
-            return HTTPException(status_code=404, detail="Job not found")
+            raise HTTPException(status_code=404, detail="Job not found")
         
         job_info = json.loads(job.job_info)
         data['query_smiles'] = {

@@ -1,6 +1,240 @@
 # mmli-backend
 Unified FastAPI based backend for ChemScraper, (CLEAN job-manager and Molli - future scope)
 
+## The `/v1` API
+
+A self-describing API for running these tools from a script, a notebook, or an agent.
+Interactive documentation is at `/v1/docs`; the OpenAPI 3.1 document is at
+`/v1/openapi.json`.
+
+There is no authentication. A job is reachable by anyone holding its `job_id`, which is
+a server-assigned UUIDv4 and is never listed anywhere. **Treat a `job_id` as a secret.**
+`/v1/service-info` states this so a client does not have to guess.
+
+### Find a tool and read what it wants
+
+```bash
+BASE=https://mmli.fastapi.mmli1.ncsa.illinois.edu/v1
+
+curl -s $BASE/tools | jq '.itemListElement[] | {identifier, abstract}'
+curl -s $BASE/tools/novostoic-optstoic/input-schema | jq .
+```
+
+### Run it
+
+```bash
+JOB=$(curl -s -X POST $BASE/tools/novostoic-optstoic/jobs \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"primary_precursor": "MNXM1137670", "target_molecule": "MNXM26"}')
+
+echo "$JOB" | jq -r .job_id
+```
+
+`Idempotency-Key` is optional but worth sending: if the request times out, replaying the
+same key returns the original job rather than starting a second one.
+
+Inputs are validated against the published schema before anything runs. A rejection
+names the offending field:
+
+```json
+{
+  "type": ".../v1/problems/invalid-input",
+  "title": "Input failed schema validation",
+  "status": 422,
+  "errors": [
+    {"pointer": "/primary_precursor", "detail": "5 is not of type 'string'"}
+  ]
+}
+```
+
+### Wait for it, then read the results
+
+```bash
+ID=$(echo "$JOB" | jq -r .job_id)
+
+# 409 while running, 200 when finished. Status codes carry the meaning, so there is
+# nothing to parse in the polling loop.
+until curl -sf -o results.json "$BASE/jobs/$ID/results"; do sleep 10; done
+jq . results.json
+```
+
+`GET /v1/jobs/$ID` returns status, ISO-8601 timestamps, provenance (including the image
+digest that actually ran, once the pod reports it), and a `links` object — so a client
+never has to build a URL.
+
+Raw output files are listed at `/v1/jobs/$ID/artifacts`; add `?include=logs` for the
+tool's stdout/stderr. `POST /v1/jobs/$ID/cancel` stops a running job.
+
+### Tools that need files
+
+Send one multipart request. The server assigns the `job_id` and stores the files itself:
+
+```bash
+curl -X POST $BASE/tools/molli/jobs \
+  -F 'inputs={"CORES_FILE_NAME":"cores.cdxml","SUBS_FILE_NAME":"subs.cdxml"};type=application/json' \
+  -F 'files=@cores.cdxml' \
+  -F 'files=@subs.cdxml'
+```
+
+### Errors
+
+Every `/v1` error is [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) `problem+json`
+with a stable `type` URI, so a client can branch on the kind of failure without matching
+on prose.
+
+## The MCP server
+
+The same tools are exposed to AI agents over the [Model Context
+Protocol](https://modelcontextprotocol.io) at `/mcp`, using Streamable HTTP.
+
+```json
+{
+  "mcpServers": {
+    "alphasynthesis": {
+      "url": "https://mmli.fastapi.mmli1.ncsa.illinois.edu/mcp"
+    }
+  }
+}
+```
+
+An agent sees one `submit_*` tool per scientific tool, each carrying that tool's real
+published JSON Schema as its `inputSchema`, plus `get_job_status`, `get_job_results`,
+`list_job_artifacts`, `cancel_job` and `describe_tool`.
+
+It is an adapter over `/v1` rather than a second implementation: every handler issues an
+in-process request against the versioned API, so validation, error shapes and result
+semantics are the same ones an HTTP client gets, and the two cannot drift apart.
+
+Two limits worth knowing:
+
+- **Tools that need uploaded files** (`molli`, `chemscraper`, `ez-specificity`) cannot be
+  driven from MCP, because the protocol has no upload mechanism. Their descriptions say
+  so and point at the HTTP API rather than letting an agent call them and fail.
+- **Submission is rate limited in-process**, because MCP multiplexes every call over one
+  HTTP request stream and the ingress rule cannot see individual invocations. The limit
+  is therefore per replica: with N replicas the effective ceiling is N times
+  `SUBMIT_LIMIT`. Reads are not limited, so polling is never throttled.
+
+## Usage reporting
+
+`GET /internal/reports/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` returns aggregate counts by
+tool, by API surface and by job status. It requires membership of the OIDC group named
+by `REPORTING_GROUP` (or `auth.reportingGroup` in config). If that is unset the endpoint
+returns 503 rather than falling open.
+
+**It returns aggregates only** — never a job row, an email address, or a fingerprint.
+That is a deliberate constraint: an endpoint that returns rows becomes, sooner or later,
+how somebody exports the user table.
+
+### What is recorded, and what is not
+
+Recorded on each submission, on the job row that already exists:
+
+| Field | Purpose |
+|---|---|
+| `client_surface` | `legacy` / `v1` / `mcp` — whether the versioned API is being adopted |
+| `client_origin` | the `Origin` header, or null. Scripts send none, which is itself the signal |
+| `user_agent` | what the caller identified itself as |
+| `client_fingerprint` | salted derivation of the client address, for counting anonymous callers |
+| `email` | only when a submitter supplies `X-Notify-Email` |
+
+**Nothing is recorded about reads.** No request log, no page views, no polling data. The
+questions this answers are about submissions, and every submission is already a durable
+row. A single three-day job can generate ~26,000 status polls, so a request log would be
+dominated by one client's polling loop.
+
+**The client address is never stored.** `client_fingerprint` is
+`HMAC-SHA256(secret, year:address)`, truncated. It is null unless `ANALYTICS_SALT` is
+set, which it is not by default — a fingerprint derived from an empty or guessable salt
+is a reversible encoding of the address rather than a pseudonym.
+
+The salt rotates annually, so a pseudonym stays linkable for at most one reporting year.
+That is a deliberate trade: it keeps a unique-caller count computable across a full
+funding year, at the cost of a pseudonym that persists for that year. Rotating monthly
+would be more private and would make annual unique counts impossible.
+
+`identified_users` and `distinct_clients` measure different populations and must not be
+added together.
+
+### Retention
+
+There is none. Job rows are kept indefinitely — `deleted` exists but nothing sets it —
+and they now hold email addresses and pseudonymous fingerprints. **A retention period is
+a policy decision that has not been made.**
+
+### How this differs from the legacy API
+
+The endpoints under `/{job_type}/...` are unchanged and remain supported. `/v1` differs
+in that job ids are server-assigned, inputs are schema-validated, results return 409
+rather than `200` with a null body while a job is running, responses carry links, and
+errors are problem documents.
+
+## Running the tests
+
+The suite runs inside the same base image the service ships from, so it exercises the
+pinned interpreter and library versions rather than whatever is on your machine:
+
+```bash
+docker build -f Dockerfile.test -t mmli-backend-test .
+docker run --rm mmli-backend-test pytest -q
+```
+
+To iterate on tests without rebuilding, mount them in:
+
+```bash
+docker run --rm -v "$PWD/tests:/code/tests" mmli-backend-test pytest -q
+```
+
+The image is pinned to `linux/amd64`. This is not optional: `python-terrier` depends on
+`pytrec-eval-terrier`, which publishes no `aarch64` wheel and cannot build from source,
+so an arm64 build fails to install the application's dependencies at all.
+
+### Running the tests against Postgres
+
+By default the suite uses a throwaway SQLite file, so it needs no running services. Set
+`TEST_DATABASE_URL` to run the identical tests against the driver production uses:
+
+```bash
+docker network create mmli-test-net
+docker run -d --name mmli-pg --network mmli-test-net \
+  -e POSTGRES_PASSWORD=pw -e POSTGRES_USER=postgres -e POSTGRES_DB=mmli postgres:15
+
+docker run --rm --network mmli-test-net \
+  -e TEST_DATABASE_URL="postgresql+asyncpg://postgres:pw@mmli-pg:5432/mmli" \
+  mmli-backend-test pytest -q
+```
+
+Worth doing whenever the ORM layer changes. SQLite exercises neither `asyncpg` nor
+Postgres type handling, so a whole class of driver-level problem is invisible to the
+default run.
+
+### Known limitation: the test schema is not the deployed schema
+
+The suite builds its tables with `SQLModel.metadata.create_all()`. Deployments build
+them with `alembic upgrade head`. **These do not produce the same schema.** The clearest
+example is `job.type`: the migrations declare it as `AutoString` (a plain `varchar`),
+while the SQLModel metadata maps the `JobType` enum to a *native Postgres enum*. Under
+the migration-built schema an unrecognized value simply matches no rows; under the
+metadata-built one the driver raises `InvalidTextRepresentationError`.
+
+So a test can pass or fail for reasons that do not apply in production, in either
+direction. Treat behavior that depends on column-level type enforcement as unverified
+until it has been checked against a migrated database.
+
+Fixing this properly means building the test schema from migrations, which is not
+currently possible on SQLite — several migrations use `ALTER COLUMN ... SET NOT NULL`,
+which SQLite does not support — so it would make Postgres mandatory for running tests.
+That trade-off has not been made.
+
+### About `tests/characterization/`
+
+These tests pin the **current** behavior of the legacy API, including behavior that is
+wrong. Assertions covering known defects carry a `DEFECT:` comment naming the problem.
+Their purpose is to make behavioral change visible: when a later change alters one of
+these responses, the test diff is the record of that decision. A failure here means
+"something changed" — decide whether the change was intended before editing the test.
+
 ## ⭐️ Recommended local development (Docker)
 
 ### (1/4) Create a `.env`

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SOMN input",
+  "description": "Yield prediction for Buchwald-Hartwig amination. The request body is an array, one entry per reactant pair.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": [
+      "reactant_pair_name",
+      "el",
+      "el_name",
+      "el_input_type",
+      "el_idx",
+      "nuc",
+      "nuc_name",
+      "nuc_input_type",
+      "nuc_idx"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "reactant_pair_name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Label for this pair."
+      },
+      "el": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Electrophile structure, in el_input_type format."
+      },
+      "el_name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Electrophile label. De-duplicated server-side."
+      },
+      "el_input_type": {
+        "type": "string",
+        "enum": [
+          "smi",
+          "cml",
+          "cdxml"
+        ],
+        "description": "Format of the electrophile structure."
+      },
+      "el_idx": {
+        "type": "string",
+        "description": "Index of the reacting atom on the electrophile."
+      },
+      "nuc": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Nucleophile structure, in nuc_input_type format."
+      },
+      "nuc_name": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Nucleophile label. De-duplicated server-side."
+      },
+      "nuc_input_type": {
+        "type": "string",
+        "enum": [
+          "smi",
+          "cml",
+          "cdxml"
+        ],
+        "description": "Format of the nucleophile structure."
+      },
+      "nuc_idx": {
+        "type": "string",
+        "description": "Index of the reacting atom on the nucleophile."
+      }
+    }
+  }
+}

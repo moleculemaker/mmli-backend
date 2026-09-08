@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CLEANDB MEP-ESM2 input",
+  "description": "Accepts either an object carrying the sequence or a bare sequence string; the server falls back to treating an unparseable body as the sequence itself.",
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "sequence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sequence": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Amino-acid sequence to search."
+        }
+      }
+    },
+    {
+      "type": "string",
+      "minLength": 1,
+      "description": "Amino-acid sequence to search."
+    }
+  ]
+}
