@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRISPR-COPIES input",
+  "description": "Finds sites for chromosomal integration. Genome and annotation files are uploaded to this job before submission. Some combinations are additionally checked server-side: an on-target model must match the chosen CRISPR system, and gcContentMin must not exceed gcContentMax. Unknown properties are ignored.",
+  "type": "object",
+  "required": [
+    "organism",
+    "parameters"
+  ],
+  "$defs": {
+    "fileReference": {
+      "type": "object",
+      "description": "Reference to a file already uploaded to this job. Give the name in any one of filename, name or url.",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Uploaded file's name."
+        },
+        "name": {
+          "type": "string",
+          "description": "Alternative to filename."
+        },
+        "url": {
+          "type": "string",
+          "description": "Alternative to filename."
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "filename"
+          ]
+        },
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "url"
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "organism": {
+      "type": "object",
+      "description": "The organism to search, given as an identifier and/or uploaded files.",
+      "properties": {
+        "organismIdentifier": {
+          "type": "object",
+          "description": "Organism chosen from the supported list.",
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Display name."
+            },
+            "value": {
+              "type": "string",
+              "description": "Identifier sent to the tool."
+            }
+          }
+        },
+        "genome": {
+          "$ref": "#/$defs/fileReference",
+          "description": "Genome sequence file."
+        },
+        "annotations": {
+          "$ref": "#/$defs/fileReference",
+          "description": "Annotation file."
+        },
+        "protein": {
+          "$ref": "#/$defs/fileReference",
+          "description": "Optional protein file."
+        }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Search parameters.",
+      "required": [
+        "crisprSystem",
+        "guideRNA",
+        "homologyArm",
+        "intergenicRegion"
+      ],
+      "properties": {
+        "crisprSystem": {
+          "type": "string",
+          "enum": [
+            "CRISPR/Cas9",
+            "CRISPR/Cas12a"
+          ],
+          "description": "Nuclease system. Constrains onTargetScore."
+        },
+        "guideRNA": {
+          "type": "object",
+          "description": "Guide RNA design constraints.",
+          "required": [
+            "pam",
+            "pamOrientation",
+            "onTargetScore",
+            "guideLength",
+            "seedLength",
+            "editDistance",
+            "gcContentMin",
+            "gcContentMax",
+            "distanceType"
+          ],
+          "properties": {
+            "pam": {
+              "type": "string",
+              "minLength": 1,
+              "description": "PAM sequence."
+            },
+            "pamOrientation": {
+              "type": "string",
+              "enum": [
+                "3prime",
+                "5prime"
+              ],
+              "description": "Which end the PAM sits on."
+            },
+            "onTargetScore": {
+              "type": "string",
+              "enum": [
+                "Doench et al. 2016",
+                "CROPSR",
+                "DeepGuide (Cas9)",
+                "DeepGuide (Cas12a)",
+                "sgRNA_ecoli (Cas9)",
+                "sgRNA_ecoli (eSpCas9)"
+              ],
+              "description": "On-target scoring model. Some are valid only for one CRISPR system; the pairing is checked server-side."
+            },
+            "guideLength": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 40,
+              "description": "Guide length in bases."
+            },
+            "seedLength": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 27,
+              "description": "Seed region length in bases."
+            },
+            "editDistance": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 20,
+              "description": "Allowed edit distance for off-target matching."
+            },
+            "gcContentMin": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Minimum GC percentage. Must not exceed gcContentMax."
+            },
+            "gcContentMax": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Maximum GC percentage."
+            },
+            "distanceType": {
+              "type": "string",
+              "enum": [
+                "hamming",
+                "levenshtein"
+              ],
+              "description": "Distance metric for off-target comparison."
+            },
+            "backboneSequence": {
+              "type": "string",
+              "description": "Optional backbone, checked for complementarity."
+            },
+            "restrictionEnzyme": {
+              "type": "string",
+              "description": "Optional enzyme whose site should be avoided."
+            },
+            "polyG": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 0,
+              "description": "Maximum run of consecutive G bases allowed."
+            },
+            "polyT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 0,
+              "description": "Maximum run of consecutive T bases allowed."
+            }
+          }
+        },
+        "homologyArm": {
+          "type": "object",
+          "description": "Homology arm constraints.",
+          "required": [
+            "lengthBp"
+          ],
+          "properties": {
+            "lengthBp": {
+              "type": "integer",
+              "minimum": 5,
+              "maximum": 1000,
+              "description": "Arm length in base pairs."
+            },
+            "restrictionEnzyme": {
+              "type": "string",
+              "description": "Optional enzyme whose site should be avoided."
+            },
+            "polyG": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 0,
+              "description": "Maximum run of consecutive G bases allowed."
+            },
+            "polyT": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 0,
+              "description": "Maximum run of consecutive T bases allowed."
+            }
+          }
+        },
+        "intergenicRegion": {
+          "type": "object",
+          "description": "Where in the genome integration sites may be placed.",
+          "required": [
+            "distance",
+            "distanceToMeasureGeneDensity",
+            "distalEndOfChromosomeToAvoid"
+          ],
+          "properties": {
+            "distance": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Minimum intergenic spacing to require."
+            },
+            "distanceToMeasureGeneDensity": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Window used to compute gene density."
+            },
+            "distalEndOfChromosomeToAvoid": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Distance from chromosome ends to exclude."
+            },
+            "referenceOrganismIdentifier": {
+              "type": "string",
+              "description": "Optional organism to BLAST against."
+            }
+          }
+        }
+      }
+    }
+  }
+}

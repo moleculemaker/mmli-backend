@@ -1,0 +1,67 @@
+{{- if .Values.v1RateLimit.enabled }}
+{{- /*
+Rate limits job submission on the versioned API.
+
+The /v1 API is unauthenticated and serves permissive CORS, by design: it exists so that
+scripts, notebooks and agents outside this institution can use these tools. Submission
+is the one operation there that costs real cluster time, so it is the one that needs a
+ceiling.
+
+Why an IngressRoute rather than an Ingress annotation
+  A Kubernetes Ingress matches on host and path only. Submission and discovery share the
+  /v1/tools prefix (POST /v1/tools/{tool}/jobs vs GET /v1/tools), so a path rule cannot
+  separate them. Traefik's IngressRoute can match the method, which limits submissions
+  while leaving schema and catalog reads alone. Job polling lives under /v1/jobs and is
+  untouched either way.
+
+Why not reuse the existing chemscraper middleware
+  It allows one request per 120 seconds. That is right for PDF extraction and wrong for
+  an API: an agent reading the catalog, fetching a schema and submitting would take six
+  minutes. This declares its own limit.
+
+Failure mode, for reviewers
+  If entryPoints below do not match this cluster's Traefik configuration, this router
+  simply never matches and the pre-existing Ingress continues to serve /v1 without a
+  limit. That is a silent loss of protection, not an outage -- but it does mean the
+  limit should be confirmed to actually apply after deploying, rather than assumed.
+*/}}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ .Release.Name }}-v1-submit-ratelimit
+spec:
+  rateLimit:
+    average: {{ .Values.v1RateLimit.average }}
+    period: {{ .Values.v1RateLimit.period }}
+    burst: {{ .Values.v1RateLimit.burst }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ .Release.Name }}-v1-submit
+spec:
+  entryPoints:
+    {{- toYaml .Values.v1RateLimit.entryPoints | nindent 4 }}
+  routes:
+    - kind: Rule
+      # Higher priority than the catch-all Ingress on "/", so that submissions are
+      # matched here and carry the middleware. Everything else under /v1 keeps falling
+      # through to the general router.
+      priority: {{ .Values.v1RateLimit.priority }}
+      match: Host(`{{ .Values.ingress.hostname }}`) && PathPrefix(`/v1/tools`) && Method(`POST`)
+      middlewares:
+        - name: {{ .Release.Name }}-v1-submit-ratelimit
+        {{- range .Values.v1RateLimit.extraMiddlewares }}
+        - name: {{ .name }}
+          {{- if .namespace }}
+          namespace: {{ .namespace }}
+          {{- end }}
+        {{- end }}
+      services:
+        - name: {{ .Release.Name }}
+          port: 8080
+{{- if .Values.ingress.tls }}
+  tls:
+    secretName: {{ .Values.ingress.hostname }}-tls
+{{- end }}
+{{- end }}

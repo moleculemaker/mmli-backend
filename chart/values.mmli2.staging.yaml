@@ -16,6 +16,29 @@ analyzeIngress:
     traefik.ingress.kubernetes.io/router.tls: "true"
     traefik.ingress.kubernetes.io/router.middlewares: staging-cors-header@kubernetescrd,staging-chemscraper-analyze-ip-ratelimit@kubernetescrd
 
+# Rate limit job submission on /v1 (see chart/templates/v1-ratelimit.yaml).
+#
+# Present so that the limit is actually exercised here: without this block the chart
+# default (enabled: false) applies, v1-ratelimit.yaml renders nothing, and /v1 is served
+# unthrottled by the catch-all Ingress -- which looks indistinguishable from a working
+# limit until someone tries to exceed it.
+#
+# Deliberately looser than prod so that integration testing is not throttled.
+v1RateLimit:
+  enabled: true
+  average: 30
+  period: 1m
+  burst: 10
+  # NOT discoverable from this repo -- "websecure" is the Traefik default for 443. If it
+  # is wrong the router never matches and /v1 is served unlimited, silently. Confirm after
+  # deploying that a submission loop actually gets 429s.
+  entryPoints:
+    - websecure
+  priority: 100
+  extraMiddlewares:
+    - name: cors-header
+      namespace: staging
+
 config:
   minio:
     server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
@@ -64,6 +87,13 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
+    crispr-copies:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     ez-specificity:
       # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
       # or it can't schedule on the dedicated job nodes (general nodes are full).
@@ -78,7 +108,7 @@ config:
           value: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
         - name: MMLI_BACKEND_HOST
           value: "http://mmli-backend-staging.staging.svc.cluster.local:8080"
-    ezspec-inference:
+    ezspec-unidock:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -95,7 +125,7 @@ config:
           cpu: "2"
           memory: 8Gi  # 16Gi ?
           nvidia.com/gpu: "1"
-    ezspec-unidock:
+    ezspec-inference:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -126,6 +156,13 @@ config:
       tolerations:  
       - effect: NoSchedule  
         key: mmli.role  
+        operator: Exists
+    mutagenesis:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     novostoic-dgpredictor:
       nodeSelector:	
@@ -231,6 +268,9 @@ config:
         key: mmli.role
         operator: Exists
 
+  minio:
+    server: "mmli-backend-staging-minio.staging.svc.cluster.local:9000"
+    apiBaseUrl: "minioapi.mmli.fastapi.staging.mmli2.ncsa.illinois.edu"
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services-staging.staging.svc.cluster.local:8000"
@@ -247,6 +287,8 @@ config:
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
   reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli2.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli2.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli2.ncsa.illinois.edu"
 
 postgresql:
   enabled: true

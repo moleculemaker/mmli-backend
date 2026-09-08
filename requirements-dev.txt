@@ -1,0 +1,10 @@
+# Test-only dependencies. Kept separate from requirements.txt so the runtime
+# image never installs them.
+-r requirements.txt
+
+pytest==7.4.4
+pytest-asyncio==0.21.2
+
+# Async SQLite driver: lets the characterization tests run against a throwaway
+# file-backed DB instead of requiring a live Postgres.
+aiosqlite==0.19.0

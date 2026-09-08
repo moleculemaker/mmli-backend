@@ -13,6 +13,38 @@ analyzeIngress:
   tls: false
   annotations: {}
 
+# Rate limit for job submission on the versioned API (POST /v1/tools/*/jobs).
+#
+# /v1 is unauthenticated and serves permissive CORS on purpose, so that scripts and
+# agents outside this institution can use these tools. Submission is the operation there
+# that costs cluster time, so it is the one with a ceiling. Discovery and job polling are
+# not limited.
+#
+# Disabled by default so that a local or minikube install needs no Traefik CRDs. Enabled
+# in the staging and production overlays.
+v1RateLimit:
+  enabled: false
+
+  # Requests per period, per client IP. Sized so that a client can read the catalog,
+  # fetch a schema and submit without being throttled, while a script in a loop is.
+  average: 10
+  period: 1m
+  burst: 5
+
+  # Traefik entryPoint names. These are cluster configuration and are NOT discoverable
+  # from this repo -- "websecure" is the Traefik default for 443. If this is wrong the
+  # router never matches and /v1 is served unlimited by the general Ingress, so confirm
+  # after deploying that the limit actually applies.
+  entryPoints:
+    - websecure
+
+  # Must exceed the catch-all "/" Ingress router so submissions match here.
+  priority: 100
+
+  # Middlewares applied alongside the rate limit, e.g. the CORS header middleware the
+  # other routers use. Each entry takes a name and an optional namespace.
+  extraMiddlewares: []
+
 controller:
   image: moleculemaker/mmli-backend:latest
   imagePullPolicy: Always
@@ -78,6 +110,8 @@ config:
   molli_frontend_url: "https://molli.frontend.staging.mmli2.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
   openenzymedb_frontend_url: "https://frontend.staging.openenzymedb.mmli2.ncsa.illinois.edu"
+  crisprcopies_frontend_url: "https://frontend.staging.crispr-copies.mmli2.ncsa.illinois.edu"
+  mutagenesis_frontend_url: "https://frontend.staging.mutagenesis.mmli2.ncsa.illinois.edu"
 
   server:
     port: 8080
@@ -456,6 +490,33 @@ config:
           cpu: "4"
           memory: "24Gi"
           nvidia.com/gpu: "1"
+
+    # Config for running CRISPR-COPIES job.
+    # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    crispr-copies:
+      image: "ghcr.io/ibiofoundry/copies:latest"
+      imagePullPolicy: "Always"
+      # Init-container step (after prejob.py input sync): resolve a dropdown organism
+      # accession to genome/feature-table/protein files, and convert any uploaded GFF3
+      # to feature_table.txt. No-op for the upload / feature_table paths.
+      prejob_command: "python fetch_organism.py && python convert_annotations.py"
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
+    # Config for running MUTAGENESIS job.
+    # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    mutagenesis:
+      image: "ghcr.io/ibiofoundry/mutagenesis:latest"
+      imagePullPolicy: "Always"
+      volumes: []
+      securityContext:
+        runAsUser: 0
+        runAsGroup: 0
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes

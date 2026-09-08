@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mutagenesis input",
+  "description": "Site-directed mutagenesis primer design. Inputs are files uploaded to this job before submission. Unknown properties are ignored by the server, so extra keys such as email are accepted.",
+  "type": "object",
+  "required": [
+    "orfFile",
+    "mutationList"
+  ],
+  "$defs": {
+    "fileReference": {
+      "type": "object",
+      "description": "Reference to a file already uploaded to this job. Give the name in any one of filename, name or url.",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Uploaded file's name."
+        },
+        "name": {
+          "type": "string",
+          "description": "Alternative to filename."
+        },
+        "url": {
+          "type": "string",
+          "description": "Alternative to filename."
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "filename"
+          ]
+        },
+        {
+          "required": [
+            "name"
+          ]
+        },
+        {
+          "required": [
+            "url"
+          ]
+        }
+      ]
+    }
+  },
+  "properties": {
+    "orfFile": {
+      "$ref": "#/$defs/fileReference",
+      "description": "Required. ORF DNA sequence file."
+    },
+    "mutationList": {
+      "$ref": "#/$defs/fileReference",
+      "description": "Required. CSV carrying a 'Mutations' header."
+    },
+    "leftOverhang": {
+      "$ref": "#/$defs/fileReference",
+      "description": "Optional upstream flank sequence."
+    },
+    "rightOverhang": {
+      "$ref": "#/$defs/fileReference",
+      "description": "Optional downstream flank sequence."
+    },
+    "codonTableValue": {
+      "type": "integer",
+      "default": 1,
+      "enum": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        33
+      ],
+      "description": "NCBI genetic-code id. Defaults to 1 (Standard)."
+    },
+    "tmMethod": {
+      "type": "string",
+      "default": "SantaLucia",
+      "enum": [
+        "SantaLucia",
+        "Wallace"
+      ],
+      "description": "Melting-temperature method."
+    }
+  }
+}

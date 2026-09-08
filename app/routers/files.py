@@ -16,19 +16,22 @@ from models.exportRequestBody import ExportRequestBody
 from models.molecule import Molecule
 from models.sqlmodel.db import get_session
 
-from models.enums import JobType
-from services.ezspecificity_service import EzSpecificityService
-from services.molli_service import MolliService
-from services.clean_service import CleanService
+from models.enums import JobType, JobTypes
 
-from services.novostoic_service import NovostoicService
-from services.somn_service import SomnService
-from services.minio_service import MinIOService
-from services.chemscraper_service import ChemScraperService
 from services.aceretro_service import ACERetroService
-from services.reactionminer_service import ReactionMinerService
+from services.chemscraper_service import ChemScraperService
+from services.clean_service import CleanService
+from services.crispr_copies_service import CRISPRCopiesService
+from services.ezspecificity_service import EzSpecificityService
+from services.minio_service import MinIOService
+from services.molli_service import MolliService
+from services.mutagenesis_service import MutagenesisService
+from services.novostoic_service import NovostoicService
 from services.oed_service import OEDService
+from services.reactionminer_service import ReactionMinerService
 from services.simplefold_service import SimpleFoldService
+from services.somn_service import SomnService
+from services.genome_viewer_service import gene_annotations as gv_gene_annotations, protein_translation as gv_protein_translation
 
 
 from typing import Optional, List
@@ -39,13 +42,36 @@ log = get_logger(__name__)
 
 csv.field_size_limit(sys.maxsize)
 
-@router.post("/{bucket_name}/upload", tags=['Files'])
+@router.post(
+    "/{bucket_name}/upload", tags=['Files'],
+    summary="Upload an input file for a job",
+    description=(
+        "Upload a single input file into a job's input area, stored at MinIO "
+        "`{bucket_name}/{job_id}/in/{filename}`. `bucket_name` must be a valid job "
+        "type (e.g. `crispr-copies`, `mutagenesis`); the bucket is created on the "
+        "fly if needed. If `job_id` is omitted a new one is generated and returned. "
+        "Call this once per input file using the **same** `job_id`, then create the "
+        "job via `POST /{job_type}/jobs` referencing the uploaded filenames. "
+        "Returns `{\"jobID\": ..., \"uploaded_at\": ...}`."
+    ),
+)
 async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Optional[str] = "", minio: MinIOService = Depends()):
+    # Only allow uploads to buckets that correspond to a real job type. This bounds
+    # on-the-fly bucket creation below to the same set create_job manages - an API
+    # caller can never provision an arbitrary bucket.
+    if bucket_name not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown bucket: {bucket_name}")
+
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
     if bucket_name != 'chemscraper' or first_four_bytes == b'%PDF':
         if job_id == "":
             job_id = str(uuid.uuid4()).replace('-', '')
+
+        # Jobs that take user-uploaded files (e.g. crispr-copies, mutagenesis) upload
+        # before the job is created, so the bucket may not exist yet. Safe to create
+        # here because bucket_name is whitelisted to known job types above.
+        minio.ensure_bucket_exists(bucket_name)
 
         file_content = await file.read()
         upload_result = minio.upload_file(bucket_name, job_id + '/in/' + file.filename, file_content)
@@ -57,20 +83,23 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     return JSONResponse(content={"error": "Unable to upload file"}, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@router.get("/{bucket_name}/results/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/results/{job_id}", tags=['Files'],
+    summary="Get results for a completed job",
+    description=(
+        "Return the post-processed results for a finished job. The response shape "
+        "depends on `bucket_name` (job type)."
+    ),
+)
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
+    if bucket_name == JobType.ACERETRO:
+        print("Getting ACERETRO job result")
+        return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
+
     if bucket_name == JobType.CHEMSCRAPER:
         print("Getting CHEMSCRAPER job result")
         return await ChemScraperService.resultPostProcess(bucket_name, job_id, service, db)
     
-    if bucket_name == JobType.ACERETRO:
-        print("Getting ACERETRO job result")
-        return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
-    
-    elif bucket_name == JobType.MOLLI:
-        print("Getting MOLLI job result")
-        return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
-
     elif bucket_name == JobType.CLEAN:
         print("Getting CLEAN job result")
         return await CleanService.cleanResultPostProcess(bucket_name, job_id, service, db)
@@ -78,7 +107,31 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.CLEANDB_MEPESM:
         print("Getting CLEANDB MEP-ESM2 job result")
         return await CleanService.cleanDBMepEsmResultPostProcess(bucket_name, job_id, service, db)
-        
+
+    elif bucket_name == JobType.CRISPR_COPIES:
+        print("Getting CRISPR COPIES job result")
+        return await CRISPRCopiesService.resultPostProcess(bucket_name, job_id, service, db)
+    
+    elif bucket_name == JobType.ML_SIMPLEFOLD:
+        print("Getting ML-SIMPLEFOLD job result")
+        return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.MOLLI:
+        print("Getting MOLLI job result")
+        return await MolliService.molliResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.MUTAGENESIS:
+        print("Getting mutagenesis job result")
+        return await MutagenesisService.resultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
+        print("Getting novostoic-dgpredictor job result")
+        return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
+
+    elif bucket_name == JobType.NOVOSTOIC_ENZRANK:
+        print("Getting novostoic-enzrank job result")
+        return await NovostoicService.enzRankResultPostProcess(bucket_name, job_id, service, db)
+
     elif bucket_name == JobType.NOVOSTOIC_OPTSTOIC:
         print("Getting novostoic-optstoic job result")
         return await NovostoicService.optstoicResultPostProcess(bucket_name, job_id, service, db)
@@ -86,31 +139,19 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
     elif bucket_name == JobType.NOVOSTOIC_PATHWAYS:
         print("Getting novostoic-pathways job result")
         return await NovostoicService.novostoicResultPostProcess(bucket_name, job_id, service, db)
-        
-    elif bucket_name == JobType.NOVOSTOIC_ENZRANK:
-        print("Getting novostoic-enzrank job result")
-        return await NovostoicService.enzRankResultPostProcess(bucket_name, job_id, service, db)
 
-    elif bucket_name == JobType.NOVOSTOIC_DGPREDICTOR:
-        print("Getting novostoic-dgpredictor job result")
-        return await NovostoicService.dgPredictorResultPostProcess(bucket_name, job_id, service, db)
-
-    elif bucket_name == JobType.REACTIONMINER:
-        return await ReactionMinerService.resultPostProcess(bucket_name, job_id, service, db)
-
-    elif bucket_name == JobType.SOMN:
-        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
-    
     elif bucket_name == JobType.OED_CHEMINFO:
         print("Getting oed-cheminfo job result")
         return await OEDService.chemInfoResultPostProcess(bucket_name, job_id, service, db)
 
     elif bucket_name == JobType.OED_DLKCAT or bucket_name == JobType.OED_UNIKP or bucket_name == JobType.OED_CATPRED:
         return await OEDService.propertyPredictionResultPostProcess(bucket_name, job_id, service, db)
+        
+    elif bucket_name == JobType.REACTIONMINER:
+        return await ReactionMinerService.resultPostProcess(bucket_name, job_id, service, db)
 
-    elif bucket_name == JobType.ML_SIMPLEFOLD:
-        print("Getting ML-SIMPLEFOLD job result")
-        return await SimpleFoldService.resultPostProcess(bucket_name, job_id, service, db)
+    elif bucket_name == JobType.SOMN:
+        return await SomnService.resultPostProcess(bucket_name, job_id, service, db)
 
     elif bucket_name == JobType.EZ_SPECIFICITY:
         print("Getting EZ-SPECIFICITY job result")
@@ -128,7 +169,15 @@ async def get_results(bucket_name: str, job_id: str, service: MinIOService = Dep
         raise HTTPException(status_code=400, detail="Invalid job type: " + bucket_name)
 
 
-@router.get("/{bucket_name}/inputs/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/inputs/{job_id}", tags=['Files'],
+    summary="List a job's uploaded input files",
+    description=(
+        "Return presigned URLs for every file uploaded to "
+        "`{bucket_name}/{job_id}/in/`. Useful for confirming which inputs a job will "
+        "run against. Returns 404 if no input files are found."
+    ),
+)
 def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     pdf_urls = service.get_file_urls(bucket_name, job_id + "/in/")
     if pdf_urls is None:
@@ -137,7 +186,14 @@ def get_input_file(bucket_name: str, job_id: str, service: MinIOService = Depend
     return pdf_urls
 
 
-@router.get("/{bucket_name}/errors/{job_id}", tags=['Files'])
+@router.get(
+    "/{bucket_name}/errors/{job_id}", tags=['Files'],
+    summary="Get a job's error output",
+    description=(
+        "Return the contents of `{bucket_name}/{job_id}/errors.txt` if the job wrote "
+        "one. Returns 404 if no error file is present."
+    ),
+)
 def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends()):
     error_content = service.get_file(bucket_name, job_id + "/errors.txt")
     if error_content is None:
@@ -147,7 +203,14 @@ def get_errors(bucket_name: str, job_id: str, service: MinIOService = Depends())
 
 
 # TODO: Refactor this to make it more generic?
-@router.post("/{bucket_name}/export-results", tags=['Files'])
+@router.post(
+    "/{bucket_name}/export-results", tags=['Files'],
+    summary="Export ChemScraper results as a zip",
+    description=(
+        "ChemScraper-specific: bundle selected CDXML and/or CSV outputs for a job "
+        "into a downloadable zip. Not used by crispr-copies / mutagenesis."
+    ),
+)
 async def export_results(bucket_name: str, requestBody: ExportRequestBody, service: MinIOService = Depends()):
     # Analyze only one document for NSF demo
     if requestBody.jobId == "":
@@ -204,3 +267,34 @@ async def export_results(bucket_name: str, requestBody: ExportRequestBody, servi
             return FileResponse(filename, media_type='application/zip', filename=filename)
         else:
             raise HTTPException(status_code=400, detail="Bad Request")
+
+
+@router.get(
+    "/{job_type}/genes/{job_id}", tags=['Files'],
+    operation_id="getGeneAnnotations",
+    summary="Per-chromosome gene annotations for the genome viewer",
+    description=(
+        "Genes parsed from the job's feature_table.txt, keyed by the same `Chromosome` value "
+        "the result rows use, filtered to the candidate-site window per chromosome. "
+        "Returns {chromosome: [{name, start, end}]}."
+    ),
+)
+async def get_gene_annotations(job_type: str, job_id: str):
+    if job_type not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown job type: {job_type}")
+    return gv_gene_annotations(job_type, job_id)
+
+
+@router.get(
+    "/{job_type}/protein/{job_id}", tags=['Files'],
+    operation_id="getProteinTranslation",
+    summary="Translated amino-acid track for a chromosome window (genome-viewer detail mode)",
+    description=(
+        "AA string across [start, end] bp on `chromosome` at codon resolution; non-coding "
+        "positions are '-'. `chromosome`/`start`/`end` are query params. Returns {sequence}."
+    ),
+)
+async def get_protein_translation(job_type: str, job_id: str, chromosome: str, start: int, end: int):
+    if job_type not in JobTypes:
+        raise HTTPException(status_code=400, detail=f"Unknown job type: {job_type}")
+    return {"sequence": gv_protein_translation(job_type, job_id, chromosome, start, end)}

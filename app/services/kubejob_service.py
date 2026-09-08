@@ -2,6 +2,8 @@ import glob
 import sys
 import traceback
 
+from typing import Optional
+
 from kubernetes import watch, client, config as kubeconfig
 from kubernetes.client.rest import ApiException
 import os
@@ -138,8 +140,34 @@ class KubeEventWatcher:
         if job_type in ExampleJobTypes:
             log.debug(f'Skipping notification email for ExampleJobType: {str(job_type)}')
             return
-
-        if 'novostoic' in job_type:
+        if job_type == JobType.ACERETRO:
+            aceretro_frontend_url = app_config['aceretro_frontend_url']
+            results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ACERetro'
+        elif job_type == JobType.CLEAN:
+            clean_frontend_url = app_config['clean_frontend_url']
+            results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'CLEAN'
+        elif job_type == JobType.CRISPR_COPIES:
+            crispr_copies_frontend_url = app_config['crisprcopies_frontend_url']
+            results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'CRISPR-Copies'
+        elif job_type == JobType.EZ_SPECIFICITY:
+            ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
+            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
+            job_type_name = 'EZspecificity'
+        elif job_type == JobType.ML_SIMPLEFOLD:
+            # SimpleFold jobs don't have a frontend URL yet - skip email for now
+            return
+        elif job_type == JobType.MOLLI:
+            molli_frontend_url = app_config['molli_frontend_url']
+            results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'MOLLI'
+        elif job_type == JobType.MUTAGENESIS:
+            mutagenesis_frontend_url = app_config['mutagenesis_frontend_url']
+            results_url = f'{mutagenesis_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'Mutagenesis'
+        elif 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']
             if job_type == JobType.NOVOSTOIC_PATHWAYS:
                 results_url = f'{novostoic_frontend_url}/pathway-search/result/{updated_job.job_id}'
@@ -155,34 +183,19 @@ class KubeEventWatcher:
                 job_type_name = 'dGPredictor'
             else:
                 raise ValueError(f"Unrecognized novoStoic subjob type {job_type} not in existing Job Types {str(JobTypes)}")
-        elif job_type == JobType.SOMN:
-            somn_frontend_url = app_config['somn_frontend_url']
-            results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'SOMN'
-        elif job_type == JobType.CLEAN:
-            clean_frontend_url = app_config['clean_frontend_url']
-            results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'CLEAN'
-        elif job_type == JobType.MOLLI:
-            molli_frontend_url = app_config['molli_frontend_url']
-            results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'MOLLI'
-        elif job_type == JobType.ACERETRO:
-            aceretro_frontend_url = app_config['aceretro_frontend_url']
-            results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'ACERetro'
-        elif job_type == JobType.REACTIONMINER:
-            reactionminer_frontend_url = app_config['reactionminer_frontend_url']
-            results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
-            job_type_name = 'ReactionMiner'
         elif job_type == JobType.OED_CHEMINFO:
             openenzyemdb_frontend_url = app_config['openenzymedb_frontend_url']
             results_url = f'{openenzyemdb_frontend_url}/enzyme-recommendation/result/{updated_job.job_id}'
             job_type_name = 'OpenEnzymeDB - Enzyme Recommendation'
-        elif job_type == JobType.EZ_SPECIFICITY:
-            ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
-            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
-            job_type_name = 'EZspecificity'
+        elif job_type == JobType.REACTIONMINER:
+            reactionminer_frontend_url = app_config['reactionminer_frontend_url']
+            results_url = f'{reactionminer_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ReactionMiner'
+        elif job_type == JobType.SOMN:
+            somn_frontend_url = app_config['somn_frontend_url']
+            results_url = f'{somn_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'SOMN'
+
         elif job_type in JobTypes:
             # OED & CLEANDB jobs are very fast - no need to send notification email
             # No need to notify about EZspec intermediary steps
@@ -235,6 +248,107 @@ class KubeEventWatcher:
             # Job failed with an error, email was sent indicating error
             self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
 
+    @staticmethod
+    def _derive_phase(job_object):
+        """Map a Kubernetes Job's current status onto a JobStatus.
+
+        Terminal state is read from the WHOLE condition list, not conditions[0]: the Job
+        controller appends conditions in an order that varies by cluster version, and
+        'SuccessCriteriaMet' only exists on newer clusters - every successful Job gets
+        'Complete'. Matching a single type at a fixed index silently misses completions,
+        and a missed completion is permanent (the watch never replays old events), which
+        strands the job at whatever phase it last had. The succeeded/failed counters are a
+        last-resort fallback for the same reason.
+        """
+        status = job_object.status
+        if status is None:
+            return JobStatus.PROCESSING
+
+        met = {c.type for c in (status.conditions or []) if c.status == 'True'}
+        if met & {'Complete', 'SuccessCriteriaMet'}:
+            return JobStatus.COMPLETED
+        if met & {'Failed', 'FailureTarget'}:
+            return JobStatus.ERROR
+
+        completions = (job_object.spec.completions if job_object.spec else None) or 1
+        if status.succeeded is not None and status.succeeded >= completions:
+            return JobStatus.COMPLETED
+        # We always create Jobs with backoffLimit=0, so a single failed pod is terminal
+        if status.failed is not None and status.failed > 0:
+            return JobStatus.ERROR
+
+        return JobStatus.PROCESSING
+
+    def _reconcile_job_phase(self, job_object, ignored_namespaces, required_labels):
+        """Derive a job's phase from its current k8s status and persist it.
+
+        Shared by the live watch-event loop and the on-(re)connect reconciliation pass.
+        The watch stream only delivers events NEWER than the listed resourceVersion, so a
+        job that reached a terminal state while the watcher was down or mid-reconnect would
+        otherwise be stuck at its last-seen phase (e.g. 'processing') forever. The DB write
+        is guarded on an actual phase change; email notifications stay idempotent (gated by
+        a MinIO marker in send_notification_email), so reconciling an already-notified job
+        will not re-send.
+        """
+        if job_object.metadata.namespace in ignored_namespaces:
+            return
+        labels = job_object.metadata.labels
+        if labels is None or any(x not in labels for x in required_labels):
+            return
+        # jobId/jobType are separate from required_labels; a job tagged type=mmli-job but
+        # missing these can't be mapped to a DB row, so skip it (don't raise).
+        job_id = labels.get('jobId')
+        job_type = labels.get('jobType')
+        if not job_id or not job_type:
+            return
+
+        new_phase = self._derive_phase(job_object)
+
+        with Session(self.engine) as session:
+            updated_job = session.get(Job, job_id)
+            if updated_job is None:
+                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
+                return
+
+            # 'canceled' is ours, not Kubernetes'. A canceled job's Job object is
+            # deleted, and the events that produces derive to 'processing' (no terminal
+            # condition is ever set), which would silently resurrect it. Nothing the
+            # cluster reports about a job we deliberately stopped is more accurate than
+            # the fact that we stopped it.
+            if updated_job.phase == JobStatus.CANCELED:
+                self.logger.debug(f'Ignoring event for canceled job: {job_id}')
+                return
+
+            # Record which image actually ran, while the pod still exists to be asked.
+            # Retried rather than attempted once: the digest is not readable until the
+            # image has been pulled, so the first event for a job usually cannot supply it.
+            #
+            # Not retried forever, though. The reconcile pass now runs every
+            # timeout_seconds (600) rather than only on reconnect, and it lists every Job
+            # within ttlSecondsAfterFinished (12h). A job that reached a terminal phase
+            # without yielding a digest never will - its pod is gone, and nothing about it
+            # will change - so re-reading it costs one list_namespaced_pod call per pass,
+            # forever, for a value that cannot arrive. Attempt only while the job is still
+            # running, or on the event that carries it INTO a terminal phase: that one is
+            # usually the last moment the pod exists, and skipping it would lose the digest
+            # for exactly the short jobs whose whole lifecycle fits between two passes.
+            phase_changed = updated_job.phase != new_phase
+            if updated_job.image_digest is None and (new_phase == JobStatus.PROCESSING or phase_changed):
+                digest = get_image_digest(job_type, job_id)
+                if digest:
+                    self.logger.debug(f'Recording image digest for {job_id}: {digest}')
+                    updated_job.image_digest = digest
+                    session.add(updated_job)
+                    session.commit()
+
+            if phase_changed:
+                self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
+                updated_job.phase = new_phase
+                session.add(updated_job)
+                session.commit()
+                session.flush()
+            self.send_notification_email(job_id, job_type, updated_job, new_phase)
+
     def run(self):
         # Ignore kube-system namespace
         # TODO: Parameterize this?
@@ -247,7 +361,13 @@ class KubeEventWatcher:
         }
         self.logger.info('KubeWatcher looking for required labels: ' + str(required_labels))
 
-        timeout_seconds = 0
+        # Let the watch expire on a known cadence instead of running open-ended: each
+        # reconnect re-lists and reconciles every Job, so this doubles as the recovery pass
+        # for any event we never saw (missed events are never replayed). Completed Jobs live
+        # for ttlSecondsAfterFinished (12h), so they are still listed when we catch up.
+        # Without this the reconcile pass below only ever runs when the API server drops the
+        # stream, so on a healthy connection the recovery path never executes at all.
+        timeout_seconds = 600
         resource_version = ''
         k8s_event_stream = None
 
@@ -261,6 +381,20 @@ class KubeEventWatcher:
                 namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(namespace=get_namespace())
                 resource_version = namespaced_jobs.metadata.resource_version if namespaced_jobs.metadata.resource_version else resource_version
 
+                # Reconcile existing jobs from the current list BEFORE watching. The watch
+                # stream only delivers events newer than resource_version, so any job that
+                # reached a terminal state while the watcher was down or mid-reconnect would
+                # otherwise never be updated (stuck at 'processing'). This catches them up.
+                for existing_job in (namespaced_jobs.items or []):
+                    # Isolate per-job failures: one malformed job must never break the watch
+                    # loop (otherwise the except below would reconnect → re-reconcile → loop
+                    # forever, and no live events would ever be processed).
+                    try:
+                        self._reconcile_job_phase(existing_job, ignored_namespaces, required_labels)
+                    except Exception as e:
+                        self.logger.error(f'Reconcile skipped a job due to error: {e}')
+                        self.logger.error(traceback.format_exc())
+
                 # Then, watch for new events using the most recent resource_version
                 # Resource version is used to keep track of stream progress (in case of resume/retry)
                 k8s_event_stream = w.stream(func=api_batch_v1.list_namespaced_job,
@@ -273,75 +407,24 @@ class KubeEventWatcher:
                 # Parse events in the stream for Pod phase updates
                 for event in k8s_event_stream:
                     resource_version = event['object'].metadata.resource_version
-
-                    # Skip Pods in ignored namespaces
-                    if event['object'].metadata.namespace in ignored_namespaces:
-                        self.logger.debug('Skipping event in excluded namespace')
-                        continue
-
-                    # Examine labels, ignore if not uws-job
-                    # self.logger.debug('Event recv\'d: %s' % event)
-                    labels = event['object'].metadata.labels
-                    self.logger.debug(f'Job Labels: {labels}')
-
-                    if labels is None and len(required_labels) > 0:
-                        self.logger.warning(
-                            'WARNING: Skipping due to missing label(s): ' + str(required_labels))
-                        continue
-
-                    missing_labels = [x for x in required_labels if x not in labels]
-                    if len(missing_labels) > 0:
-                        self.logger.warning(
-                            'WARNING: Skipping due to missing required label(s): ' + str(missing_labels))
-                        continue
-
-                    # LEGACY: mmli-job-jobtype-jobid => we want last 2 segments
-                    # More Reliable: Read job_type and job_id from labels
-                    job_id = labels['jobId']
-                    job_type = labels['jobType']
-
-                    type = event['type']
-                    status = event['object'].status
-                    conditions = status.conditions
-
-                    # Calculate new status
-                    self.logger.debug(f'Event: job_id={job_id}   type={type}   status={status}')
-                    new_phase = None
-                    if conditions is None:
-                        new_phase = JobStatus.PROCESSING
-                    elif len(conditions) > 0 and conditions[0].type == 'SuccessCriteriaMet':
-                        new_phase = JobStatus.COMPLETED
-                    elif status.failed is not None and status.failed > 0:
-                        new_phase = JobStatus.ERROR
-                    else:
-                        self.logger.info(f'>> Skipped job update: {job_id}-> {new_phase}')
-                        self.logger.debug(f'>> Status: {str(status)}')
-
-                    # Write status update back to database
-                    if new_phase is not None:
-                        self.logger.debug('Updating job phase: %s -> %s' % (job_id, new_phase))
-
-                        # create session and add objects
-                        with Session(self.engine) as session:
-                            updated_job = session.get(Job, job_id)
-                            if updated_job is not None:
-                                updated_job.phase = new_phase
-
-                                session.add(updated_job)
-                                session.commit()
-                                session.flush()
-                            else:
-                                self.logger.warning(f'"None" was encountered when fetching Job: {job_id}')
-                                self.logger.warning('Skipping database update...')
-
-                            self.send_notification_email(job_id, job_type, updated_job, new_phase)
+                    # Isolate per-event failures for the same reason as the reconcile pass
+                    # above: dropping the stream costs us every Job transition that happens
+                    # before we are watching again, and those events are never replayed.
+                    try:
+                        self._reconcile_job_phase(event['object'], ignored_namespaces, required_labels)
+                    except Exception as e:
+                        self.logger.error(f'Skipped a Job event due to error: {e}')
+                        self.logger.error(traceback.format_exc())
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
                 if k8s_event_stream:
                     k8s_event_stream.close()
                 k8s_event_stream = None
-                if e.status == 410:
+                # requests' HTTPError has no .status - reading it unguarded raises inside this
+                # handler, which escapes run() and kills the watcher thread for good. Nothing
+                # checks is_alive() afterwards, so every job then stays at its last phase.
+                if getattr(e, 'status', None) == 410:
                     # Resource too old
                     resource_version = ''
                     self.logger.warning("Resource too old (410) - reconnecting: " + str(e))
@@ -480,9 +563,50 @@ def list_jobs(job_type=None, job_id=None):
     return response
 
 
-def delete_job(job_id: str) -> None:
+def get_image_digest(job_type: str, job_id: str) -> Optional[str]:
+    """Return the immutable image digest the job's pod is running, if it can be read.
+
+    The configured image reference is not enough to reproduce a result: several tools
+    are configured without any tag at all, which resolves to :latest, and a tag can be
+    repointed at new content at any time. The digest is the only identifier that names
+    exactly what executed.
+
+    It has to come from the pod rather than the Job: a V1Job carries the pod *template*
+    (the same mutable reference already stored on the row), while the resolved digest
+    appears on the pod's containerStatuses once the image is pulled. That means it can
+    only be captured while the pod exists -- after ttlSecondsAfterFinished elapses there
+    is nothing left to ask.
+
+    Returns None rather than raising. Provenance is worth recording but never worth
+    failing a job over, and this runs inside the watch loop.
+    """
+    try:
+        pods = api_v1.list_namespaced_pod(
+            namespace=get_namespace(),
+            label_selector=f'job-name={get_job_name_from_id(job_type, job_id)}',
+        )
+        for pod in pods.items:
+            for container_status in (pod.status.container_statuses or []):
+                image_id = container_status.image_id
+                if not image_id:
+                    continue
+                # Runtimes report this inconsistently: containerd gives a bare
+                # "repo@sha256:...", older Docker gives "docker-pullable://repo@sha256:...".
+                # Keep the repo@digest portion, which is what identifies the content.
+                if '://' in image_id:
+                    image_id = image_id.split('://', 1)[1]
+                if '@' in image_id:
+                    return image_id
+    except Exception as ex:
+        log.debug(f'Could not read image digest for job[{job_type}] {job_id}: {ex}')
+    return None
+
+
+def delete_job(job_type: str, job_id: str) -> None:
+    # job_type is required: Kubernetes Job names are built from both parts, so calling
+    # this with only an id raised TypeError on every invocation. Nothing called it.
     namespace = get_namespace()
-    job_name = get_job_name_from_id(job_id)
+    job_name = get_job_name_from_id(job_type, job_id)
     # config_map_name = f'''{job_name}-positions'''
     body = client.V1DeleteOptions(propagation_policy='Background')
     api_response = None
