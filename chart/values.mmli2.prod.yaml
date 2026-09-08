@@ -31,6 +31,118 @@ config:
       - effect: NoSchedule
         key: mmli.role
         operator: Exists
+
+    aceretro:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    chemscraper:
+      image: moleculemaker/chemscraper-job:main
+      env:
+        - name: CHEMSCRAPER_BASE_URL
+          value: 'http://chemscraper-services.alphasynthesis.svc.cluster.local:8000'
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
+    clean:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    cleandb-mepesm:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    crispr-copies:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
+    ez-specificity:
+      # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
+      # or it can't schedule on the dedicated job nodes (general nodes are full).
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+        - effect: NoSchedule
+          key: mmli.role
+          operator: Exists
+      env:
+        - name: MINIO_SERVER
+          value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
+        - name: MMLI_BACKEND_HOST
+          value: "http://mmli-backend.alphasynthesis.svc.cluster.local:8080"
+    ezspec-inference:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
+    ezspec-unidock:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+      resources:
+        limits:
+          cpu: "4"
+          memory: 16Gi  # 32Gi ?
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "2"
+          memory: 8Gi  # 16Gi ?
+          nvidia.com/gpu: "1"
+    ml-simplefold:
+      runtimeClassName: nvidia
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - effect: NoSchedule
+          key: nvidia.com/gpu
+          operator: Exists
+    molli:
+      nodeSelector:  
+        ncsa.role: worker-job  
+      tolerations:  
+      - effect: NoSchedule  
+        key: mmli.role  
+        operator: Exists
+    mutagenesis:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
+        operator: Exists
     novostoic-dgpredictor:
       nodeSelector:  
         ncsa.role: worker-job  
@@ -88,14 +200,7 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
-    clean:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
-        operator: Exists
-    cleandb-mepesm:
+    oed-catpred:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -103,12 +208,12 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    molli:
-      nodeSelector:  
-        ncsa.role: worker-job  
-      tolerations:  
-      - effect: NoSchedule  
-        key: mmli.role  
+    oed-cheminfo:
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     oed-dlkcat:
       runtimeClassName: nvidia
@@ -119,29 +224,6 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     oed-unikp:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    oed-catpred:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    somn:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
-    aceretro:
       runtimeClassName: nvidia
       nodeSelector:
         nvidia.com/gpu.present: "true"
@@ -166,85 +248,14 @@ config:
         - effect: NoSchedule
           key: nvidia.com/gpu
           operator: Exists
-    
-    oed-cheminfo:
+    somn:
       nodeSelector:
         ncsa.role: worker-job
       tolerations:
       - effect: NoSchedule
         key: mmli.role
         operator: Exists
-    ml-simplefold:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-    ez-specificity:
-      # Coordinator is CPU-only (no GPU); it must tolerate the worker-job taint
-      # or it can't schedule on the dedicated job nodes (general nodes are full).
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-        - effect: NoSchedule
-          key: mmli.role
-          operator: Exists
-      env:
-        - name: MINIO_SERVER
-          value: "mmli-backend-minio.alphasynthesis.svc.cluster.local:9000"
-        - name: MMLI_BACKEND_HOST
-          value: "http://mmli-backend.alphasynthesis.svc.cluster.local:8080"
-    ezspec-unidock:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-      resources:
-        limits:
-          cpu: "4"
-          memory: 16Gi  # 32Gi ?
-          nvidia.com/gpu: "1"
-        requests:
-          cpu: "2"
-          memory: 8Gi  # 16Gi ?
-          nvidia.com/gpu: "1"
-    ezspec-inference:
-      runtimeClassName: nvidia
-      nodeSelector:
-        nvidia.com/gpu.present: "true"
-      tolerations:
-        - effect: NoSchedule
-          key: nvidia.com/gpu
-          operator: Exists
-
-      resources:
-        limits:
-          cpu: "4"
-          memory: 16Gi  # 32Gi ?
-          nvidia.com/gpu: "1"
-        requests:
-          cpu: "2"
-          memory: 8Gi  # 16Gi ?
-          nvidia.com/gpu: "1"
-    crispr-copies:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
-    mutagenesis:
-      nodeSelector:
-        ncsa.role: worker-job
-      tolerations:
-      - effect: NoSchedule
-        key: mmli.role
-        operator: Exists
+        
   external:
     chemscraper:
       apiBaseUrl: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
