@@ -115,7 +115,7 @@ config:
 
   server:
     port: 8080
-    loglevel: "DEBUG"
+    loglevel: "INFO"
 
     protocol: "https"
     ## API basepath. Must match an ingress in the ingress.basepaths list.
@@ -152,6 +152,7 @@ config:
     #     "email": "user@gmail.com",
     #     "job_info": "{\"smiles\": \"O=C(COP(=O)(O)O)[C@H](O)[C@H](O)CO\"}"
     #   }'
+    # Config for running ACERetro job
     aceretro:
       image: "kastanday/aceretro:slimer"
       imagePullPolicy: "Always"
@@ -231,7 +232,80 @@ config:
           name: shared-storage
           subPath: uws/jobs/cleandb-mepesm/.hub
           claimName: "mmli-shared-job-data"
+    
+    # Config for running CRISPR-COPIES job.
+    # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    crispr-copies:
+      image: "ghcr.io/ibiofoundry/copies:latest"
+      imagePullPolicy: "Always"
+      # Init-container step (after prejob.py input sync): resolve a dropdown organism
+      # accession to genome/feature-table/protein files, and convert any uploaded GFF3
+      # to feature_table.txt. No-op for the upload / feature_table paths.
+      prejob_command: "python fetch_organism.py && python convert_annotations.py"
+      volumes: []
 
+    # Config for running EZSpecificity parent coordinator job
+    ez-specificity:
+      # Example job image name + command combo
+      image: "moleculemaker/mmli-backend:main"
+      command: "python ./coordinator.py"
+      steps:
+        # Define names / order for steps here
+        - ezspec-unidock
+        - ezspec-inference
+
+      # Parent job doesn't need many resources
+      resources:
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+        requests:
+          cpu: "1"
+          memory: "1Gi"
+
+    # Config for running EZSpec: Inference subjob step
+    ezspec-inference:
+      image: moleculemaker/ezspec-inference:latest
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
+          subPath: uws/jobs/ezspec-inference/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
+          subPath: uws/jobs/ezspec-inference/JOB_ID/out
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /root/.cache/torch/hub/checkpoints	
+          subPath: uws/jobs/ezspec-inference/.hub
+          claimName: mmli-shared-job-data
+
+    # Config for running EZSpec: Unidock subjob step
+    ezspec-unidock:
+      image: moleculemaker/ezspec-unidock:latest
+      imagePullPolicy: Always
+      env:
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: all
+      volumes:
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/in
+          claimName: mmli-shared-job-data
+        - name: shared-storage
+          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
+          subPath: uws/jobs/ezspec-unidock/JOB_ID/out
+          claimName: mmli-shared-job-data
 
     # Config for running MOLLI job
     molli:
@@ -253,6 +327,139 @@ config:
         - name: "shared-storage"
           mountPath: "/root/.cache/torch/hub/checkpoints"
           subPath: "uws/jobs/molli/.hub"
+          claimName: "mmli-shared-job-data"
+
+    # Config for running SimpleFold protein structure prediction job
+    ml-simplefold:
+      image: "davidbianchi/ml-simplefold:version1.6B"
+      imagePullPolicy: "IfNotPresent"
+      env:
+      - name: NVIDIA_DRIVER_CAPABILITIES
+        value: "compute,utility"
+      - name: NVIDIA_VISIBLE_DEVICES
+        value: "all"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/workspace/input"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/workspace/output"
+          subPath: "uws/jobs/ml-simplefold/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/root/.cache/torch/hub"
+          subPath: "uws/jobs/ml-simplefold/.cache"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: /uws/jobs/ml-simplefold/JOB_ID/.cache
+          subPath: "uws/jobs/ml-simplefold/.modelcache"
+          claimName: "mmli-shared-job-data"
+      resources:
+        limits:
+          cpu: "16"
+          memory: "32Gi"
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "4"
+          memory: "24Gi"
+          nvidia.com/gpu: "1"
+      
+    # Config for running MUTAGENESIS job.
+    # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
+    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
+    # the job already mounts at /uws, so no extra volumes are required.
+    mutagenesis:
+      image: "ghcr.io/ibiofoundry/mutagenesis:latest"
+      imagePullPolicy: "Always"
+      volumes: []
+
+    # Config for running NovoStoic job (subjob: dGPredictor)
+    novostoic-dgpredictor:
+      image: "moleculemaker/novostoic"
+      command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-dgpredictor/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-dgpredictor/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+
+    # Config for running NovoStoic job (subjob: EnzRank)
+    novostoic-enzrank:
+      image: "moleculemaker/novostoic"
+      command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-enzrank/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-enzrank/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+
+    # Config for running NovoStoic job (subjob: OptStoic)
+    novostoic-optstoic:
+      image: "moleculemaker/novostoic"
+      command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/novostoic-optstoic/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-optstoic/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+      resources:
+        limits:
+          cpu: "1"
+          memory: "24Gi"
+        requests:
+          cpu: "1"
+          memory: "12Gi"
+
+    # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
+    novostoic-pathways:
+      image: "moleculemaker/novostoic"
+      command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
+          subPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+
+    # Config for running OpenEnzymeDB CatPred job
+    oed-catpred:
+      image: "moleculemaker/oed-catpred"
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-catpred/JOB_ID/in"
+          subPath: "uws/jobs/oed-catpred/JOB_ID/in"
+          claimName: "mmli-shared-job-data"
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-catpred/JOB_ID/out"
+          subPath: "uws/jobs/oed-catpred/JOB_ID/out"
+          claimName: "mmli-shared-job-data"
+        - mountPath: /catpred_pipeline/data
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.pretrained
+          claimName: "mmli-shared-job-data"
+        - mountPath: /catpred_pipeline/catpred/production_models
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
+          claimName: "mmli-shared-job-data"
+        - mountPath: /root/.cache/torch/hub/checkpoints
+          name: shared-storage
+          subPath: uws/jobs/oed-catpred/.hub
+          claimName: "mmli-shared-job-data"
+
+    # Config for running OpenEnzymeDB ChemInfo job
+    oed-cheminfo:
+      image: "moleculemaker/mmli-cheminfo-service"
+      command: "python ./main.py --oed"
+      imagePullPolicy: "Always"
+      volumes:
+        - name: "shared-storage"
+          mountPath: "/uws/jobs/oed-cheminfo/JOB_ID/out"
+          subPath: "uws/jobs/oed-cheminfo/JOB_ID/out"
           claimName: "mmli-shared-job-data"
 
     # Config for running OpenEnzymeDB DLKcat job
@@ -301,32 +508,6 @@ config:
           itemList:
             - key: token
               path: token
-
-    # Config for running OpenEnzymeDB CatPred job
-    oed-catpred:
-      image: "moleculemaker/oed-catpred"
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/oed-catpred/JOB_ID/in"
-          subPath: "uws/jobs/oed-catpred/JOB_ID/in"
-          claimName: "mmli-shared-job-data"
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/oed-catpred/JOB_ID/out"
-          subPath: "uws/jobs/oed-catpred/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-        - mountPath: /catpred_pipeline/data
-          name: shared-storage
-          subPath: uws/jobs/oed-catpred/.pretrained
-          claimName: "mmli-shared-job-data"
-        - mountPath: /catpred_pipeline/catpred/production_models
-          name: shared-storage
-          subPath: uws/jobs/oed-catpred/.pretrained/pretrained/production
-          claimName: "mmli-shared-job-data"
-        - mountPath: /root/.cache/torch/hub/checkpoints
-          name: shared-storage
-          subPath: uws/jobs/oed-catpred/.hub
-          claimName: "mmli-shared-job-data"
 
     # Config for running ReactionMiner job
     reactionminer:
@@ -398,125 +579,6 @@ config:
           subPath: "uws/jobs/somn/JOB_ID/out"
           claimName: "mmli-shared-job-data"
 
-    # Config for running NovoStoic job (subjob: OptStoic)
-    novostoic-optstoic:
-      image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/novostoic-optstoic/JOB_ID/out"
-          subPath: "uws/jobs/novostoic-optstoic/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-      resources:
-        limits:
-          cpu: "1"
-          memory: "24Gi"
-        requests:
-          cpu: "1"
-          memory: "12Gi"
-
-    # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
-    novostoic-pathways:
-      image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
-          subPath: "uws/jobs/novostoic-pathways/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-
-    # Config for running NovoStoic job (subjob: dGPredictor)
-    novostoic-dgpredictor:
-      image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/novostoic-dgpredictor/JOB_ID/out"
-          subPath: "uws/jobs/novostoic-dgpredictor/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-
-    # Config for running NovoStoic job (subjob: EnzRank)
-    novostoic-enzrank:
-      image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/novostoic-enzrank/JOB_ID/out"
-          subPath: "uws/jobs/novostoic-enzrank/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-
-    oed-cheminfo:
-      image: "moleculemaker/mmli-cheminfo-service"
-      command: "python ./main.py --oed"
-      imagePullPolicy: "Always"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/uws/jobs/oed-cheminfo/JOB_ID/out"
-          subPath: "uws/jobs/oed-cheminfo/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-
-    # Config for running SimpleFold protein structure prediction job
-    ml-simplefold:
-      image: "davidbianchi/ml-simplefold:version1"
-      imagePullPolicy: "IfNotPresent"
-      env:
-      - name: NVIDIA_DRIVER_CAPABILITIES
-        value: "compute,utility"
-      - name: NVIDIA_VISIBLE_DEVICES
-        value: "all"
-      volumes:
-        - name: "shared-storage"
-          mountPath: "/workspace/input"
-          subPath: "uws/jobs/ml-simplefold/JOB_ID/in"
-          claimName: "mmli-shared-job-data"
-        - name: "shared-storage"
-          mountPath: "/workspace/output"
-          subPath: "uws/jobs/ml-simplefold/JOB_ID/out"
-          claimName: "mmli-shared-job-data"
-        - name: "shared-storage"
-          mountPath: "/root/.cache/torch/hub"
-          subPath: "uws/jobs/ml-simplefold/.cache"
-          claimName: "mmli-shared-job-data"
-      resources:
-        limits:
-          cpu: "16"
-          memory: "32Gi"
-          nvidia.com/gpu: "1"
-        requests:
-          cpu: "4"
-          memory: "24Gi"
-          nvidia.com/gpu: "1"
-
-    # Config for running CRISPR-COPIES job.
-    # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
-    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
-    # the job already mounts at /uws, so no extra volumes are required.
-    crispr-copies:
-      image: "ghcr.io/ibiofoundry/copies:latest"
-      imagePullPolicy: "Always"
-      # Init-container step (after prejob.py input sync): resolve a dropdown organism
-      # accession to genome/feature-table/protein files, and convert any uploaded GFF3
-      # to feature_table.txt. No-op for the upload / feature_table paths.
-      prejob_command: "python fetch_organism.py && python convert_annotations.py"
-      volumes: []
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
-    # Config for running MUTAGENESIS job.
-    # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
-    # synced from MinIO {job_id}/in into ${JOB_INPUT_DIR} on the shared working volume
-    # the job already mounts at /uws, so no extra volumes are required.
-    mutagenesis:
-      image: "ghcr.io/ibiofoundry/mutagenesis:latest"
-      imagePullPolicy: "Always"
-      volumes: []
-      securityContext:
-        runAsUser: 0
-        runAsGroup: 0
 
     defaults:
       # Kubeconfig (credentials + cluster) used to run this job in Kubernetes
@@ -553,63 +615,6 @@ config:
           memory: "12Gi"
 
 
-    ez-specificity:
-      # Example job image name + command combo
-      image: "moleculemaker/mmli-backend:latest"
-      command: "python ./coordinator.py"
-      steps:
-        # Define names / order for steps here
-        - ezspec-unidock
-        - ezspec-inference
-
-      # Parent job doesn't need many resources
-      resources:
-        limits:
-          cpu: "2"
-          memory: "2Gi"
-        requests:
-          cpu: "1"
-          memory: "1Gi"
-
-
-    ezspec-unidock:
-      image: moleculemaker/ezspec-unidock:latest
-      #command: "echo 5 > ${JOB_OUTPUT_DIR}/step1.out"
-      imagePullPolicy: Always
-      env:
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: compute,utility
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: all
-      volumes:
-        - name: shared-storage
-          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/in
-          subPath: uws/jobs/ezspec-unidock/JOB_ID/in
-          claimName: mmli-shared-job-data
-        - name: shared-storage
-          mountPath: /uws/jobs/ezspec-unidock/JOB_ID/out
-          subPath: uws/jobs/ezspec-unidock/JOB_ID/out
-          claimName: mmli-shared-job-data
-
-
-    ezspec-inference:
-      image: moleculemaker/ezspec-inference:latest
-      imagePullPolicy: Always
-      env:
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: compute,utility
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: all
-      #command: "echo 10 > ${JOB_OUTPUT_DIR}/step2.out"
-      volumes:
-        - name: shared-storage
-          mountPath: /uws/jobs/ezspec-inference/JOB_ID/in
-          subPath: uws/jobs/ezspec-inference/JOB_ID/in
-          claimName: mmli-shared-job-data
-        - name: shared-storage
-          mountPath: /uws/jobs/ezspec-inference/JOB_ID/out
-          subPath: uws/jobs/ezspec-inference/JOB_ID/out
-          claimName: mmli-shared-job-data
 
   external:
     chemscraper:
