@@ -278,7 +278,7 @@ config:
 
 postgresql:
   enabled: true
-  autoschema: false
+  autoschema: true
   persistence:
     size: 20Gi
   hostname: mmli-backend-postgresql.alphasynthesis.svc.cluster.local
