@@ -162,11 +162,20 @@ DELIBERATELY_SILENT_JOB_TYPES = [
     JobType.OED_CATPRED,
     JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
     JobType.DEFAULT,            # example jobs
-    # CHEMSCRAPER is silent *here* but is not unnotified: it emails from its own path,
-    # `chemscraper_service.runChemscraperOnDocument` (success and failure, services/
-    # chemscraper_service.py:291 and :302), because its jobs do not run as Kubernetes
-    # Jobs the watcher observes. So it is NOT the state MEP-ESM was in -- adding a branch
-    # for it here would send a second, duplicate email.
+    # CHEMSCRAPER is silent *here* because it notifies from its own path: success and
+    # failure both email from `chemscraper_service.runChemscraperOnDocument`
+    # (services/chemscraper_service.py:291 and :302), reached via the FastAPI background
+    # task started at routers/chemscraper.py:66. `grep -rn 'send_email(' app/` returns
+    # exactly those two sites plus this dispatch's two. Adding a branch above would make
+    # that path send twice.
+    #
+    # Caveat, deliberately not resolved here: that is not chemscraper's ONLY path. The
+    # generic `POST /{job_type}/jobs` (routers/job.py:62) accepts any member of JobTypes,
+    # and job_builder.py:134 builds a real Kubernetes Job for CHEMSCRAPER -- which the
+    # watcher does observe, and which therefore gets no email at all. Whether anything
+    # actually calls that route was not checked. If it does, chemscraper needs the
+    # notification split by path rather than a branch above, so it is left classified by
+    # today's behavior instead of guessed at.
     JobType.CHEMSCRAPER,
 ]
 
