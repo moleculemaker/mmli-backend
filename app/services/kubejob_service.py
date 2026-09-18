@@ -148,6 +148,13 @@ class KubeEventWatcher:
             clean_frontend_url = app_config['clean_frontend_url']
             results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'CLEAN'
+        elif job_type == JobType.CLEANDB_MEPESM:
+            # Note the route shape: '/effect-prediction/result/' - singular 'result', not
+            # the '/results/' most tools here use. It mirrors the Angular route registered
+            # in CLEANDB-frontend as 'effect-prediction/result/:id' (app-routing.module.ts).
+            cleandb_frontend_url = app_config['cleandb_frontend_url']
+            results_url = f'{cleandb_frontend_url}/effect-prediction/result/{updated_job.job_id}'
+            job_type_name = 'Mutation Effect Prediction'
         elif job_type == JobType.CRISPR_COPIES:
             crispr_copies_frontend_url = app_config['crisprcopies_frontend_url']
             results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
@@ -197,9 +204,14 @@ class KubeEventWatcher:
             job_type_name = 'SOMN'
 
         elif job_type in JobTypes:
-            # OED & CLEANDB jobs are very fast - no need to send notification email
-            # No need to notify about EZspec intermediary steps
-            # No need to notify about ML Simplefold
+            # Anything reaching here gets NO email, so a tool added above must also be
+            # added to this list -- or silently stop notifying. CLEANDB-MEPESM was skipped
+            # here on the rationale that it "is very fast"; it is not (a run waits on the
+            # single GPU node before it computes), and the frontend offers the user a
+            # notification checkbox, so it is now handled above.
+            # OED jobs are fast enough not to need one.
+            # No need to notify about EZspec intermediary steps.
+            # No need to notify about ML Simplefold.
             log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
             return
 

@@ -268,6 +268,7 @@ config:
   novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
   somn_frontend_url: "https://somn.platform.moleculemaker.org"
   clean_frontend_url: "https://clean.platform.moleculemaker.org"
+  cleandb_frontend_url: "https://cleandb.platform.moleculemaker.org"
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
   reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"

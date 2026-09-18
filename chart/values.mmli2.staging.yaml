@@ -283,6 +283,7 @@ config:
   novostoic_frontend_url: "https://novostoic.frontend.staging.mmli2.ncsa.illinois.edu"
   somn_frontend_url: "https://somn.frontend.staging.mmli2.ncsa.illinois.edu"
   clean_frontend_url: "https://clean.frontend.staging.mmli2.ncsa.illinois.edu"
+  cleandb_frontend_url: "https://cleandb.frontend.staging.mmli2.ncsa.illinois.edu"
   molli_frontend_url: "https://molli.frontend.staging.mmli2.ncsa.illinois.edu"
   aceretro_frontend_url: "https://aceretro.frontend.staging.mmli2.ncsa.illinois.edu"
   reactionminer_frontend_url: "https://reactionminer.frontend.staging.mmli2.ncsa.illinois.edu"

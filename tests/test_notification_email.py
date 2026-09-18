@@ -1,0 +1,155 @@
+"""Tests for KubeEventWatcher.send_notification_email.
+
+The bug this file starts from: `cleandb-mepesm` (the Mutation Effect Prediction tool,
+MEP-ESM) matched none of the per-tool branches, so it fell through to the catch-all
+
+    elif job_type in JobTypes:   # "OED & CLEANDB jobs are very fast"
+        return
+
+and no completion email was ever sent -- while the frontend's submission form offers the
+user an address field and a checkbox reading "Agree to receive email notifications".
+The rationale in that comment was also simply untrue by the time it was read: a MEP-ESM
+run waits several minutes for the single GPU node before it computes.
+
+The failure mode is quiet by construction. Nothing raises, nothing retries, and the only
+trace is a `log.warning` on a line that looks deliberate, so the shape worth pinning is
+not "does an email go out" in general but "does THIS job type reach the send". The
+catch-all makes every future tool fail the same way by default, which is why the
+deliberate skips are pinned below too: a fix that widens the dispatch far enough to
+notify ezspec's intermediary subjobs would be its own bug.
+"""
+import pytest
+
+from models.enums import JobStatus, JobType
+from services.kubejob_service import KubeEventWatcher
+
+
+class _Job:
+    """Minimal stand-in for the Job row the watcher hands to the notifier."""
+
+    def __init__(self, job_id="job-abc123", email="scientist@illinois.edu"):
+        self.job_id = job_id
+        self.email = email
+
+
+class _FakeEmailService:
+    def __init__(self):
+        self.sent = []
+
+    def send_email(self, recipients, subject, body):
+        self.sent.append({"to": recipients, "subject": subject, "body": body})
+
+
+class _FakeMinIOService:
+    """Stands in for the MinIO marker that makes notification idempotent.
+
+    `already_sent` mirrors the `{job_id}/email-sent` object the real service checks.
+    """
+
+    def __init__(self, already_sent=False):
+        self.already_sent = already_sent
+        self.uploaded = []
+
+    def check_file_exists(self, bucket_name, object_name):
+        return self.already_sent
+
+    def upload_file(self, bucket_name, object_name, content):
+        self.uploaded.append((bucket_name, object_name, content))
+        return True
+
+
+def _watcher(already_sent=False):
+    """Build a watcher without its __init__ side effects.
+
+    conftest has already replaced KubeEventWatcher.__init__ with a no-op (it otherwise
+    opens a DB connection and starts an endless watch thread), so constructing one here
+    is safe; only the two collaborators the notifier actually touches are supplied.
+    """
+    w = KubeEventWatcher()
+    w.email_service = _FakeEmailService()
+    w.minio_service = _FakeMinIOService(already_sent=already_sent)
+    return w
+
+
+def _notify(watcher, job_type, phase=JobStatus.COMPLETED, job=None):
+    """Call the notifier the way the watch loop does.
+
+    `job_type` is passed as a plain `str` on purpose: the real caller reads it out of the
+    Kubernetes label `jobType`, never as a JobType member. JobType subclasses str, so the
+    equality checks work either way -- but only the string reproduces the live path.
+    """
+    job = job or _Job()
+    watcher.send_notification_email(job.job_id, str(job_type), job, phase)
+    return watcher.email_service.sent
+
+
+class TestMepEsmIsNotified:
+    def test_completion_sends_an_email(self):
+        """THE REGRESSION. Before the fix this list was empty: cleandb-mepesm reached the
+        catch-all and returned without sending."""
+        w = _watcher()
+        sent = _notify(w, JobType.CLEANDB_MEPESM)
+        assert len(sent) == 1
+
+    def test_completion_email_links_to_the_result_page(self):
+        """The route is 'effect-prediction/result/:id' -- singular 'result', unlike the
+        '/results/' every neighbouring branch uses. Getting it wrong sends a live link to
+        a 404, which is worse than the silence this replaces, so the shape is pinned."""
+        w = _watcher()
+        sent = _notify(w, JobType.CLEANDB_MEPESM)
+        assert f"/effect-prediction/result/{_Job().job_id}" in sent[0]["body"]
+
+    def test_failure_sends_an_email(self):
+        w = _watcher()
+        sent = _notify(w, JobType.CLEANDB_MEPESM, phase=JobStatus.ERROR)
+        assert len(sent) == 1
+        assert "failed" in sent[0]["subject"].lower()
+
+    def test_completion_is_marked_so_it_is_sent_once(self):
+        """The watcher re-reconciles every listed Job on each reconnect, so a completed
+        job is passed through here repeatedly. Without the marker write, every pass would
+        re-send."""
+        w = _watcher()
+        _notify(w, JobType.CLEANDB_MEPESM)
+        assert any(name.endswith("/email-sent") for _, name, _ in w.minio_service.uploaded)
+
+    def test_an_already_notified_job_is_not_notified_again(self):
+        w = _watcher(already_sent=True)
+        assert _notify(w, JobType.CLEANDB_MEPESM) == []
+
+    def test_a_job_with_no_address_sends_nothing(self):
+        w = _watcher()
+        assert _notify(w, JobType.CLEANDB_MEPESM, job=_Job(email=None)) == []
+
+
+class TestDeliberateSkipsAreStillSkipped:
+    """The catch-all is load-bearing for these, not an oversight. Widening the dispatch
+    to reach MEP-ESM must not start notifying them."""
+
+    @pytest.mark.parametrize("job_type", [
+        JobType.EZSPEC_UNIDOCK,     # intermediary step of an ez-specificity run
+        JobType.EZSPEC_INFERENCE,   # ditto; the parent job is what the user waits on
+        JobType.OED_DLKCAT,
+        JobType.OED_UNIKP,
+        JobType.OED_CATPRED,
+        JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
+        JobType.DEFAULT,            # example jobs
+    ])
+    def test_no_email_is_sent(self, job_type):
+        assert _notify(_watcher(), job_type) == []
+
+
+class TestEveryJobTypeIsAccountedFor:
+    def test_no_known_job_type_raises(self):
+        """The dispatch ends in `raise ValueError` for anything it does not recognise.
+        That branch is reachable from the watch loop, so a JobType added to the enum but
+        not to the dispatch would raise on every event for it. Each known type must
+        either notify or skip -- never raise."""
+        for job_type in JobType:
+            _notify(_watcher(), job_type)
+
+    def test_an_unknown_job_type_still_raises(self):
+        """The guard itself is worth keeping: it is what surfaces a label the backend has
+        never heard of, rather than silently dropping it."""
+        with pytest.raises(ValueError):
+            _notify(_watcher(), "some-tool-that-does-not-exist")

@@ -43,6 +43,7 @@ controller:
   somn_frontend_url: "http://localhost:4200"
   chemscraper_frontend_url: "http://localhost:4200"
   clean_frontend_url: "http://localhost:4200"
+  cleandb_frontend_url: "http://localhost:4200"
   molli_frontend_url: "http://localhost:4200"
   aceretro_frontend_url: "http://localhost:4200"
   reactionminer_frontend_url: "http://localhost:4200"
