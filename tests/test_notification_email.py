@@ -14,9 +14,10 @@ run waits several minutes for the single GPU node before it computes.
 The failure mode is quiet by construction. Nothing raises, nothing retries, and the only
 trace is a `log.warning` on a line that looks deliberate, so the shape worth pinning is
 not "does an email go out" in general but "does THIS job type reach the send". The
-catch-all makes every future tool fail the same way by default, which is why the
-deliberate skips are pinned below too: a fix that widens the dispatch far enough to
-notify ezspec's intermediary subjobs would be its own bug.
+catch-all makes every future tool fail the same way by default, which is why the enum is
+partitioned explicitly below into the types that notify and the types deliberately kept
+silent -- a fix that widens the dispatch far enough to notify ezspec's intermediary
+subjobs would be its own bug, and a tool added to neither list is the original bug again.
 """
 import pytest
 
@@ -122,34 +123,94 @@ class TestMepEsmIsNotified:
         assert _notify(w, JobType.CLEANDB_MEPESM, job=_Job(email=None)) == []
 
 
+# Every JobType must be listed in exactly one of these two sets.
+#
+# The dispatch's catch-all (`elif job_type in JobTypes`) returns silently, and `JobTypes`
+# is derived from the enum -- `[str(job_type) for job_type in JobType]` in
+# `app/models/enums.py` -- so every member satisfies it by construction. A tool added to
+# the enum and forgotten in the dispatch therefore never raises and never emails; it just
+# logs a warning that reads as intentional. That is precisely how CLEANDB_MEPESM went
+# unnotified, and it is why "no known type raises" cannot be the safety net: the
+# `raise ValueError` below the catch-all is unreachable for any JobType member.
+#
+# The net is instead this explicit partition. Adding a JobType without classifying it
+# here fails `test_every_job_type_is_classified`, which forces the choice to be made
+# deliberately rather than defaulted into silence.
+
+NOTIFYING_JOB_TYPES = [
+    JobType.ACERETRO,
+    JobType.CLEAN,
+    JobType.CLEANDB_MEPESM,
+    JobType.CRISPR_COPIES,
+    JobType.EZ_SPECIFICITY,
+    JobType.MOLLI,
+    JobType.MUTAGENESIS,
+    JobType.NOVOSTOIC_OPTSTOIC,
+    JobType.NOVOSTOIC_PATHWAYS,
+    JobType.NOVOSTOIC_ENZRANK,
+    JobType.NOVOSTOIC_DGPREDICTOR,
+    JobType.OED_CHEMINFO,
+    JobType.REACTIONMINER,
+    JobType.SOMN,
+]
+
+DELIBERATELY_SILENT_JOB_TYPES = [
+    JobType.EZSPEC_UNIDOCK,     # intermediary step of an ez-specificity run
+    JobType.EZSPEC_INFERENCE,   # ditto; the parent job is what the user waits on
+    JobType.OED_DLKCAT,
+    JobType.OED_UNIKP,
+    JobType.OED_CATPRED,
+    JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
+    JobType.DEFAULT,            # example jobs
+    # CHEMSCRAPER is silent *here* but is not unnotified: it emails from its own path,
+    # `chemscraper_service.runChemscraperOnDocument` (success and failure, services/
+    # chemscraper_service.py:291 and :302), because its jobs do not run as Kubernetes
+    # Jobs the watcher observes. So it is NOT the state MEP-ESM was in -- adding a branch
+    # for it here would send a second, duplicate email.
+    JobType.CHEMSCRAPER,
+]
+
+
+class TestEveryJobTypeIsClassified:
+    """The safety net proper: a new tool cannot default into silence unnoticed."""
+
+    def test_every_job_type_is_classified(self):
+        classified = set(NOTIFYING_JOB_TYPES) | set(DELIBERATELY_SILENT_JOB_TYPES)
+        unclassified = set(JobType) - classified
+        assert not unclassified, (
+            f"JobType(s) {sorted(str(j) for j in unclassified)} are in neither list. The "
+            f"dispatch will skip them silently -- add a branch in send_notification_email "
+            f"and list them under NOTIFYING_JOB_TYPES, or record the skip as deliberate."
+        )
+
+    def test_the_two_sets_are_disjoint(self):
+        assert not set(NOTIFYING_JOB_TYPES) & set(DELIBERATELY_SILENT_JOB_TYPES)
+
+
+class TestNotifyingTypesSendAndResolveTheirConfigKey:
+    """Doubles as config-key coverage: each branch reads `app_config['<tool>_frontend_url']`
+    unconditionally, so a key missing from `app/cfg/config.yaml` raises `KeyError` here.
+    This is what caught the absent `reactionminer_frontend_url`."""
+
+    @pytest.mark.parametrize("job_type", NOTIFYING_JOB_TYPES, ids=str)
+    def test_one_email_is_sent(self, job_type):
+        assert len(_notify(_watcher(), job_type)) == 1
+
+
 class TestDeliberateSkipsAreStillSkipped:
     """The catch-all is load-bearing for these, not an oversight. Widening the dispatch
     to reach MEP-ESM must not start notifying them."""
 
-    @pytest.mark.parametrize("job_type", [
-        JobType.EZSPEC_UNIDOCK,     # intermediary step of an ez-specificity run
-        JobType.EZSPEC_INFERENCE,   # ditto; the parent job is what the user waits on
-        JobType.OED_DLKCAT,
-        JobType.OED_UNIKP,
-        JobType.OED_CATPRED,
-        JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
-        JobType.DEFAULT,            # example jobs
-    ])
+    @pytest.mark.parametrize("job_type", DELIBERATELY_SILENT_JOB_TYPES, ids=str)
     def test_no_email_is_sent(self, job_type):
         assert _notify(_watcher(), job_type) == []
 
 
-class TestEveryJobTypeIsAccountedFor:
-    def test_no_known_job_type_raises(self):
-        """The dispatch ends in `raise ValueError` for anything it does not recognise.
-        That branch is reachable from the watch loop, so a JobType added to the enum but
-        not to the dispatch would raise on every event for it. Each known type must
-        either notify or skip -- never raise."""
-        for job_type in JobType:
-            _notify(_watcher(), job_type)
-
+class TestAnUnknownJobTypeStillRaises:
     def test_an_unknown_job_type_still_raises(self):
         """The guard itself is worth keeping: it is what surfaces a label the backend has
-        never heard of, rather than silently dropping it."""
+        never heard of, rather than silently dropping it. Note it is reachable only for a
+        label that is not a JobType at all -- every enum member is absorbed by the
+        catch-all above it."""
         with pytest.raises(ValueError):
             _notify(_watcher(), "some-tool-that-does-not-exist")

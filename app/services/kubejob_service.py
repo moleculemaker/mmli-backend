@@ -204,14 +204,19 @@ class KubeEventWatcher:
             job_type_name = 'SOMN'
 
         elif job_type in JobTypes:
-            # Anything reaching here gets NO email, so a tool added above must also be
-            # added to this list -- or silently stop notifying. CLEANDB-MEPESM was skipped
-            # here on the rationale that it "is very fast"; it is not (a run waits on the
+            # This is the fall-through, not a list of skips. `JobTypes` is derived
+            # from the JobType enum, so EVERY member lands here unless it was given a
+            # branch above -- and landing here means NO email, silently. Adding a tool
+            # to the enum is therefore not enough: without a branch above it will never
+            # notify, and nothing will say so. That is how CLEANDB_MEPESM was missed,
+            # on the rationale that it "is very fast"; it is not (a run waits on the
             # single GPU node before it computes), and the frontend offers the user a
-            # notification checkbox, so it is now handled above.
-            # OED jobs are fast enough not to need one.
-            # No need to notify about EZspec intermediary steps.
-            # No need to notify about ML Simplefold.
+            # notification checkbox, so it is handled above now.
+            # Deliberately silent: OED jobs (fast enough not to need one), EZspec
+            # intermediary steps (the parent job is what the user waits on), and ML
+            # Simplefold (no frontend to link to yet).
+            # tests/test_notification_email.py partitions the enum across those two
+            # cases and fails on any member that is in neither.
             log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
             return
 
