@@ -238,8 +238,8 @@ config:
           value: '/root/.cache/token'
         - name: GROBID_SERVER
           value: 'mmli-grobid.alphasynthesis.svc.cluster.local'
-        - name: CHEMSCRAPER_BASE_URL	
-          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"	
+        - name: CHEMSCRAPER_BASE_URL
+          value: "http://chemscraper-services.alphasynthesis.svc.cluster.local:8000"
       # Run ReactionMiner on GPU node
       runtimeClassName: nvidia
       nodeSelector:
@@ -268,6 +268,7 @@ config:
   novostoic_frontend_url: "https://novostoic.platform.moleculemaker.org"
   somn_frontend_url: "https://somn.platform.moleculemaker.org"
   clean_frontend_url: "https://clean.platform.moleculemaker.org"
+  cleandb_frontend_url: "https://cleandb.platform.moleculemaker.org"
   molli_frontend_url: "https://molli.platform.moleculemaker.org"
   aceretro_frontend_url: "https://aceretro.platform.moleculemaker.org"
   reactionminer_frontend_url: "https://reactionminer.platform.moleculemaker.org"

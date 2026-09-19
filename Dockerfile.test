@@ -23,6 +23,11 @@ COPY ./pytest.ini /code/pytest.ini
 COPY ./app /code/app
 COPY ./tests /code/tests
 
+# tests/test_notification_email.py reads the chart values to reconstruct the config each
+# cluster is handed (the ConfigMap is rendered from them and mounted over
+# app/cfg/config.yaml), so the chart has to be in the image or that coverage cannot run.
+COPY ./chart /code/chart
+
 # kubejob_service loads a cluster config at import time and exits the process if it
 # finds none. cfg/config.yaml points at /opt/kubeconfig, so place a dummy there.
 COPY ./tests/fixtures/kubeconfig.yaml /opt/kubeconfig
