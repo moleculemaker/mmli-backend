@@ -23,11 +23,15 @@ on:
       - 'alembic.ini'
       - 'migrations/**'
       - 'tests/**'
+      # The suite asserts that every environment's chart values carry the config keys the
+      # notification dispatch reads, so a chart-only change can now break it.
+      - 'chart/**'
     branches:
       - main
       - develop
   pull_request:
-    # Skip building image if PR only affects chart/docs/workflows
+    # Skip building image if PR only affects docs/workflows. Note chart/ is NOT skipped:
+    # the suite reads the chart values (see the push trigger above).
     paths:
       - '.dockerignore'
       - 'Dockerfile'
@@ -40,6 +44,7 @@ on:
       - 'alembic.ini'
       - 'migrations/**'
       - 'tests/**'
+      - 'chart/**'
   workflow_dispatch:
 
 jobs:
