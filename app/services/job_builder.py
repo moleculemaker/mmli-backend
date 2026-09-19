@@ -59,6 +59,12 @@ class PreparedJob:
     parent_job_id: Optional[str] = None
 
 
+# The variant every SimpleFold job has actually run since the tool was added
+# (6903e4a). Kept as the fallback so omitting the config key cannot silently change
+# which model executes -- the failure this constant exists to prevent.
+DEFAULT_SIMPLEFOLD_MODEL = "simplefold_100M"
+
+
 def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService) -> PreparedJob:
     """Run a tool's pre-launch preparation and return what the job needs to run.
 
@@ -292,9 +298,20 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
             if not upload_result:
                 raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
 
+        # Which model variant runs is decided HERE, not by the image tag. The command we
+        # pass overrides the container's ENTRYPOINT, so the `predict-simplefold.sh` baked
+        # into the image (which selects simplefold_1.6B) never executes. That is how the
+        # image came to be tagged `version1.6B` while every job actually ran 100M: the tag
+        # was bumped in cee8751 and the hardcoded model here silently outranked it.
+        # Config is now the single place the variant is declared, beside the image it has
+        # to agree with. Logged per job because nothing else records what actually ran.
+        simplefold_model = app_config['kubernetes_jobs'][job_type].get(
+            'simplefoldModel', DEFAULT_SIMPLEFOLD_MODEL)
+        log.info(f"ML-SIMPLEFOLD using model variant: {simplefold_model}")
+
         command = (
             "simplefold"
-            " --simplefold_model simplefold_100M"
+            f" --simplefold_model {simplefold_model}"
             " --num_steps 500"
             " --tau 0.01"
             " --nsample_per_protein 1"

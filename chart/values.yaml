@@ -366,6 +366,14 @@ config:
           cpu: "4"
           memory: "24Gi"
           nvidia.com/gpu: "1"
+      # Model variant. This, not the image tag, decides what runs: the command the backend
+      # passes overrides the container ENTRYPOINT, so the image's own predict-simplefold.sh
+      # never executes. The tag below reads "version1.6B" but every job has run 100M since
+      # the tool was added -- the tag was bumped without the model following it.
+      # Available: simplefold_100M / 360M / 700M / 1.1B / 1.6B / 3B (100M is the smallest).
+      # Larger variants cost VRAM on a card that already OOMs at 1022 residues, so changing
+      # this requires re-measuring the maxResidues bound below.
+      simplefoldModel: "simplefold_100M"
       
     # Config for running MUTAGENESIS job.
     # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
