@@ -59,10 +59,10 @@ class PreparedJob:
     parent_job_id: Optional[str] = None
 
 
-# The variant every SimpleFold job has actually run since the tool was added
-# (6903e4a). Kept as the fallback so omitting the config key cannot silently change
-# which model executes -- the failure this constant exists to prevent.
-DEFAULT_SIMPLEFOLD_MODEL = "simplefold_100M"
+# The only checkpoints shipped in the ml-simplefold image (artifacts/ holds these two plus
+# plddt.ckpt). SimpleFold publishes 360M/700M/1.1B/3B upstream, but asking this image for
+# one fails inside the pod with FileNotFoundError, after the GPU has already been claimed.
+SIMPLEFOLD_MODELS = frozenset({"simplefold_100M", "simplefold_1.6B"})
 
 
 def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService) -> PreparedJob:
@@ -298,15 +298,17 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
             if not upload_result:
                 raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
 
-        # Which model variant runs is decided HERE, not by the image tag. The command we
-        # pass overrides the container's ENTRYPOINT, so the `predict-simplefold.sh` baked
-        # into the image (which selects simplefold_1.6B) never executes. That is how the
-        # image came to be tagged `version1.6B` while every job actually ran 100M: the tag
-        # was bumped in cee8751 and the hardcoded model here silently outranked it.
-        # Config is now the single place the variant is declared, beside the image it has
-        # to agree with. Logged per job because nothing else records what actually ran.
-        simplefold_model = app_config['kubernetes_jobs'][job_type].get(
-            'simplefoldModel', DEFAULT_SIMPLEFOLD_MODEL)
+        # Config decides which model variant runs, not the image tag: the command we pass
+        # overrides the container's ENTRYPOINT, so the `predict-simplefold.sh` baked into
+        # the image never executes. The key is required rather than defaulted so that a
+        # missing declaration fails here instead of silently picking a variant. Logged
+        # per job because nothing else records what actually ran.
+        simplefold_model = app_config['kubernetes_jobs'][job_type]['simplefoldModel']
+        if simplefold_model not in SIMPLEFOLD_MODELS:
+            raise HTTPException(
+                status_code=500,
+                detail=f"simplefoldModel {simplefold_model!r} is not one of "
+                       f"{sorted(SIMPLEFOLD_MODELS)}")
         log.info(f"ML-SIMPLEFOLD using model variant: {simplefold_model}")
 
         command = (
