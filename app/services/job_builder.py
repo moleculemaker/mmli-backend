@@ -74,6 +74,12 @@ class PreparedJob:
     parent_job_id: Optional[str] = None
 
 
+# The only checkpoints shipped in the ml-simplefold image (artifacts/ holds these two plus
+# plddt.ckpt). SimpleFold publishes 360M/700M/1.1B/3B upstream, but asking this image for
+# one fails inside the pod with FileNotFoundError, after the GPU has already been claimed.
+SIMPLEFOLD_MODELS = frozenset({"simplefold_100M", "simplefold_1.6B"})
+
+
 def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService) -> PreparedJob:
     """Run a tool's pre-launch preparation and return what the job needs to run.
 
@@ -324,6 +330,19 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
                 pointer='/fasta',
             )
 
+        # Config decides which model variant runs, not the image tag: the command we pass
+        # overrides the container's ENTRYPOINT, so the `predict-simplefold.sh` baked into
+        # the image never executes. The key is required rather than defaulted so that a
+        # missing declaration fails here instead of silently picking a variant. Logged
+        # per job because nothing else records what actually ran.
+        simplefold_model = app_config['kubernetes_jobs'][job_type]['simplefoldModel']
+        if simplefold_model not in SIMPLEFOLD_MODELS:
+            raise HTTPException(
+                status_code=500,
+                detail=f"simplefoldModel {simplefold_model!r} is not one of "
+                       f"{sorted(SIMPLEFOLD_MODELS)}")
+        log.info(f"ML-SIMPLEFOLD using model variant: {simplefold_model}")
+
         # Upload FASTA content to MinIO
         if service.ensure_bucket_exists(job_type):
             upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
@@ -332,7 +351,7 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
 
         command = (
             "simplefold"
-            " --simplefold_model simplefold_100M"
+            f" --simplefold_model {simplefold_model}"
             " --num_steps 500"
             " --tau 0.01"
             " --nsample_per_protein 1"

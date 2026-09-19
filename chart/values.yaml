@@ -419,9 +419,29 @@ config:
       # GPU -- at 1022 residues it OOMs even running alone, and 1022 is what the MEP form
       # used to allow because that is ESM-2's context limit, not anything about folding.
       # The MEP job itself is unaffected and still runs to 1022; only the structure half is
-      # bounded here. Raise this when the GPU constraint moves (a second GPU node, a smaller
-      # simplefold variant, or reclaiming the ~2.8Gi chemscraper holds on this card).
+      # bounded here. Raise this when the GPU constraint moves: a second GPU node, or
+      # reclaiming the ~2.8Gi chemscraper holds on this card. NOT by switching model --
+      # simplefold_100M is already the smallest variant the image ships, and memory here
+      # scales with chain length rather than parameter count (measured: 1.6B needs MORE).
       maxResidues: 700
+
+      # Model variant. This, not the image tag, decides what runs: the command the backend
+      # passes overrides the container ENTRYPOINT, so the image's own predict-simplefold.sh
+      # never executes. The tag above reads "version1.6B" but every job has run 100M since
+      # the tool was added -- the tag was bumped without the model following it.
+      # Only TWO variants ship in this image -- artifacts/ holds simplefold_100M.ckpt and
+      # simplefold_1.6B.ckpt (plus plddt.ckpt) and nothing else. SimpleFold publishes
+      # 360M/700M/1.1B/3B upstream, but asking for one here fails at runtime with
+      # FileNotFoundError on artifacts/simplefold_<v>.ckpt. Verified in the running image.
+      #
+      # Measured on this GPU, same ~360-residue protein, identical flags:
+      #   100M   217s   20.6Gi peak VRAM   mean pLDDT 94.1 (95.9 on a rerun)
+      #   1.6B   341s   30.9Gi peak VRAM   mean pLDDT 97.5
+      # 1.6B is the better model and does not fit: 30.9Gi of 32Gi at the MEDIAN input
+      # length leaves no room for the cleandb-mepesm job that shares this card, and would
+      # force a far lower cap on input length than the card otherwise allows. Raising this
+      # is a hardware decision, not a config one -- re-measure both before changing it.
+      simplefoldModel: "simplefold_100M"
       
     # Config for running MUTAGENESIS job.
     # Command is built dynamically by MutagenesisService (routers/job.py). Inputs are
