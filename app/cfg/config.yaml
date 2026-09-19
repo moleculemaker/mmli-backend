@@ -134,6 +134,54 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/cleandb-mepesm/.hub
         claimName: 'mmli-shared-job-data'
+    # Sized from measured peaks, not inheritance. The chart default reserved 12Gi, which
+    # could not fit beside ml-simplefold's 24Gi on the single GPU node (~35.6Gi usable),
+    # so every run sat Pending for the whole of a simplefold run -- 186/244/277s against
+    # 59-84s of actual compute -- and was admitted the second that pod terminated. Both
+    # jobs come from ONE submission (CLEANDB-frontend creates the simplefold job and then
+    # the MEP job), so that wait was a request queueing behind its own other half.
+    # Peak RSS is 7.6Gi, stable across 357-770 residue inputs -- the model dominates, not
+    # the sequence -- so 10Gi fits beside simplefold with ~1.7Gi of node slack and ~2.4Gi
+    # over peak. The limit reserves nothing and only matters for an unusually large input.
+    # Measured: heatmap arrives at 138s instead of 343s; simplefold pays +36%, borne by
+    # the same user.
+    #
+    # Deliberately NO nvidia.com/gpu request. This job already sees the GPU without one,
+    # because it runs under runtimeClassName: nvidia (values.mmli2.prod.yaml), which
+    # exposes all devices regardless of requests. Asking for one would only make the
+    # scheduler serialize it behind simplefold again, reinstating the wait removed here.
+    #
+    # CAUTION: co-resident card occupancy reached AT LEAST 28.4Gi of 32Gi. That is
+    # DCGM_FI_DEV_FB_USED -- card-level, ~1.3s sampling -- so it is a lower bound and it
+    # already includes memory held by other tenants. Treat it as such: in a separate run
+    # this same sampler read 23.8Gi while torch's OOM reported the card full at ~31.6Gi.
+    # A naive sum of solo measurements predicted 24.3Gi; the gap is most likely those
+    # solo figures being under-sampled too, not the peaks failing to compose. The only
+    # trustworthy per-process numbers here come from OOM messages.
+    #
+    # A further ~2.8Gi of the card is held around the clock by chemscraper-services (yolo
+    # + chemdataextractorapi, runtimeClassName: nvidia, no GPU request, no nodeSelector --
+    # it landed on this node incidentally), so three workloads use this GPU and none of
+    # them declares it. simplefold already OOMs ALONE at the 1022-residue cap the UI
+    # allows (28.88Gi by itself), so long sequences are broken today independently of
+    # this change. Co-scheduling narrows that ceiling further by this job's own ~3.2Gi of
+    # VRAM, and the resulting limit is NOT measured: 770 residues co-resident completes,
+    # 1022 fails even serialized, and nothing in between has been tried. Re-check before
+    # raising either job's footprint.
+    #
+    # cpu 2, because the chart's 1 throttled the container in 12-18% of CFS periods.
+    #
+    # Every figure above describes the deployed path, which is chart/values.yaml
+    # rendered into the ConfigMap -- app/cfg/config.yaml is only the in-image
+    # fallback, and its own defaults differ (8Gi/4Gi, cpu 8/4). This block is
+    # identical in both files; the defaults it replaces are not.
+    resources:
+      limits:
+        cpu: "2"
+        memory: "16Gi"
+      requests:
+        cpu: "1"
+        memory: "10Gi"
 
 
   # Config for running MOLLI job
