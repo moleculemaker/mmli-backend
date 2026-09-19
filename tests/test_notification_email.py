@@ -45,34 +45,20 @@ class _FakeEmailService:
         self.sent.append({"to": recipients, "subject": subject, "body": body})
 
 
-class _FakeMinIOService:
-    """Stands in for the MinIO marker that makes notification idempotent.
-
-    `already_sent` mirrors the `{job_id}/email-sent` object the real service checks.
-    """
-
-    def __init__(self, already_sent=False):
-        self.already_sent = already_sent
-        self.uploaded = []
-
-    def check_file_exists(self, bucket_name, object_name):
-        return self.already_sent
-
-    def upload_file(self, bucket_name, object_name, content):
-        self.uploaded.append((bucket_name, object_name, content))
-        return True
-
-
-def _watcher(already_sent=False):
+def _watcher():
     """Build a watcher without its __init__ side effects.
 
     conftest has already replaced KubeEventWatcher.__init__ with a no-op (it otherwise
     opens a DB connection and starts an endless watch thread), so constructing one here
-    is safe; only the two collaborators the notifier actually touches are supplied.
+    is safe; only the one collaborator the notifier still touches is supplied.
+
+    No MinIO stand-in any more: idempotency moved off the `{job_id}/email-sent` object
+    and onto `job.notified_at`, which the caller owns. The notifier has no memory, so
+    "already notified" is not a state this file can be in - see
+    tests/test_watcher_notifications.py for the gate itself.
     """
     w = KubeEventWatcher()
     w.email_service = _FakeEmailService()
-    w.minio_service = _FakeMinIOService(already_sent=already_sent)
     return w
 
 
@@ -110,21 +96,34 @@ class TestMepEsmIsNotified:
         assert len(sent) == 1
         assert "failed" in sent[0]["subject"].lower()
 
-    def test_completion_is_marked_so_it_is_sent_once(self):
-        """The watcher re-reconciles every listed Job on each reconnect, so a completed
-        job is passed through here repeatedly. Without the marker write, every pass would
-        re-send."""
+    def test_a_send_reports_itself_so_the_caller_can_record_it(self):
+        """The watcher re-reconciles every listed Job on each pass, so a completed job
+        reaches the notifier repeatedly. What stops a re-send is the caller writing
+        job.notified_at, and it only does that when this returns True."""
         w = _watcher()
-        _notify(w, JobType.CLEANDB_MEPESM)
-        assert any(name.endswith("/email-sent") for _, name, _ in w.minio_service.uploaded)
-
-    def test_an_already_notified_job_is_not_notified_again(self):
-        w = _watcher(already_sent=True)
-        assert _notify(w, JobType.CLEANDB_MEPESM) == []
+        assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
+                                         _Job(), JobStatus.COMPLETED) is True
 
     def test_a_job_with_no_address_sends_nothing(self):
         w = _watcher()
         assert _notify(w, JobType.CLEANDB_MEPESM, job=_Job(email=None)) == []
+
+    def test_a_job_with_no_address_reports_nothing_sent(self):
+        """False rather than True matters here: True would have the caller stamp
+        notified_at on a job that was never mailed."""
+        w = _watcher()
+        assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
+                                         _Job(email=None), JobStatus.COMPLETED) is False
+
+    def test_a_failed_send_reports_nothing_sent_so_it_stays_retryable(self):
+        def _boom(*args, **kwargs):
+            raise RuntimeError("SMTP unavailable")
+
+        w = _watcher()
+        w.email_service.send_email = _boom
+
+        assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
+                                         _Job(), JobStatus.COMPLETED) is False
 
 
 # Every JobType must be listed in exactly one of these two sets.

@@ -136,10 +136,20 @@ class KubeEventWatcher:
         self.logger.info('Started KubeWatcher')
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
+        """Send the completion/failure email for a job, if this phase warrants one.
+
+        Returns True only when an email was handed to the email service on this call.
+        Every other exit is False: a phase that is not terminal, a job with no address,
+        a job type with nowhere to link to, and a send that raised. The caller writes
+        job.notified_at on True, so False means "try again on the next pass" - which is
+        the whole point of reporting it rather than deciding idempotency in here.
+
+        Note this is NOT "was this job ever notified". It has no memory; the row does.
+        """
         job_type_name = 'Unknown'
         if job_type in ExampleJobTypes:
             log.debug(f'Skipping notification email for ExampleJobType: {str(job_type)}')
-            return
+            return False
         if job_type == JobType.ACERETRO:
             aceretro_frontend_url = app_config['aceretro_frontend_url']
             results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
@@ -173,7 +183,7 @@ class KubeEventWatcher:
             # would therefore send the user two emails for one submission.
             # A SimpleFold frontend URL appearing is NOT on its own reason to add one:
             # the double-send has to be answered first.
-            return
+            return False
         elif job_type == JobType.MOLLI:
             molli_frontend_url = app_config['molli_frontend_url']
             results_url = f'{molli_frontend_url}/results/{updated_job.job_id}'
@@ -238,52 +248,39 @@ class KubeEventWatcher:
             # in neither -- so a tool added to the enum cannot default into silence here
             # without a test going red.
             log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
-            return
+            return False
 
         else:
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {str(JobTypes)}")
 
         job_id = updated_job.job_id
 
-        # Send email notification about success/failure
-        if new_phase == JobStatus.COMPLETED and updated_job.email and self.should_send_email(job_type, job_id):
+        # Send email notification about success/failure.
+        #
+        # Whether this job has already been notified is NOT decided here any more - the
+        # caller gates on job.notified_at and records the result. All this reports is
+        # whether an email was handed to the email service on this call, so that a
+        # failure stays unrecorded and is retried on the next pass.
+        if new_phase == JobStatus.COMPLETED and updated_job.email:
             try:
                 self.email_service.send_email(
                     updated_job.email,
                     f'''Result for your {job_type_name} Job ({job_id}) is ready''',
                     f'''The result for your {job_type_name} Job is available at {results_url}'''
                 )
-                self.mark_email_as_sent(job_type, job_id, success=True)
+                return True
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')
-        elif new_phase == JobStatus.ERROR and updated_job.email and self.should_send_email(job_type, job_id):
+        elif new_phase == JobStatus.ERROR and updated_job.email:
             try:
                 self.email_service.send_email(updated_job.email,
                                               f'''{job_type_name} Job ({job_id}) failed''',
                                               f'''An error occurred in computing the result for your {job_type_name} job.''')
-                self.mark_email_as_sent(job_type, job_id, success=False)
+                return True
             except Exception as e:
                 log.error(f'Failed to send email notification on failure: {str(e)}')
 
-    def should_send_email(self, job_type, job_id):
-        # Check if email has already been sent
-        # if so, file should exist in MinIO
-        minio_bucket_name = job_type
-        minio_check_path = f'{job_id}/email-sent'
-        if self.minio_service.check_file_exists(minio_bucket_name, minio_check_path):
-            log.debug(f'Skipped sending email for {job_id}: email has already been sent for this job')
-            return False
-        return True
-
-    def mark_email_as_sent(self, job_type, job_id, success):
-        minio_bucket_name = job_type
-        minio_check_path = f'{job_id}/email-sent'
-        if success:
-            # Job completed successfully, email was sent indicating success
-            self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'success')
-        else:
-            # Job failed with an error, email was sent indicating error
-            self.minio_service.upload_file(minio_bucket_name, minio_check_path, 'error')
+        return False
 
     @staticmethod
     def _derive_phase(job_object):
@@ -323,8 +320,9 @@ class KubeEventWatcher:
         The watch stream only delivers events NEWER than the listed resourceVersion, so a
         job that reached a terminal state while the watcher was down or mid-reconnect would
         otherwise be stuck at its last-seen phase (e.g. 'processing') forever. The DB write
-        is guarded on an actual phase change, and the notification email is sent from
-        inside that same guard, so reconciling an already-notified job will not re-send.
+        is guarded on an actual phase change. The notification email is guarded
+        separately, on job.notified_at, so reconciling an already-notified job will not
+        re-send while a job whose email has not gone out yet is still retried.
         """
         if job_object.metadata.namespace in ignored_namespaces:
             return
@@ -384,40 +382,37 @@ class KubeEventWatcher:
                 session.commit()
                 session.flush()
 
-                # Notify only on an actual transition, not on every sighting of a job
-                # that is already terminal. The reconcile pass revisits every Job in the
-                # namespace every timeout_seconds (600) for as long as it is listed,
-                # which is ttlSecondsAfterFinished (12h) - so a terminal job with an
-                # email address is a candidate ~72 times.
-                #
-                # The MinIO marker is not enough on its own to make that safe, because it
-                # fails OPEN in both directions. should_send_email treats every S3Error
-                # as "not sent yet" (minio_service.check_file_exists), and a stat_object
-                # against a bucket that does not exist comes back as a bodyless 404 that
-                # minio 7.1.17 synthesises as NoSuchKey (minio/api.py:361) - the same code
-                # as a genuinely absent marker. mark_email_as_sent cannot recover either:
-                # put_object does not create a bucket, so the marker is never laid down
-                # and the next pass reaches the same conclusion. The transition guard is
-                # what bounds this to one message per phase change.
-                #
-                # The cost of that bound: the phase is already committed above, so this
-                # is the only attempt that will ever be made. A later sweep computes
-                # phase_changed == False and does not come back. send_notification_email
-                # catches its own send_email failures, but not everything reaches that
-                # try - should_send_email raises straight out on a MinIO connection
-                # error or a 5xx, neither of which is an S3Error (minio.error.ServerError
-                # derives from MinioException, not S3Error), and those lose the mail.
-                #
-                # Caught here rather than in run()'s per-job handler so the log says what
-                # actually happened. That handler reports "Reconcile skipped a job",
-                # which would be wrong: the phase was written and only the notification
-                # was lost, and an operator needs to be able to find exactly that.
+            # Notification is gated on the row, not on the transition and not on MinIO.
+            #
+            # On the transition would be exactly-once but once-only: the phase is
+            # committed above, so a send that fails is never reattempted. On the MinIO
+            # marker it is retryable but unbounded, because that gate fails OPEN - a
+            # stat_object against a missing bucket is a bodyless 404 that minio 7.1.17
+            # synthesises as NoSuchKey, indistinguishable from an absent marker, and
+            # put_object cannot create the bucket to fix it. The sweep revisits every
+            # terminal Job every timeout_seconds (600) for ttlSecondsAfterFinished (12h),
+            # so "fails open" cashes out as ~72 copies of the same mail.
+            #
+            # notified_at is neither. It is written in the same transaction as the phase
+            # that triggered the email, so it cannot disagree with it, and it is only
+            # written when an email was actually handed over - every other outcome leaves
+            # it null and is retried on the next pass.
+            if updated_job.notified_at is None:
                 try:
-                    self.send_notification_email(job_id, job_type, updated_job, new_phase)
+                    if self.send_notification_email(job_id, job_type, updated_job, new_phase):
+                        updated_job.notified_at = int(time.time())
+                        session.add(updated_job)
+                        session.commit()
                 except Exception as e:
+                    # Reached by what send_notification_email does not catch itself: a
+                    # KeyError from a frontend-url key the dispatch reads unconditionally,
+                    # or anything the email service raises outside its own try. Swallowed
+                    # here rather than in run()'s per-job handler, which would report
+                    # "Reconcile skipped a job" - untrue, since the phase was written.
+                    # notified_at stays null, so the next pass tries again.
                     self.logger.error(
-                        f'Notification for {job_id} ({job_type} -> {new_phase}) was lost '
-                        f'and will not be retried: {e}')
+                        f'Notification for {job_id} ({job_type} -> {new_phase}) failed; '
+                        f'will retry on the next pass: {e}')
                     self.logger.error(traceback.format_exc())
 
     def run(self):

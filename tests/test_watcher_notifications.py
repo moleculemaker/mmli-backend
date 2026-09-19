@@ -1,22 +1,24 @@
 """Tests for when the watcher sends a completion email.
 
-_reconcile_job_phase is run from two places: the live watch-event loop, and the
-reconcile pass that lists every Job in the namespace on a 600s cadence. The second one
-is what makes this worth pinning. A completed Job stays listed for
-ttlSecondsAfterFinished (12h, app/cfg/config.yaml), so the sweep sees the same terminal
-job roughly 72 times, and every sighting used to reach send_notification_email.
+_reconcile_job_phase runs from two places: the live watch-event loop, and the reconcile
+pass that lists every Job in the namespace on a 600s cadence. The second one is what
+makes this worth pinning. A completed Job stays listed for ttlSecondsAfterFinished (12h,
+app/cfg/config.yaml), so the sweep sees the same terminal job roughly 72 times.
 
-The MinIO marker was the only thing between that and 72 copies of "your result is
-ready", and it fails open in both directions:
+Three gates have stood here, and the first two each failed in one direction:
 
-  * should_send_email treats every S3Error as "not sent yet"
-    (MinIOService.check_file_exists returns False on all of them).
-  * A stat_object against a bucket that does not exist is a bodyless 404, which minio
-    7.1.17 synthesises as NoSuchKey -- indistinguishable from an absent marker
-    (minio/api.py:361). mark_email_as_sent cannot repair that either, because put_object
-    does not create buckets.
+  * The MinIO `{job_id}/email-sent` marker. Retryable, but unbounded, because it fails
+    OPEN: check_file_exists returns False for every S3Error, and a stat_object against a
+    missing bucket is a bodyless 404 that minio 7.1.17 synthesises as NoSuchKey
+    (minio/api.py:361) -- indistinguishable from an absent marker. mark_email_as_sent
+    cannot repair it either, since put_object does not create buckets. 72 copies.
+  * The phase transition. Bounded, but once-only: the phase is committed before the
+    send, so a send that fails is never reattempted and the mail is simply lost.
+  * job.notified_at. Written in the same transaction as the phase that triggered the
+    email, and only when an email was actually handed over. Bounded AND retryable.
 
-So the guard has to be the phase transition itself, not the marker.
+The classes below are one per property: sent once, retried until it succeeds, and never
+sent for a job that should not get one.
 """
 import logging
 
@@ -50,9 +52,31 @@ class _FakeJobObject:
         })()
 
 
+class _Notifier:
+    """Stands in for send_notification_email, recording calls and its verdict.
+
+    The return value is the contract under test: True means an email was handed to the
+    email service and the caller must record that, anything else means it was not and
+    the job stays due. `fails` makes every call raise instead, which is what a MinIO
+    connection error or a 5xx does -- neither is an S3Error, so neither is caught inside
+    the notifier.
+    """
+
+    def __init__(self, sends=True, fails=False):
+        self.sends = sends
+        self.fails = fails
+        self.calls = []
+
+    def __call__(self, job_id, job_type, updated_job, new_phase):
+        self.calls.append((job_id, new_phase))
+        if self.fails:
+            raise ConnectionError("MinIO unreachable")
+        return self.sends
+
+
 @pytest.fixture
 def watcher(monkeypatch, sync_db_url):
-    """A KubeEventWatcher wired to the test database, recording notification calls.
+    """A KubeEventWatcher wired to the test database.
 
     conftest stubs __init__ to a no-op, so the instance starts no thread and opens no
     connection. get_image_digest is stubbed out because the digest path would otherwise
@@ -64,32 +88,18 @@ def watcher(monkeypatch, sync_db_url):
 
     monkeypatch.setattr(kubejob_service, "get_image_digest", lambda job_type, job_id: None)
 
-    sent = []
-    monkeypatch.setattr(
-        instance,
-        "send_notification_email",
-        lambda job_id, job_type, updated_job, new_phase: sent.append((job_id, new_phase)),
-    )
-    instance.sent = sent
+    instance.notifier = _Notifier()
+    instance.send_notification_email = instance.notifier
     return instance
 
 
-def _seed(watcher_instance, phase):
+def _seed(watcher_instance, phase, notified_at=None):
     with Session(watcher_instance.engine) as session:
         session.add(Job(
             job_id="j1", type=JobType.SOMN, phase=phase, email="user@example.org",
-            time_created=0, user_agent="", deleted=0,
+            notified_at=notified_at, time_created=0, user_agent="", deleted=0,
         ))
         session.commit()
-
-
-def _raise_minio_unreachable(*args, **kwargs):
-    """What should_send_email does when MinIO cannot answer.
-
-    check_file_exists catches only S3Error, so a connection error and a 5xx
-    (minio.error.ServerError) both come straight back out of the notifier.
-    """
-    raise ConnectionError("MinIO unreachable")
 
 
 def _reconcile(watcher_instance, conditions):
@@ -99,22 +109,25 @@ def _reconcile(watcher_instance, conditions):
     )
 
 
-class TestNotificationIsBoundToTheTransition:
-    def test_completing_notifies_once(self, watcher):
+def _row(watcher_instance):
+    with Session(watcher_instance.engine) as session:
+        return session.get(Job, "j1")
+
+
+class TestItIsSentOnce:
+    def test_completing_notifies(self, watcher):
         _seed(watcher, JobStatus.PROCESSING)
 
         _reconcile(watcher, [_Condition("Complete")])
 
-        assert watcher.sent == [("j1", JobStatus.COMPLETED)]
+        assert watcher.notifier.calls == [("j1", JobStatus.COMPLETED)]
 
-    def test_a_job_already_completed_in_the_database_is_not_notified_again(self, watcher):
-        """The sweep's steady state. This is the one that used to amplify: the row and
-        the cluster already agree, so there is nothing to tell the user."""
-        _seed(watcher, JobStatus.COMPLETED)
+    def test_the_send_is_recorded_on_the_row(self, watcher):
+        _seed(watcher, JobStatus.PROCESSING)
 
         _reconcile(watcher, [_Condition("Complete")])
 
-        assert watcher.sent == []
+        assert _row(watcher).notified_at is not None
 
     def test_repeated_sweeps_over_a_terminal_job_notify_once_in_total(self, watcher):
         """72 passes is what a 12h TTL against a 600s cadence actually produces."""
@@ -123,66 +136,116 @@ class TestNotificationIsBoundToTheTransition:
         for _ in range(72):
             _reconcile(watcher, [_Condition("Complete")])
 
-        assert watcher.sent == [("j1", JobStatus.COMPLETED)]
+        assert watcher.notifier.calls == [("j1", JobStatus.COMPLETED)]
 
-    def test_failing_notifies_once(self, watcher):
+    def test_a_job_already_notified_is_not_notified_again(self, watcher):
+        """The steady state after a restart: the row says done, so the notifier is not
+        even consulted -- there is no MinIO round trip left to get this wrong."""
+        _seed(watcher, JobStatus.COMPLETED, notified_at=1_700_000_000)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert watcher.notifier.calls == []
+
+    def test_failing_notifies(self, watcher):
         _seed(watcher, JobStatus.PROCESSING)
 
         _reconcile(watcher, [_Condition("Failed")])
 
-        assert watcher.sent == [("j1", JobStatus.ERROR)]
-
-    def test_a_canceled_job_is_never_notified(self, watcher):
-        """Cancellation returns before the phase logic; asserted here because the
-        notification call moved, and that return is now what suppresses the email."""
-        _seed(watcher, JobStatus.CANCELED)
-
-        _reconcile(watcher, [_Condition("Complete")])
-
-        assert watcher.sent == []
+        assert watcher.notifier.calls == [("j1", JobStatus.ERROR)]
 
 
-class TestALostNotificationDoesNotCostTheRest:
-    """Binding the email to the transition makes it a single attempt, so the failure
-    modes send_notification_email does NOT catch internally now lose the mail.
+class TestItIsRetriedUntilItSucceeds:
+    """What the phase-transition guard could not do. The email is no longer tied to the
+    single pass that carried the job into its terminal phase."""
 
-    It catches its own email_service.send_email failures. It does not catch what happens
-    above that: should_send_email -> check_file_exists only handles S3Error, so a MinIO
-    connection error or a 5xx (minio.error.ServerError derives from MinioException, not
-    from S3Error) propagates out of the notifier entirely.
-
-    That is a deliberate trade against re-sending the same message ~72 times, and these
-    tests pin what it costs so a future reader does not have to rediscover it.
-    """
-
-    def test_the_phase_is_still_recorded_when_the_notification_raises(self, watcher):
-        """The point of the whole change is that the phase gets written. An email that
-        cannot be sent must not take the phase update down with it."""
-        watcher.send_notification_email = _raise_minio_unreachable
+    def test_a_raising_notifier_leaves_the_job_due(self, watcher):
+        watcher.notifier.fails = True
         _seed(watcher, JobStatus.PROCESSING)
 
         _reconcile(watcher, [_Condition("Complete")])
 
-        with Session(watcher.engine) as session:
-            assert session.get(Job, "j1").phase == JobStatus.COMPLETED
+        assert _row(watcher).notified_at is None
 
-    def test_the_loss_is_logged_as_a_lost_notification(self, watcher, caplog):
+    def test_a_notifier_that_sent_nothing_leaves_the_job_due(self, watcher):
+        """False, not an exception: a send_email that failed inside the notifier, which
+        catches and logs its own. Recording that as notified would lose the mail."""
+        watcher.notifier.sends = False
+        _seed(watcher, JobStatus.PROCESSING)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert _row(watcher).notified_at is None
+
+    def test_the_next_pass_sends_it(self, watcher):
+        """The phase does not change between the two passes -- that is the point. Under
+        the transition guard this second call never happened."""
+        watcher.notifier.fails = True
+        _seed(watcher, JobStatus.PROCESSING)
+        _reconcile(watcher, [_Condition("Complete")])
+
+        watcher.notifier.fails = False
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert len(watcher.notifier.calls) == 2
+        assert _row(watcher).notified_at is not None
+
+    def test_recovery_does_not_then_re_send(self, watcher):
+        watcher.notifier.fails = True
+        _seed(watcher, JobStatus.PROCESSING)
+        _reconcile(watcher, [_Condition("Complete")])
+        watcher.notifier.fails = False
+        _reconcile(watcher, [_Condition("Complete")])
+
+        for _ in range(10):
+            _reconcile(watcher, [_Condition("Complete")])
+
+        assert len(watcher.notifier.calls) == 2
+
+    def test_the_phase_is_still_recorded_when_the_notifier_raises(self, watcher):
+        """The stranded-job bug must not come back through the email path: a job the
+        cluster says is finished reads as finished whatever the mail does."""
+        watcher.notifier.fails = True
+        _seed(watcher, JobStatus.PROCESSING)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert _row(watcher).phase == JobStatus.COMPLETED
+
+    def test_the_failure_is_logged_as_retryable(self, watcher, caplog):
         """run()'s per-job handler would report 'Reconcile skipped a job', which is
-        wrong -- the phase was written. An operator has to be able to find the real
-        thing that happened."""
-        watcher.send_notification_email = _raise_minio_unreachable
+        untrue -- the phase was written."""
+        watcher.notifier.fails = True
         _seed(watcher, JobStatus.PROCESSING)
 
         with caplog.at_level(logging.ERROR):
             _reconcile(watcher, [_Condition("Complete")])
 
-        assert any("was lost and will not be retried" in r.getMessage() for r in caplog.records)
-        assert any("j1" in r.getMessage() for r in caplog.records)
+        assert any("will retry on the next pass" in r.getMessage() for r in caplog.records)
 
     def test_the_exception_does_not_escape_into_the_watch_loop(self, watcher):
-        """_reconcile_job_phase is called from both the reconcile sweep and the event
-        loop. Letting this one out reaches a handler whose message is misleading."""
-        watcher.send_notification_email = _raise_minio_unreachable
+        watcher.notifier.fails = True
         _seed(watcher, JobStatus.PROCESSING)
 
         _reconcile(watcher, [_Condition("Complete")])  # must not raise
+
+
+class TestSomeJobsAreNeverNotified:
+    def test_a_canceled_job_is_never_notified(self, watcher):
+        """Cancellation returns before any of this. Worth asserting from out here: the
+        gate moved, and that early return is still what suppresses the email."""
+        _seed(watcher, JobStatus.CANCELED)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert watcher.notifier.calls == []
+
+    def test_a_running_job_is_consulted_but_records_nothing(self, watcher):
+        """The notifier decides that a non-terminal phase warrants no email, and returns
+        False. notified_at must stay null so the real completion still sends."""
+        watcher.notifier.sends = False
+        _seed(watcher, JobStatus.QUEUED)
+
+        _reconcile(watcher, None)
+
+        assert _row(watcher).notified_at is None
