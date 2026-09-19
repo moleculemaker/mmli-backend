@@ -134,6 +134,54 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/cleandb-mepesm/.hub
         claimName: 'mmli-shared-job-data'
+    # Sized from measured peaks, not inheritance. The chart default reserved 12Gi, which
+    # could not fit beside ml-simplefold's 24Gi on the single GPU node (~35.6Gi usable),
+    # so every run sat Pending for the whole of a simplefold run -- 186/244/277s against
+    # 59-84s of actual compute -- and was admitted the second that pod terminated. Both
+    # jobs come from ONE submission (CLEANDB-frontend creates the simplefold job and then
+    # the MEP job), so that wait was a request queueing behind its own other half.
+    # Peak RSS is 7.6Gi, stable across 357-770 residue inputs -- the model dominates, not
+    # the sequence -- so 10Gi fits beside simplefold with ~1.7Gi of node slack and ~2.4Gi
+    # over peak. The limit reserves nothing and only matters for an unusually large input.
+    # Measured: heatmap arrives at 138s instead of 343s; simplefold pays +36%, borne by
+    # the same user.
+    #
+    # Deliberately NO nvidia.com/gpu request. This job already sees the GPU without one,
+    # because it runs under runtimeClassName: nvidia (values.mmli2.prod.yaml), which
+    # exposes all devices regardless of requests. Asking for one would only make the
+    # scheduler serialize it behind simplefold again, reinstating the wait removed here.
+    #
+    # CAUTION: co-resident card occupancy reached AT LEAST 28.4Gi of 32Gi. That is
+    # DCGM_FI_DEV_FB_USED -- card-level, ~1.3s sampling -- so it is a lower bound and it
+    # already includes memory held by other tenants. Treat it as such: in a separate run
+    # this same sampler read 23.8Gi while torch's OOM reported the card full at ~31.6Gi.
+    # A naive sum of solo measurements predicted 24.3Gi; the gap is most likely those
+    # solo figures being under-sampled too, not the peaks failing to compose. The only
+    # trustworthy per-process numbers here come from OOM messages.
+    #
+    # A further ~2.8Gi of the card is held around the clock by chemscraper-services (yolo
+    # + chemdataextractorapi, runtimeClassName: nvidia, no GPU request, no nodeSelector --
+    # it landed on this node incidentally), so three workloads use this GPU and none of
+    # them declares it. simplefold already OOMs ALONE at the 1022-residue cap the UI
+    # allows (28.88Gi by itself), so long sequences are broken today independently of
+    # this change. Co-scheduling narrows that ceiling further by this job's own ~3.2Gi of
+    # VRAM, and the resulting limit is NOT measured: 770 residues co-resident completes,
+    # 1022 fails even serialized, and nothing in between has been tried. Re-check before
+    # raising either job's footprint.
+    #
+    # cpu 2, because the chart's 1 throttled the container in 12-18% of CFS periods.
+    #
+    # Every figure above describes the deployed path, which is chart/values.yaml
+    # rendered into the ConfigMap -- app/cfg/config.yaml is only the in-image
+    # fallback, and its own defaults differ (8Gi/4Gi, cpu 8/4). This block is
+    # identical in both files; the defaults it replaces are not.
+    resources:
+      limits:
+        cpu: "2"
+        memory: "16Gi"
+      requests:
+        cpu: "1"
+        memory: "10Gi"
 
 
   # Config for running MOLLI job
@@ -387,6 +435,17 @@ kubernetes_jobs:
         cpu: "4"
         memory: "24Gi"
         nvidia.com/gpu: "1"
+    # Longest single chain this tool will accept. Not a model-architecture limit: it is a
+    # memory bound. simplefold's VRAM grows with chain length until it exhausts the shared
+    # GPU -- at 1022 residues it OOMs even running alone, and 1022 is what the MEP form
+    # used to allow because that is ESM-2's context limit, not anything about folding.
+    # The MEP job itself is unaffected and still runs to 1022; only the structure half is
+    # bounded here. Raise this when the GPU constraint moves: a second GPU node, or
+    # reclaiming the ~2.8Gi chemscraper holds on this card. NOT by switching model --
+    # simplefold_100M is already the smallest variant the image ships, and memory here
+    # scales with chain length rather than parameter count (measured: 1.6B needs MORE).
+    maxResidues: 700
+
     # Model variant. This key, not the image tag, decides what runs: the command the
     # backend passes overrides the container ENTRYPOINT. Only simplefold_100M and
     # simplefold_1.6B ship in the image; job_builder rejects anything else before launch.

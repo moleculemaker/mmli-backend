@@ -54,6 +54,10 @@ def _descriptor(identifier: str, entry: Dict[str, Any], base: str) -> Dict[str, 
         'x-input-files': entry.get('input_files'),
         # How much to trust the input schema, since they were derived several ways.
         'x-schema-status': entry.get('schema_status'),
+        # Longest single FASTA record the tool accepts, or null when unbounded. Read
+        # from the runtime config so the frontend and any API client see the same
+        # number the submission check enforces.
+        'x-max-residues': runtime.get('maxResidues'),
         'inputSchema': f'{base}/tools/{identifier}/input-schema' if has_schema else None,
         'links': {
             'self': f'{base}/tools/{identifier}',

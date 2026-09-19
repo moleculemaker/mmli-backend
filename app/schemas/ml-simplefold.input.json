@@ -11,7 +11,7 @@
     "fasta": {
       "type": "string",
       "minLength": 1,
-      "description": "FASTA content, written to the job's input directory."
+      "description": "FASTA content, written to the job's input directory. The longest record may not exceed the residue count published as x-max-residues on the tool descriptor."
     }
   }
 }
