@@ -286,7 +286,7 @@ config:
           subPath: uws/jobs/ezspec-inference/JOB_ID/out
           claimName: mmli-shared-job-data
         - name: shared-storage
-          mountPath: /root/.cache/torch/hub/checkpoints	
+          mountPath: /root/.cache/torch/hub/checkpoints
           subPath: uws/jobs/ezspec-inference/.hub
           claimName: mmli-shared-job-data
 

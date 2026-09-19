@@ -165,11 +165,11 @@ config:
         key: mmli.role
         operator: Exists
     novostoic-dgpredictor:
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     novostoic-enzrank:
       resources:
@@ -194,11 +194,11 @@ config:
         requests:
           cpu: "1"
           memory: 8Gi
-      nodeSelector:	
-        ncsa.role: worker-job	
-      tolerations:	
-      - effect: NoSchedule	
-        key: mmli.role	
+      nodeSelector:
+        ncsa.role: worker-job
+      tolerations:
+      - effect: NoSchedule
+        key: mmli.role
         operator: Exists
     novostoic-pathways:
       resources:
@@ -246,12 +246,12 @@ config:
           key: nvidia.com/gpu
           operator: Exists
     reactionminer:
-      resources:	
-        limits:	
-          cpu: "1"	
-          memory: 24Gi	
-        requests:	
-          cpu: "1"	
+      resources:
+        limits:
+          cpu: "1"
+          memory: 24Gi
+        requests:
+          cpu: "1"
           memory: 20Gi
       runtimeClassName: nvidia
       nodeSelector:
