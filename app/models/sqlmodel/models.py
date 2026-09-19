@@ -116,6 +116,21 @@ class Job(JobBase, table=True):
     # was invisible to anything reading the schema.
     parent_job_id: Optional[str] = Field(default=None, nullable=True, index=True)
 
+    # When the completion/failure email for this job was successfully handed to the
+    # email service. Null means "not yet", and that is what the watcher gates on across
+    # restarts and reconcile passes.
+    #
+    # This makes notification at-least-once, not exactly-once: the send happens before
+    # this is written, and in a separate transaction from the phase, so a database
+    # failure in between leaves the row due and the next pass sends again. It lives here
+    # rather than as a MinIO marker because a 404 from object storage cannot distinguish
+    # "no marker" from "no bucket", which made the old gate fail open for as long as the
+    # job stayed listed.
+    #
+    # Null for jobs that never notify (no address, or a job type with no frontend to
+    # link to), so it is not a proxy for "finished".
+    notified_at: Optional[int] = Field(default=None, nullable=True)
+
     # Job timestamps
     time_created: int = Field(default=None, nullable=False)
     time_start: Optional[int] = Field(default=0, nullable=False)
