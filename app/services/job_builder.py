@@ -38,10 +38,25 @@ from services.crispr_copies_service import CRISPRCopiesService
 from services.minio_service import MinIOService
 from services.molli_service import MolliService
 from services.mutagenesis_service import MutagenesisService
+from services.fasta import count_fasta_residues
 from services.shared import is_valid_pdb_file
 from services.somn_service import SomnService
 
 log = get_logger(__name__)
+
+
+class InputTooLarge(HTTPException):
+    """A well-formed input that exceeds a tool's configured size bound.
+
+    Subclasses HTTPException so the legacy API renders it as its usual `{"detail": ...}`
+    422. The /v1 layer catches it by type and re-raises it as an invalid-input problem
+    with `pointer` naming the offending field, which a bare HTTPException cannot carry.
+    """
+
+    def __init__(self, detail: str, pointer: str):
+        super().__init__(status_code=422, detail=detail)
+        self.pointer = pointer
+
 
 # EZSpecificity input limits (mirror the frontend's MAX_ENZYMES / substrate cap)
 EZSPEC_MAX_ENZYMES = 5
@@ -285,6 +300,29 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
 
         if 'fasta' not in job_config:
             raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
+
+        fasta = job_config['fasta']
+        # The legacy path has no schema validation, so a list or null arrives here as-is
+        # and would otherwise 500 on .encode below.
+        if not isinstance(fasta, str):
+            raise HTTPException(status_code=400, detail='"fasta" must be a string for SimpleFold jobs')
+
+        # Server-side bound, because the browser is not the only client: the frontend
+        # warns and omits this job above the same limit, but a direct API call would
+        # otherwise put a fold on the shared GPU that cannot fit. Exceeding it is not a
+        # server fault and not transient, so 422 rather than 400 or a retry.
+        #
+        # Hard index, like every other per-tool key here: a missing or misspelled
+        # `maxResidues` in the chart must fail the first submission, not silently fall
+        # back to a constant while the operator believes they raised the limit.
+        max_residues = app_config['kubernetes_jobs'][job_type]['maxResidues']
+        residues = count_fasta_residues(fasta)
+        if residues > max_residues:
+            raise InputTooLarge(
+                detail=(f'SimpleFold: sequence is {residues} residues, which exceeds the '
+                        f'{max_residues}-residue limit for structure prediction'),
+                pointer='/fasta',
+            )
 
         # Upload FASTA content to MinIO
         if service.ensure_bucket_exists(job_type):
