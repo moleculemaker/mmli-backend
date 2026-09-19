@@ -132,7 +132,7 @@ kubernetes_jobs:
         name: shared-storage
         subPath: uws/jobs/cleandb-mepesm/.hub
         claimName: 'mmli-shared-job-data'
-    # Sized from measured peaks, not the inherited defaults. Those reserved 12Gi, which
+    # Sized from measured peaks, not inheritance. The chart default reserved 12Gi, which
     # could not fit beside ml-simplefold's 24Gi on the single GPU node (~35.6Gi usable),
     # so every run sat Pending for the whole of a simplefold run -- 186/244/277s against
     # 59-84s of actual compute -- and was admitted the second that pod terminated. Both
@@ -167,7 +167,12 @@ kubernetes_jobs:
     # 1022 fails even serialized, and nothing in between has been tried. Re-check before
     # raising either job's footprint.
     #
-    # cpu 2, because 1 throttled the container in 12-18% of CFS periods.
+    # cpu 2, because the chart's 1 throttled the container in 12-18% of CFS periods.
+    #
+    # Every figure above describes the deployed path, which is chart/values.yaml
+    # rendered into the ConfigMap -- app/cfg/config.yaml is only the in-image
+    # fallback, and its own defaults differ (8Gi/4Gi, cpu 8/4). This block is
+    # identical in both files; the defaults it replaces are not.
     resources:
       limits:
         cpu: "2"
