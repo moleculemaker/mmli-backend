@@ -19,14 +19,13 @@ partitioned explicitly below into the types that notify and the types deliberate
 silent -- a fix that widens the dispatch far enough to notify ezspec's intermediary
 subjobs would be its own bug, and a tool added to neither list is the original bug again.
 """
-import pathlib
-
 import pytest
-import yaml
 
 from models.enums import JobStatus, JobType
 from services import kubejob_service
 from services.kubejob_service import KubeEventWatcher
+
+from conftest import BASE_VALUES, DEPLOYED_VALUES_FILES, deployed_config
 
 
 class _Job:
@@ -247,48 +246,12 @@ class TestNotifyingTypesSendAndResolveTheirConfigKey:
 # mmli1 EZspecificity links at mmli2 staging) but it is a wrong-value bug rather than a
 # missing-key one, and it is not what this test is for.
 
-_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
-_BASE_VALUES = "chart/values.yaml"
-
-# `chart/values.local.yaml` is deliberately not here. It keeps its `*_frontend_url` keys
-# under `controller:` rather than `config:`, where the ConfigMap template cannot reach
-# them (see the `TODO: fit this into new config structure` in that file), so merging it
-# would only re-assert the base. Restructuring it is its own change.
-DEPLOYED_VALUES_FILES = [
-    _BASE_VALUES,                       # the fallback every overlay inherits from
-    "chart/values.prod.yaml",           # mmli1
-    "chart/values.staging.yaml",        # mmli1
-    "chart/values.mmli2.prod.yaml",
-    "chart/values.mmli2.staging.yaml",
-]
-
-
-def _coalesce(base, overlay):
-    """Merge the way Helm does: maps merge key by key, anything else the overlay wins."""
-    merged = dict(base)
-    for key, value in overlay.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _coalesce(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
-def _deployed_config(values_file):
-    """The `config:` block a pod deployed with `values_file` would actually be handed."""
-    base = yaml.safe_load((_REPO_ROOT / _BASE_VALUES).read_text())
-    if values_file == _BASE_VALUES:
-        return base["config"]
-    overlay = yaml.safe_load((_REPO_ROOT / values_file).read_text())
-    return _coalesce(base, overlay)["config"]
-
-
 class TestEveryEnvironmentsConfigMapResolvesEveryKey:
     """The same coverage as above, against the config each cluster is really given."""
 
     @pytest.mark.parametrize("values_file", DEPLOYED_VALUES_FILES)
     def test_every_notifying_type_resolves_its_frontend_url(self, values_file, monkeypatch):
-        monkeypatch.setattr(kubejob_service, "app_config", _deployed_config(values_file))
+        monkeypatch.setattr(kubejob_service, "app_config", deployed_config(values_file))
 
         missing = []
         for job_type in NOTIFYING_JOB_TYPES:
@@ -298,7 +261,7 @@ class TestEveryEnvironmentsConfigMapResolvesEveryKey:
                 missing.append(f"{job_type} reads {missing_key}")
 
         assert not missing, (
-            f"{values_file} (coalesced onto {_BASE_VALUES}) is missing config keys the "
+            f"{values_file} (coalesced onto {BASE_VALUES}) is missing config keys the "
             f"dispatch reads unconditionally, so send_notification_email will raise "
             f"KeyError in that environment and the email will be silently lost:\n  "
             + "\n  ".join(missing)

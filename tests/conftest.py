@@ -63,6 +63,7 @@ kubejob_service.KubeEventWatcher.is_alive = lambda self: False
 import logging  # noqa: E402
 
 import pytest  # noqa: E402
+import yaml  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 from sqlalchemy.pool import NullPool  # noqa: E402
@@ -87,6 +88,47 @@ db_module.engine = create_async_engine(_async_url, poolclass=NullPool)
 # rather than before it, or the engine simply raises the level back to INFO and every
 # test emits a full SQL log.
 logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
+
+# ---- Helm values, the way a deployed pod actually sees them ----------------------------
+#
+# The chart replaces app/cfg/config.yaml entirely when deployed, so a test that wants to
+# know what a cluster's pod is really handed has to merge the base values with that
+# cluster's overlay, the way Helm does.
+
+BASE_VALUES = "chart/values.yaml"
+
+# `chart/values.local.yaml` is deliberately not here. It keeps its `*_frontend_url` keys
+# under `controller:` rather than `config:`, where the ConfigMap template cannot reach
+# them (see the `TODO: fit this into new config structure` in that file), so merging it
+# would only re-assert the base. Restructuring it is its own change.
+DEPLOYED_VALUES_FILES = [
+    BASE_VALUES,                        # the fallback every overlay inherits from
+    "chart/values.prod.yaml",           # mmli1
+    "chart/values.staging.yaml",        # mmli1
+    "chart/values.mmli2.prod.yaml",
+    "chart/values.mmli2.staging.yaml",
+]
+
+
+def coalesce(base, overlay):
+    """Merge the way Helm does: maps merge key by key, anything else the overlay wins."""
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = coalesce(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def deployed_config(values_file):
+    """The `config:` block a pod deployed with `values_file` would actually be handed."""
+    base = yaml.safe_load((REPO_ROOT / BASE_VALUES).read_text())
+    if values_file == BASE_VALUES:
+        return base["config"]
+    overlay = yaml.safe_load((REPO_ROOT / values_file).read_text())
+    return coalesce(base, overlay)["config"]
 
 
 class FakeMinIO:
