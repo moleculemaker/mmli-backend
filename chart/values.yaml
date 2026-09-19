@@ -249,14 +249,23 @@ config:
       # exposes all devices regardless of requests. Asking for one would only make the
       # scheduler serialize it behind simplefold again, reinstating the wait removed here.
       #
-      # CAUTION, measured: co-resident peak VRAM is 28.4Gi of 32Gi (89%), NOT the 24.3Gi a
-      # naive sum predicts -- PyTorch's caching allocator does not give blocks back, so the
-      # two peaks do not compose. ~3.2Gi of the remainder is held around the clock by
-      # chemscraper-services (yolo + chemdataextractorapi, runtimeClassName: nvidia, no GPU
-      # request, no nodeSelector -- it landed on this node incidentally). simplefold already
-      # OOMs ALONE at the 1022-residue cap the UI allows, so long sequences are broken today
-      # independently of this; co-scheduling lowers that ceiling further by ~3.2Gi and the
-      # exact new limit is NOT measured. Re-check before raising either job's footprint.
+      # CAUTION: co-resident card occupancy reached AT LEAST 28.4Gi of 32Gi. That is
+      # DCGM_FI_DEV_FB_USED -- card-level, ~1.3s sampling -- so it is a lower bound and it
+      # already includes memory held by other tenants. Treat it as such: in a separate run
+      # this same sampler read 23.8Gi while torch's OOM reported the card full at ~31.6Gi.
+      # A naive sum of solo measurements predicted 24.3Gi; the gap is most likely those
+      # solo figures being under-sampled too, not the peaks failing to compose. The only
+      # trustworthy per-process numbers here come from OOM messages.
+      #
+      # A further ~2.8Gi of the card is held around the clock by chemscraper-services (yolo
+      # + chemdataextractorapi, runtimeClassName: nvidia, no GPU request, no nodeSelector --
+      # it landed on this node incidentally), so three workloads use this GPU and none of
+      # them declares it. simplefold already OOMs ALONE at the 1022-residue cap the UI
+      # allows (28.88Gi by itself), so long sequences are broken today independently of
+      # this change. Co-scheduling narrows that ceiling further by this job's own ~3.2Gi of
+      # VRAM, and the resulting limit is NOT measured: 770 residues co-resident completes,
+      # 1022 fails even serialized, and nothing in between has been tried. Re-check before
+      # raising either job's footprint.
       #
       # cpu 2, because 1 throttled the container in 12-18% of CFS periods.
       resources:
