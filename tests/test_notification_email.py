@@ -19,9 +19,13 @@ partitioned explicitly below into the types that notify and the types deliberate
 silent -- a fix that widens the dispatch far enough to notify ezspec's intermediary
 subjobs would be its own bug, and a tool added to neither list is the original bug again.
 """
+import pathlib
+
 import pytest
+import yaml
 
 from models.enums import JobStatus, JobType
+from services import kubejob_service
 from services.kubejob_service import KubeEventWatcher
 
 
@@ -213,16 +217,103 @@ class TestEveryJobTypeIsClassified:
 class TestNotifyingTypesSendAndResolveTheirConfigKey:
     """Doubles as config-key coverage: each branch reads `app_config['<tool>_frontend_url']`
     unconditionally, so a key missing from `app/cfg/config.yaml` raises `KeyError` here.
-    This is what caught the absent `reactionminer_frontend_url`."""
+    This is what caught the absent `reactionminer_frontend_url`.
+
+    Note the file: conftest points CONFIG_FILEPATH at `app/cfg/config.yaml`, which is NOT
+    what any cluster reads. The chart values are covered separately below."""
 
     @pytest.mark.parametrize("job_type", NOTIFYING_JOB_TYPES, ids=str)
     def test_one_email_is_sent(self, job_type):
         assert len(_notify(_watcher(), job_type)) == 1
 
 
-class TestDeliberateSkipsAreStillSkipped:
-    """The catch-all is load-bearing for these, not an oversight. Widening the dispatch
-    to reach MEP-ESM must not start notifying them."""
+# The class above reads `app/cfg/config.yaml`. In every deployed environment that file is
+# shadowed: `chart/templates/deployment.yaml` mounts the ConfigMap over
+# `/code/app/cfg/config.yaml` with `subPath: config.yaml`, and
+# `chart/templates/configmap.yaml` renders that ConfigMap from `{{ .Values.config }}`.
+# The keys the dispatch reads therefore have to exist in the CHART values, and nothing
+# checked those -- which is why adding `cleandb_frontend_url` here meant editing eight
+# files by hand with no test to say whether one had been missed.
+#
+# What a pod sees is base + overlay, because Helm coalesces an overlay onto
+# `chart/values.yaml` map key by map key. That merge is reconstructed below, so a key
+# absent from BOTH raises the same `KeyError` inside `send_notification_email` that the
+# pod would raise -- where `run()`'s `except Exception` swallows it and that one tool
+# silently stops notifying in that one cluster.
+#
+# A key present in the base but missing from an overlay is NOT this failure: the base
+# value is inherited, so the pod gets a working link to the wrong environment. That is a
+# real problem (`ezspecificity_frontend_url` is absent from both mmli1 files today, so
+# mmli1 EZspecificity links at mmli2 staging) but it is a wrong-value bug rather than a
+# missing-key one, and it is not what this test is for.
+
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+_BASE_VALUES = "chart/values.yaml"
+
+# `chart/values.local.yaml` is deliberately not here. It keeps its `*_frontend_url` keys
+# under `controller:` rather than `config:`, where the ConfigMap template cannot reach
+# them (see the `TODO: fit this into new config structure` in that file), so merging it
+# would only re-assert the base. Restructuring it is its own change.
+DEPLOYED_VALUES_FILES = [
+    _BASE_VALUES,                       # the fallback every overlay inherits from
+    "chart/values.prod.yaml",           # mmli1
+    "chart/values.staging.yaml",        # mmli1
+    "chart/values.mmli2.prod.yaml",
+    "chart/values.mmli2.staging.yaml",
+]
+
+
+def _coalesce(base, overlay):
+    """Merge the way Helm does: maps merge key by key, anything else the overlay wins."""
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _coalesce(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _deployed_config(values_file):
+    """The `config:` block a pod deployed with `values_file` would actually be handed."""
+    base = yaml.safe_load((_REPO_ROOT / _BASE_VALUES).read_text())
+    if values_file == _BASE_VALUES:
+        return base["config"]
+    overlay = yaml.safe_load((_REPO_ROOT / values_file).read_text())
+    return _coalesce(base, overlay)["config"]
+
+
+class TestEveryEnvironmentsConfigMapResolvesEveryKey:
+    """The same coverage as above, against the config each cluster is really given."""
+
+    @pytest.mark.parametrize("values_file", DEPLOYED_VALUES_FILES)
+    def test_every_notifying_type_resolves_its_frontend_url(self, values_file, monkeypatch):
+        monkeypatch.setattr(kubejob_service, "app_config", _deployed_config(values_file))
+
+        missing = []
+        for job_type in NOTIFYING_JOB_TYPES:
+            try:
+                _notify(_watcher(), job_type)
+            except KeyError as missing_key:
+                missing.append(f"{job_type} reads {missing_key}")
+
+        assert not missing, (
+            f"{values_file} (coalesced onto {_BASE_VALUES}) is missing config keys the "
+            f"dispatch reads unconditionally, so send_notification_email will raise "
+            f"KeyError in that environment and the email will be silently lost:\n  "
+            + "\n  ".join(missing)
+        )
+
+
+class TestTheSilentTypesStaySilent:
+    """These types send nothing today; the list above is what says which of those
+    silences are deliberate and which are open (CHEMSCRAPER is open). This class asserts
+    only the outcome, so do not read a passing test here as the question being settled.
+    What it does pin is that widening the dispatch to reach MEP-ESM did not start
+    notifying any of them.
+
+    Note the catch-all is not the route for all of them: ML_SIMPLEFOLD and DEFAULT return
+    earlier in the dispatch and never reach it."""
 
     @pytest.mark.parametrize("job_type", DELIBERATELY_SILENT_JOB_TYPES, ids=str)
     def test_no_email_is_sent(self, job_type):
