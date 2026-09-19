@@ -277,9 +277,17 @@ async def submit_job(
                 )
 
     job_info = json.dumps(submitted)
-    prepared = job_builder.prepare_job(
-        job_type=tool, job_id=job_id, job_info=job_info, service=service,
-    )
+    try:
+        prepared = job_builder.prepare_job(
+            job_type=tool, job_id=job_id, job_info=job_info, service=service,
+        )
+    except job_builder.InputTooLarge as exc:
+        # Same problem type and pointer shape as a schema failure, so a client that
+        # branches on INVALID_INPUT and reads `errors[].pointer` handles both alike.
+        raise ProblemException(
+            422, 'Input exceeds a tool limit', exc.detail,
+            type_uri=INVALID_INPUT, errors=[{'pointer': exc.pointer, 'detail': exc.detail}],
+        )
 
     db_job = Job(
         job_id=prepared.job_id,
