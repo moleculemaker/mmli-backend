@@ -115,6 +115,15 @@ class TestMepEsmIsNotified:
         assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
                                          _Job(email=None), JobStatus.COMPLETED) is False
 
+    def test_a_non_terminal_phase_reports_nothing_sent(self):
+        """The clause the caller leans on most often, and the only one whose failure is
+        silent: a truthy return for 'processing' would stamp notified_at on a running
+        job and lose its completion email. The watcher tests cover this through a stub,
+        which cannot catch the real dispatch drifting."""
+        w = _watcher()
+        assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
+                                         _Job(), JobStatus.PROCESSING) is False
+
     def test_a_failed_send_reports_nothing_sent_so_it_stays_retryable(self):
         def _boom(*args, **kwargs):
             raise RuntimeError("SMTP unavailable")

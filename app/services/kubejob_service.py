@@ -27,7 +27,6 @@ from models.sqlmodel.models import Job
 import sqlalchemy as db
 
 from services.email_service import EmailService
-from services.minio_service import MinIOService
 
 log = get_logger(__name__)
 
@@ -128,7 +127,6 @@ class KubeEventWatcher:
         self.jobs = []
 
         self.email_service = EmailService()
-        self.minio_service = MinIOService()
 
         self.stream = None
         self.logger.info('Starting KubeWatcher')
@@ -139,12 +137,19 @@ class KubeEventWatcher:
         """Send the completion/failure email for a job, if this phase warrants one.
 
         Returns True only when an email was handed to the email service on this call.
-        Every other exit is False: a phase that is not terminal, a job with no address,
-        a job type with nowhere to link to, and a send that raised. The caller writes
-        job.notified_at on True, so False means "try again on the next pass" - which is
-        the whole point of reporting it rather than deciding idempotency in here.
+        It returns False for a phase that is not terminal, a job with no address, a job
+        type with nowhere to link to, and a send that raised. It does not always return:
+        two `raise ValueError` exits remain, for a jobType label that is not a JobType
+        member and for a 'novostoic' label with no subtype branch. Neither is reachable
+        from a label the app produces - every enum member is absorbed by the catch-all,
+        and the JobType partition in tests/test_notification_email.py fails on a member
+        listed in neither set - so the caller treats a raise as a retryable failure
+        rather than special-casing it.
 
-        Note this is NOT "was this job ever notified". It has no memory; the row does.
+        The caller writes job.notified_at on True, so False means "try again on the next
+        pass" - which is the whole point of reporting it rather than deciding idempotency
+        in here. Note this is NOT "was this job ever notified". It has no memory; the row
+        does.
         """
         job_type_name = 'Unknown'
         if job_type in ExampleJobTypes:
@@ -384,20 +389,33 @@ class KubeEventWatcher:
 
             # Notification is gated on the row, not on the transition and not on MinIO.
             #
-            # On the transition would be exactly-once but once-only: the phase is
-            # committed above, so a send that fails is never reattempted. On the MinIO
-            # marker it is retryable but unbounded, because that gate fails OPEN - a
-            # stat_object against a missing bucket is a bodyless 404 that minio 7.1.17
-            # synthesises as NoSuchKey, indistinguishable from an absent marker, and
-            # put_object cannot create the bucket to fix it. The sweep revisits every
+            # On the transition it is bounded but once-only: the phase is committed
+            # above, so a send that fails is never reattempted and the mail is lost. On
+            # the MinIO marker it is retryable but unbounded, because that gate fails
+            # OPEN - a stat_object against a missing bucket is a bodyless 404 that minio
+            # 7.1.17 synthesizes as NoSuchKey, indistinguishable from an absent marker,
+            # and put_object cannot create the bucket to fix it. The sweep revisits every
             # terminal Job every timeout_seconds (600) for ttlSecondsAfterFinished (12h),
             # so "fails open" cashes out as ~72 copies of the same mail.
             #
-            # notified_at is neither. It is written in the same transaction as the phase
-            # that triggered the email, so it cannot disagree with it, and it is only
-            # written when an email was actually handed over - every other outcome leaves
-            # it null and is retried on the next pass.
-            if updated_job.notified_at is None:
+            # notified_at is bounded AND retryable, but it is AT-LEAST-ONCE, not
+            # exactly-once, and nothing here can be: the send happens before the record
+            # of it, in a separate transaction from the phase commit above. If send_email
+            # returns and this commit then fails, the except below logs a retry and the
+            # next pass sends the same mail again. Send-then-record cannot do better;
+            # record-then-send trades this for losing mail instead, which is the failure
+            # the transition guard already had. The duplicate window is therefore a
+            # database failure in the moment after a successful send, against a 12h
+            # window of unbounded duplicates from the marker.
+            #
+            # Only consulted for a phase that could produce an email. The notifier
+            # returns False for everything else, so this changes no outcome - but it is
+            # reached on every event and every 600s sweep for as long as notified_at is
+            # null, and running the dispatch (which reads app_config keys) for a running
+            # job, or for a job nobody asked to be told about, is work with no result.
+            if (updated_job.notified_at is None
+                    and new_phase in (JobStatus.COMPLETED, JobStatus.ERROR)
+                    and updated_job.email):
                 try:
                     if self.send_notification_email(job_id, job_type, updated_job, new_phase):
                         updated_job.notified_at = int(time.time())
@@ -406,10 +424,11 @@ class KubeEventWatcher:
                 except Exception as e:
                     # Reached by what send_notification_email does not catch itself: a
                     # KeyError from a frontend-url key the dispatch reads unconditionally,
-                    # or anything the email service raises outside its own try. Swallowed
-                    # here rather than in run()'s per-job handler, which would report
-                    # "Reconcile skipped a job" - untrue, since the phase was written.
-                    # notified_at stays null, so the next pass tries again.
+                    # a ValueError for a jobType label outside the enum, or anything the
+                    # email service raises outside its own try. Swallowed here rather than
+                    # in run()'s per-job handler, which would report "Reconcile skipped a
+                    # job" - untrue, since the phase was written. notified_at stays null,
+                    # so the next pass tries again.
                     self.logger.error(
                         f'Notification for {job_id} ({job_type} -> {new_phase}) failed; '
                         f'will retry on the next pass: {e}')

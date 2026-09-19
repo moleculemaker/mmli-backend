@@ -93,14 +93,3 @@ class MinIOService:
                 return True
             except:
                 return False
-
-    def check_file_exists(self, bucket_name, object_name):
-        try:
-            self.client.stat_object(bucket_name, object_name)
-            return True
-        except S3Error as err:
-            if err.code == "NoSuchKey":
-                return False
-            else:
-                log.error("Error: ", err)
-                return False

@@ -8,17 +8,21 @@ app/cfg/config.yaml), so the sweep sees the same terminal job roughly 72 times.
 Three gates have stood here, and the first two each failed in one direction:
 
   * The MinIO `{job_id}/email-sent` marker. Retryable, but unbounded, because it fails
-    OPEN: check_file_exists returns False for every S3Error, and a stat_object against a
-    missing bucket is a bodyless 404 that minio 7.1.17 synthesises as NoSuchKey
+    OPEN: check_file_exists returned False for every S3Error, and a stat_object against
+    a missing bucket is a bodyless 404 that minio 7.1.17 synthesizes as NoSuchKey
     (minio/api.py:361) -- indistinguishable from an absent marker. mark_email_as_sent
-    cannot repair it either, since put_object does not create buckets. 72 copies.
+    could not repair it either, since put_object does not create buckets. 72 copies.
   * The phase transition. Bounded, but once-only: the phase is committed before the
     send, so a send that fails is never reattempted and the mail is simply lost.
-  * job.notified_at. Written in the same transaction as the phase that triggered the
-    email, and only when an email was actually handed over. Bounded AND retryable.
+  * job.notified_at. Bounded AND retryable, written only when an email was actually
+    handed over.
 
-The classes below are one per property: sent once, retried until it succeeds, and never
-sent for a job that should not get one.
+The third is at-least-once, not exactly-once, and these tests do not claim otherwise:
+the send precedes the record of it, in a separate transaction from the phase, so a
+database failure in between leaves the row due and the next pass sends again. What is
+pinned below is the part that is actually guaranteed -- sent once when nothing fails,
+retried until it succeeds when something does, and never sent for a job that should not
+get one.
 """
 import logging
 
@@ -98,6 +102,15 @@ def _seed(watcher_instance, phase, notified_at=None):
         session.add(Job(
             job_id="j1", type=JobType.SOMN, phase=phase, email="user@example.org",
             notified_at=notified_at, time_created=0, user_agent="", deleted=0,
+        ))
+        session.commit()
+
+
+def _seed_no_email(watcher_instance, phase):
+    with Session(watcher_instance.engine) as session:
+        session.add(Job(
+            job_id="j1", type=JobType.SOMN, phase=phase, email=None,
+            time_created=0, user_agent="", deleted=0,
         ))
         session.commit()
 
@@ -240,12 +253,34 @@ class TestSomeJobsAreNeverNotified:
 
         assert watcher.notifier.calls == []
 
-    def test_a_running_job_is_consulted_but_records_nothing(self, watcher):
-        """The notifier decides that a non-terminal phase warrants no email, and returns
-        False. notified_at must stay null so the real completion still sends."""
-        watcher.notifier.sends = False
+    def test_a_running_job_is_not_even_consulted(self, watcher):
+        """The notifier returns False for a non-terminal phase anyway, so this changes
+        no outcome -- but it is reached on every event and every sweep while notified_at
+        is null, and running the dispatch for a job that cannot produce an email is work
+        with no result."""
         _seed(watcher, JobStatus.QUEUED)
 
         _reconcile(watcher, None)
 
+        assert watcher.notifier.calls == []
+        assert _row(watcher).notified_at is None
+
+    def test_a_running_job_stays_due_for_its_real_completion(self, watcher):
+        """The guard must not settle the row early: the completion still has to send."""
+        _seed(watcher, JobStatus.QUEUED)
+        _reconcile(watcher, None)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert watcher.notifier.calls == [("j1", JobStatus.COMPLETED)]
+        assert _row(watcher).notified_at is not None
+
+    def test_a_terminal_job_with_no_address_is_not_consulted(self, watcher):
+        """Same reasoning, and this one is terminal forever: without the guard the
+        dispatch would run on every sweep for the whole 12h the job stays listed."""
+        _seed_no_email(watcher, JobStatus.PROCESSING)
+
+        _reconcile(watcher, [_Condition("Complete")])
+
+        assert watcher.notifier.calls == []
         assert _row(watcher).notified_at is None
