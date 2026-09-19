@@ -323,9 +323,8 @@ class KubeEventWatcher:
         The watch stream only delivers events NEWER than the listed resourceVersion, so a
         job that reached a terminal state while the watcher was down or mid-reconnect would
         otherwise be stuck at its last-seen phase (e.g. 'processing') forever. The DB write
-        is guarded on an actual phase change; email notifications stay idempotent (gated by
-        a MinIO marker in send_notification_email), so reconciling an already-notified job
-        will not re-send.
+        is guarded on an actual phase change, and the notification email is sent from
+        inside that same guard, so reconciling an already-notified job will not re-send.
         """
         if job_object.metadata.namespace in ignored_namespaces:
             return
@@ -384,7 +383,42 @@ class KubeEventWatcher:
                 session.add(updated_job)
                 session.commit()
                 session.flush()
-            self.send_notification_email(job_id, job_type, updated_job, new_phase)
+
+                # Notify only on an actual transition, not on every sighting of a job
+                # that is already terminal. The reconcile pass revisits every Job in the
+                # namespace every timeout_seconds (600) for as long as it is listed,
+                # which is ttlSecondsAfterFinished (12h) - so a terminal job with an
+                # email address is a candidate ~72 times.
+                #
+                # The MinIO marker is not enough on its own to make that safe, because it
+                # fails OPEN in both directions. should_send_email treats every S3Error
+                # as "not sent yet" (minio_service.check_file_exists), and a stat_object
+                # against a bucket that does not exist comes back as a bodyless 404 that
+                # minio 7.1.17 synthesises as NoSuchKey (minio/api.py:361) - the same code
+                # as a genuinely absent marker. mark_email_as_sent cannot recover either:
+                # put_object does not create a bucket, so the marker is never laid down
+                # and the next pass reaches the same conclusion. The transition guard is
+                # what bounds this to one message per phase change.
+                #
+                # The cost of that bound: the phase is already committed above, so this
+                # is the only attempt that will ever be made. A later sweep computes
+                # phase_changed == False and does not come back. send_notification_email
+                # catches its own send_email failures, but not everything reaches that
+                # try - should_send_email raises straight out on a MinIO connection
+                # error or a 5xx, neither of which is an S3Error (minio.error.ServerError
+                # derives from MinioException, not S3Error), and those lose the mail.
+                #
+                # Caught here rather than in run()'s per-job handler so the log says what
+                # actually happened. That handler reports "Reconcile skipped a job",
+                # which would be wrong: the phase was written and only the notification
+                # was lost, and an operator needs to be able to find exactly that.
+                try:
+                    self.send_notification_email(job_id, job_type, updated_job, new_phase)
+                except Exception as e:
+                    self.logger.error(
+                        f'Notification for {job_id} ({job_type} -> {new_phase}) was lost '
+                        f'and will not be retried: {e}')
+                    self.logger.error(traceback.format_exc())
 
     def run(self):
         # Ignore kube-system namespace
