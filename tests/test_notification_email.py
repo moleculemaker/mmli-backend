@@ -162,20 +162,27 @@ DELIBERATELY_SILENT_JOB_TYPES = [
     JobType.OED_CATPRED,
     JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
     JobType.DEFAULT,            # example jobs
-    # CHEMSCRAPER is silent *here* because it notifies from its own path: success and
-    # failure both email from `chemscraper_service.runChemscraperOnDocument`
-    # (services/chemscraper_service.py:291 and :302), reached via the FastAPI background
-    # task started at routers/chemscraper.py:66. `grep -rn 'send_email(' app/` returns
-    # exactly those two sites plus this dispatch's two. Adding a branch above would make
-    # that path send twice.
+    # CHEMSCRAPER is listed here to describe today's behavior, but it is NOT a deliberate
+    # skip -- it is the same live defect this PR fixes for MEP-ESM, and it needs its own
+    # change. Do not read its presence in this list as the question being settled.
     #
-    # Caveat, deliberately not resolved here: that is not chemscraper's ONLY path. The
-    # generic `POST /{job_type}/jobs` (routers/job.py:62) accepts any member of JobTypes,
-    # and job_builder.py:134 builds a real Kubernetes Job for CHEMSCRAPER -- which the
-    # watcher does observe, and which therefore gets no email at all. Whether anything
-    # actually calls that route was not checked. If it does, chemscraper needs the
-    # notification split by path rather than a branch above, so it is left classified by
-    # today's behavior instead of guessed at.
+    # Chemscraper does have an emailing path (chemscraper_service.py:291/:302, success
+    # and failure), but it hangs off `POST /chemscraper/analyze`, which is marked
+    # `deprecated=True` at routers/chemscraper.py:31 and which the frontend never calls.
+    # What the frontend actually calls is the generic route:
+    #
+    #   configuration.component.html:105   email input -> `userEmail`
+    #   configuration.component.ts:114     userEmail -> requestBody.user_email
+    #   configuration.component.ts:90      -> chemscraper.service.ts:44 analyzeDocument()
+    #   chemscraper.service.ts:47          createJobJobTypeJobsPost('chemscraper', {email})
+    #                                      == POST /chemscraper/jobs
+    #   routers/job.py:62 -> job_builder.py:134 -> a real Kubernetes Job
+    #
+    # The watcher observes that Job, reaches this dispatch, finds no CHEMSCRAPER branch,
+    # and returns. So a user who typed an address into the chemscraper form is never
+    # notified -- exactly the MEP-ESM bug, still open. (Verified against a fresh clone of
+    # moleculemaker/chemscraper-frontend @ 697af1a; the method is named analyzeDocument
+    # after the endpoint it no longer uses, which is what hid this.)
     JobType.CHEMSCRAPER,
 ]
 
