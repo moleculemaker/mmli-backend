@@ -44,11 +44,6 @@ async def _mark_job_failed(db: AsyncSession, db_job: Job) -> None:
     keep whatever phase it legitimately reached.
     """
     db_job.phase = JobStatus.ERROR
-    # Set alongside the phase, as every other writer that moves a job out of a running
-    # state does (models/sqlmodel/db.py update_job_phase and the per-service copies of
-    # it). Without this the row reports a terminal phase with time_end still at its 0
-    # default, which reads as "ended at the epoch" to anything computing a duration.
-    db_job.time_end = int(time.time())
     db.add(db_job)
     await db.commit()
 

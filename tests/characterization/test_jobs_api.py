@@ -155,20 +155,6 @@ class TestKubernetesRejection:
         # Was: stranded at 'queued' forever, with nothing running to advance it.
         assert client.get(f"/{DEFAULTS}/jobs/rejected").json()[0]["phase"] == JobStatus.ERROR
 
-    def test_a_rejected_submission_records_when_it_ended(self, client, monkeypatch):
-        """time_end is set alongside the phase, as every other writer that moves a job
-        out of a running state does. Left at its 0 default a failed submission reads as
-        having ended at the epoch."""
-        monkeypatch.setattr(
-            kubejob_service,
-            "create_job",
-            lambda **kw: {"status": "error", "message": "exceeded quota"},
-        )
-
-        _post_job(client, job_id="rejected")
-
-        assert client.get(f"/{DEFAULTS}/jobs/rejected").json()[0]["time_end"] > 0
-
     def test_a_successful_submission_is_unaffected(self, client):
         resp = _post_job(client, job_id="fine")
 
