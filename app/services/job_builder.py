@@ -33,6 +33,7 @@ from fastapi import HTTPException
 from config import get_logger, app_config
 from models.enums import JobType
 from services import kubejob_service
+from services.shared import DEFAULT_MAX_STRUCTURE_RESIDUES, validate_fasta_length
 from services.clean_service import CleanService
 from services.crispr_copies_service import CRISPRCopiesService
 from services.minio_service import MinIOService
@@ -285,6 +286,15 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
 
         if 'fasta' not in job_config:
             raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
+
+        # Server-side bound, because the browser is not the only client: the frontend
+        # warns and omits this job above the same limit, but a direct API call would
+        # otherwise put a fold on the shared GPU that cannot fit.
+        validate_fasta_length(
+            job_config['fasta'],
+            app_config['kubernetes_jobs'][job_type].get('maxResidues', DEFAULT_MAX_STRUCTURE_RESIDUES),
+            'SimpleFold',
+        )
 
         # Upload FASTA content to MinIO
         if service.ensure_bucket_exists(job_type):

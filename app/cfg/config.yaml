@@ -435,6 +435,14 @@ kubernetes_jobs:
         cpu: "4"
         memory: "24Gi"
         nvidia.com/gpu: "1"
+    # Longest single chain this tool will accept. Not a model-architecture limit: it is a
+    # memory bound. simplefold's VRAM grows with chain length until it exhausts the shared
+    # GPU -- at 1022 residues it OOMs even running alone, and 1022 is what the MEP form
+    # used to allow because that is ESM-2's context limit, not anything about folding.
+    # The MEP job itself is unaffected and still runs to 1022; only the structure half is
+    # bounded here. Raise this when the GPU constraint moves (a second GPU node, a smaller
+    # simplefold variant, or reclaiming the ~2.8Gi chemscraper holds on this card).
+    maxResidues: 700
 
   # Config for running CRISPR-COPIES job.
   # The job command is built dynamically by CRISPRCopiesService (see routers/job.py).
