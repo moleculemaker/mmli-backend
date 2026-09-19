@@ -160,7 +160,14 @@ DELIBERATELY_SILENT_JOB_TYPES = [
     JobType.OED_DLKCAT,
     JobType.OED_UNIKP,
     JobType.OED_CATPRED,
-    JobType.ML_SIMPLEFOLD,      # has no frontend to link to yet
+    # ML_SIMPLEFOLD is silent because it is the COMPANION half of a cleandb-mepesm
+    # submission, not because it lacks a frontend (the dispatch's own comment says
+    # "no frontend URL yet"; that is stale -- the MEP result page renders its
+    # structure). CLEANDB-frontend's effect-prediction submit handler creates the
+    # simplefold job and then the MEP job, passing the SAME email to both, so giving
+    # this one a branch would send the user two emails for one submission. The
+    # MEP-ESM notification covers the pair.
+    JobType.ML_SIMPLEFOLD,
     JobType.DEFAULT,            # example jobs
     # CHEMSCRAPER is listed here to describe today's behavior, but it is NOT a deliberate
     # skip -- it is the same live defect this PR fixes for MEP-ESM, and it needs its own
