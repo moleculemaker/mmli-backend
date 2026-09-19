@@ -292,12 +292,6 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
         if 'fasta' not in job_config:
             raise HTTPException(status_code=400, detail='"job_info" requires "fasta" for SimpleFold jobs')
 
-        # Upload FASTA content to MinIO
-        if service.ensure_bucket_exists(job_type):
-            upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
-            if not upload_result:
-                raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
-
         # Config decides which model variant runs, not the image tag: the command we pass
         # overrides the container's ENTRYPOINT, so the `predict-simplefold.sh` baked into
         # the image never executes. The key is required rather than defaulted so that a
@@ -310,6 +304,12 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
                 detail=f"simplefoldModel {simplefold_model!r} is not one of "
                        f"{sorted(SIMPLEFOLD_MODELS)}")
         log.info(f"ML-SIMPLEFOLD using model variant: {simplefold_model}")
+
+        # Upload FASTA content to MinIO
+        if service.ensure_bucket_exists(job_type):
+            upload_result = service.upload_file(job_type, f"/{job_id}/in/input.fasta", job_config['fasta'].encode('utf-8'))
+            if not upload_result:
+                raise HTTPException(status_code=400, detail="Failed to upload FASTA to MinIO")
 
         command = (
             "simplefold"

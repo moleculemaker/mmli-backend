@@ -68,6 +68,7 @@ class TestTheConfiguredVariantIsWhatRuns:
         """A silent default is how the variant became invisible in the first place."""
         with pytest.raises(KeyError):
             _prepare(monkeypatch, fake_minio, simplefoldModel=None)
+        assert fake_minio.objects == {}
 
     def test_a_variant_the_image_does_not_ship_fails_before_launch(self, fake_minio, monkeypatch):
         """Otherwise the job is scheduled onto the shared GPU and dies minutes later with
@@ -75,6 +76,9 @@ class TestTheConfiguredVariantIsWhatRuns:
         with pytest.raises(HTTPException) as raised:
             _prepare(monkeypatch, fake_minio, simplefoldModel="simplefold_700M")
         assert "simplefold_700M" in raised.value.detail
+        # The config is checked before the FASTA is uploaded, so a submission rejected
+        # for a misconfigured variant leaves nothing behind in MinIO.
+        assert fake_minio.objects == {}
 
 
 class TestEveryDeploymentDeclaresAShippedVariant:
