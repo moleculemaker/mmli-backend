@@ -232,6 +232,40 @@ config:
           name: shared-storage
           subPath: uws/jobs/cleandb-mepesm/.hub
           claimName: "mmli-shared-job-data"
+      # Sized from measured peaks, not the inherited defaults. Those reserved 12Gi, which
+      # could not fit beside ml-simplefold's 24Gi on the single GPU node (~35.6Gi usable),
+      # so every run sat Pending for the whole of a simplefold run -- 186/244/277s against
+      # 59-84s of actual compute -- and was admitted the second that pod terminated. Both
+      # jobs come from ONE submission (CLEANDB-frontend creates the simplefold job and then
+      # the MEP job), so that wait was a request queueing behind its own other half.
+      # Peak RSS is 7.6Gi, stable across 357-770 residue inputs -- the model dominates, not
+      # the sequence -- so 10Gi fits beside simplefold with ~1.7Gi of node slack and ~2.4Gi
+      # over peak. The limit reserves nothing and only matters for an unusually large input.
+      # Measured: heatmap arrives at 138s instead of 343s; simplefold pays +36%, borne by
+      # the same user.
+      #
+      # Deliberately NO nvidia.com/gpu request. This job already sees the GPU without one,
+      # because it runs under runtimeClassName: nvidia (values.mmli2.prod.yaml), which
+      # exposes all devices regardless of requests. Asking for one would only make the
+      # scheduler serialize it behind simplefold again, reinstating the wait removed here.
+      #
+      # CAUTION, measured: co-resident peak VRAM is 28.4Gi of 32Gi (89%), NOT the 24.3Gi a
+      # naive sum predicts -- PyTorch's caching allocator does not give blocks back, so the
+      # two peaks do not compose. ~3.2Gi of the remainder is held around the clock by
+      # chemscraper-services (yolo + chemdataextractorapi, runtimeClassName: nvidia, no GPU
+      # request, no nodeSelector -- it landed on this node incidentally). simplefold already
+      # OOMs ALONE at the 1022-residue cap the UI allows, so long sequences are broken today
+      # independently of this; co-scheduling lowers that ceiling further by ~3.2Gi and the
+      # exact new limit is NOT measured. Re-check before raising either job's footprint.
+      #
+      # cpu 2, because 1 throttled the container in 12-18% of CFS periods.
+      resources:
+        limits:
+          cpu: "2"
+          memory: "16Gi"
+        requests:
+          cpu: "1"
+          memory: "10Gi"
     
     # Config for running CRISPR-COPIES job.
     # Command is built dynamically by CRISPRCopiesService (routers/job.py). Inputs are
