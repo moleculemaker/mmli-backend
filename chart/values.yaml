@@ -368,7 +368,7 @@ config:
           nvidia.com/gpu: "1"
       # Model variant. This, not the image tag, decides what runs: the command the backend
       # passes overrides the container ENTRYPOINT, so the image's own predict-simplefold.sh
-      # never executes. The tag below reads "version1.6B" but every job has run 100M since
+      # never executes. The tag above reads "version1.6B" but every job has run 100M since
       # the tool was added -- the tag was bumped without the model following it.
       # Only TWO variants ship in this image -- artifacts/ holds simplefold_100M.ckpt and
       # simplefold_1.6B.ckpt (plus plddt.ckpt) and nothing else. SimpleFold publishes
@@ -380,8 +380,8 @@ config:
       #   1.6B   341s   30.9Gi peak VRAM   mean pLDDT 97.5
       # 1.6B is the better model and does not fit: 30.9Gi of 32Gi at the MEDIAN input
       # length leaves no room for the cleandb-mepesm job that shares this card, and would
-      # force the maxResidues bound below well under its current value. Raising this is a
-      # hardware decision, not a config one -- re-measure both before changing it.
+      # force a far lower cap on input length than the card otherwise allows. Raising this
+      # is a hardware decision, not a config one -- re-measure both before changing it.
       simplefoldModel: "simplefold_100M"
       
     # Config for running MUTAGENESIS job.
