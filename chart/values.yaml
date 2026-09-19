@@ -370,9 +370,18 @@ config:
       # passes overrides the container ENTRYPOINT, so the image's own predict-simplefold.sh
       # never executes. The tag below reads "version1.6B" but every job has run 100M since
       # the tool was added -- the tag was bumped without the model following it.
-      # Available: simplefold_100M / 360M / 700M / 1.1B / 1.6B / 3B (100M is the smallest).
-      # Larger variants cost VRAM on a card that already OOMs at 1022 residues, so changing
-      # this requires re-measuring the maxResidues bound below.
+      # Only TWO variants ship in this image -- artifacts/ holds simplefold_100M.ckpt and
+      # simplefold_1.6B.ckpt (plus plddt.ckpt) and nothing else. SimpleFold publishes
+      # 360M/700M/1.1B/3B upstream, but asking for one here fails at runtime with
+      # FileNotFoundError on artifacts/simplefold_<v>.ckpt. Verified in the running image.
+      #
+      # Measured on this GPU, same ~360-residue protein, identical flags:
+      #   100M   217s   20.6Gi peak VRAM   mean pLDDT 94.1 (95.9 on a rerun)
+      #   1.6B   341s   30.9Gi peak VRAM   mean pLDDT 97.5
+      # 1.6B is the better model and does not fit: 30.9Gi of 32Gi at the MEDIAN input
+      # length leaves no room for the cleandb-mepesm job that shares this card, and would
+      # force the maxResidues bound below well under its current value. Raising this is a
+      # hardware decision, not a config one -- re-measure both before changing it.
       simplefoldModel: "simplefold_100M"
       
     # Config for running MUTAGENESIS job.
