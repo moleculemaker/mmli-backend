@@ -60,6 +60,14 @@ spec:
         - name: "shared-storage"
           persistentVolumeClaim:
             claimName: "{{ workingVolume.claimName }}"
+        {%- if shmSizeLimit %}
+        # Memory-backed /dev/shm: the container runtime's default (64Mi) is too
+        # small for PyTorch DataLoader workers, which pass batches through it
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "{{ shmSizeLimit }}"
+        {%- endif %}
         {%- for sec in secrets %}
         - name: "{{ sec.name }}"
           secret:
@@ -236,6 +244,10 @@ spec:
             readOnly: true
             subPath: "{{ sec.subPath }}"
         {%- endfor %}
+        {%- if shmSizeLimit %}
+          - name: dshm
+            mountPath: /dev/shm
+        {%- endif %}
       containers:
       - name: post-job
         image: moleculemaker/mmli-backend:main

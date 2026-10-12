@@ -847,6 +847,7 @@ def create_job(job_type, job_id, run_id=None, image_name=None, command=None, own
             project_subpath=project_subpath,
             initContainers=app_config['kubernetes_jobs'][job_type]['initContainers'] if 'initContainers' in app_config['kubernetes_jobs'][job_type] else [],
             securityContext=app_config['kubernetes_jobs'][job_type]['securityContext'] if 'securityContext' in app_config['kubernetes_jobs'][job_type] else None,
+            shmSizeLimit=app_config['kubernetes_jobs'][job_type]['shmSizeLimit'] if 'shmSizeLimit' in app_config['kubernetes_jobs'][job_type] else None,
             workingVolume=app_config['kubernetes_jobs']['defaults']['workingVolume'],
             volumes=all_volumes,
             secrets=secrets,
