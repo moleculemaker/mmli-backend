@@ -319,6 +319,9 @@ config:
     ezspec-inference:
       image: moleculemaker/ezspec-inference:latest
       imagePullPolicy: Always
+      # DataLoader workers overflow the default 64Mi /dev/shm once docked
+      # complexes are scored. Counts against the memory limit when used.
+      shmSizeLimit: 4Gi
       env:
         - name: NVIDIA_DRIVER_CAPABILITIES
           value: compute,utility
