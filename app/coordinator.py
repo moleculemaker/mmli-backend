@@ -10,15 +10,13 @@ import requests
 from requests import Response
 
 from config import get_logger, app_config
-from services.kubejob_service import download_remote_directory_from_minio, upload_local_directory_to_minio, \
-    api_batch_v1, get_job_name_from_id
+from services.kubejob_service import download_remote_directory_from_minio, upload_local_directory_to_minio
 
 job_type = bucket_name = os.getenv('JOB_TYPE')
 job_id = os.getenv('JOB_ID')
 
 job_input_dir = os.getenv('JOB_INPUT_DIR')
 job_output_dir = os.getenv('JOB_OUTPUT_DIR')
-namespace = os.getenv('NAMESPACE')
 target_directory = os.sep.join(job_input_dir.split(os.sep)[0:-2])
 
 remote_path = os.path.join(job_id, 'in')
@@ -159,11 +157,7 @@ try:
         # Ensure no error in job execution
         if job_status['phase'] == 'error':
             log.error(f'job_type={job_type}  job_id={job_id}  step={subjob_type}  step_id={subjob_id}  |  Job step failed with error: {str(job_status)}')
-            api_response = api_batch_v1.read_namespaced_job(
-                namespace=namespace,
-                name=get_job_name_from_id(job_type=job_type, job_id=subjob_id),
-            )
-            sys.exit(api_response['status'])
+            sys.exit(-800)
 
         log.info(f'job_type={job_type}  job_id={job_id}  step={subjob_type}  step_id={subjob_id}  |  Job step completed successfully!')
         log.info(f'job_type={job_type}  job_id={job_id}  step={subjob_type}  step_id={subjob_id}  |  Collecting step outputs...')
