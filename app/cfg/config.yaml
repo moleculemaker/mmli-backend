@@ -440,9 +440,18 @@ kubernetes_jobs:
     # GPU -- at 1022 residues it OOMs even running alone, and 1022 is what the MEP form
     # used to allow because that is ESM-2's context limit, not anything about folding.
     # The MEP job itself is unaffected and still runs to 1022; only the structure half is
-    # bounded here. Raise this when the GPU constraint moves (a second GPU node, a smaller
-    # simplefold variant, or reclaiming the ~2.8Gi chemscraper holds on this card).
+    # bounded here. Raise this when the GPU constraint moves: a second GPU node, or
+    # reclaiming the ~2.8Gi chemscraper holds on this card. NOT by switching model --
+    # simplefold_100M is already the smallest variant the image ships, and memory here
+    # scales with chain length rather than parameter count (measured: 1.6B needs MORE).
     maxResidues: 700
+
+    # Model variant. This key, not the image tag, decides what runs: the command the
+    # backend passes overrides the container ENTRYPOINT. Only simplefold_100M and
+    # simplefold_1.6B ship in the image; job_builder rejects anything else before launch.
+    # The measured 100M vs 1.6B comparison, and why 1.6B does not fit the GPU, are
+    # recorded beside this same key in chart/values.yaml.
+    simplefoldModel: "simplefold_100M"
 
   # Config for running CRISPR-COPIES job.
   # The job command is built dynamically by CRISPRCopiesService (see routers/job.py).
