@@ -502,12 +502,15 @@ class KubeEventWatcher:
 
         while True:
             time.sleep(1)
-            self.last_progress = time.monotonic()
             self.logger.info('KubeWatcher is connecting...')
             try:
                 # List all pods in watched namespace to get resource_version
                 namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(
                     namespace=get_namespace(), _request_timeout=KUBE_REQUEST_TIMEOUT)
+                # Progress only once the list succeeds. Recorded on every loop instead, a
+                # list that fails on every attempt (an expired credential, say) would
+                # keep /healthz green while no phase is ever updated.
+                self.last_progress = time.monotonic()
                 # Each pass gets one fresh attempt at the mail server.
                 self.mail_server_unavailable = False
                 resource_version = namespaced_jobs.metadata.resource_version if namespaced_jobs.metadata.resource_version else resource_version

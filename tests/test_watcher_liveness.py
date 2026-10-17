@@ -142,6 +142,33 @@ class TestRunUsesClientTimeouts:
         assert seen and w.last_progress > seen[0] > 0
 
 
+def test_a_list_that_always_fails_is_reported_as_stalled(monkeypatch, real_watcher_run):
+    """The loop retries every ~3s; progress must not be recorded for an attempt that
+    failed, or /healthz stays green while no phase is ever updated."""
+    class _Batch:
+        def list_namespaced_job(self, **kwargs):
+            raise kubejob_service.ApiException(status=401, reason="Unauthorized")
+
+    clock = {"t": 1000.0, "sleeps": 0}
+
+    def _sleep(seconds):  # advance a simulated clock by the real sleep durations
+        clock["t"] += seconds
+        clock["sleeps"] += 1
+        if clock["t"] > 1000.0 + kubejob_service.WATCHER_STALL_SECONDS + 60:
+            raise _Stop()
+
+    monkeypatch.setattr(kubejob_service, "api_batch_v1", _Batch())
+    monkeypatch.setattr(kubejob_service.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(kubejob_service.time, "sleep", _sleep)
+    w = _watcher(last_progress=1000.0)
+
+    with pytest.raises(_Stop):
+        real_watcher_run(w)
+
+    assert clock["sleeps"] > 100  # hundreds of failed attempts, not one long sleep
+    assert w.is_healthy() is False
+
+
 def test_get_image_digest_carries_a_client_timeout(monkeypatch):
     calls = []
 
