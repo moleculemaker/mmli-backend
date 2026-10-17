@@ -26,6 +26,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobPublic
 
 from services import analytics, job_builder, kubejob_service
+from services.notify_email import InvalidNotifyEmail, normalize_notify_email
 from services.minio_service import MinIOService
 from services.userinfo_service import require_group
 
@@ -73,6 +74,11 @@ async def create_job(
         service: MinIOService = Depends(),
         db: AsyncSession = Depends(get_session)
 ):
+    try:
+        email = normalize_notify_email(email)
+    except InvalidNotifyEmail as ex:
+        raise HTTPException(status_code=422, detail=f"Invalid email: {ex}")
+
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
