@@ -33,6 +33,7 @@ from routers.v1.problems import (
 from services import analytics, job_builder, kubejob_service, tool_registry
 from services.analytics import SURFACE_TOKEN
 from services.minio_service import MinIOService
+from services.notify_email import InvalidNotifyEmail, normalize_notify_email
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -218,6 +219,12 @@ async def submit_job(
     assigns the id and writes the files itself, so neither is needed.
     """
     _require_registered_tool(tool)
+    try:
+        notify_email = normalize_notify_email(notify_email)
+    except InvalidNotifyEmail as ex:
+        raise ProblemException(
+            422, 'Invalid X-Notify-Email header', str(ex), type_uri=INVALID_INPUT,
+        )
 
     # Read the input document from whichever way it was sent.
     content_type = request.headers.get('content-type', '')

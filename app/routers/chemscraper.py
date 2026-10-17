@@ -14,6 +14,7 @@ from services.minio_service import MinIOService
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
 from services.email_service import EmailService
+from services.notify_email import InvalidNotifyEmail, normalize_notify_email
 
 from models.analyzeRequestBody import AnalyzeRequestBody
 from models.sqlmodel.models import FlaggedMolecule, FlaggedMoleculeDelete
@@ -35,6 +36,10 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     # success for a request that was never accepted and no job that will ever run.
     if len(requestBody.fileList) == 0 or requestBody.jobId == "":
         raise HTTPException(status_code=400, detail='"fileList" must be non-empty and "jobId" must be set')
+    try:
+        user_email = normalize_notify_email(requestBody.user_email)
+    except InvalidNotifyEmail as ex:
+        raise HTTPException(status_code=422, detail=f'Invalid "user_email": {ex}')
 
     # Analyze only one document for NSF demo
     # Create a new job and add to the DB
@@ -43,7 +48,7 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     db_job: Job = await db.get(Job, requestBody.jobId)
     if not db_job:
         db_job = Job(
-            email=requestBody.user_email,
+            email=user_email,
             job_info=separator.join(requestBody.fileList),
             job_id=requestBody.jobId,
             phase=JobStatus.PROCESSING,

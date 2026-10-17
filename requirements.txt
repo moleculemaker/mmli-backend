@@ -30,6 +30,10 @@ psycopg2-binary==2.9.9
 # standalone artifacts for external consumers, not generated from models.
 jsonschema==4.23.0
 
+# Validates job notification addresses (services/notify_email.py). Already installed by
+# fastapi[all]; pinned because the app now imports it directly.
+email-validator==2.3.0
+
 # Model Context Protocol server, exposing the same tools to AI agents.
 #
 # starlette is pinned explicitly alongside it. It is normally a transitive dependency of
