@@ -23,7 +23,7 @@ from starlette.responses import JSONResponse
 from config import get_logger, app_config, JOB_ADMIN_GROUP, STATUS_ERROR
 from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
-from models.sqlmodel.models import Job, JobCreate
+from models.sqlmodel.models import Job, JobCreate, JobPublic
 
 from services import analytics, job_builder, kubejob_service
 from services.minio_service import MinIOService
@@ -213,7 +213,20 @@ async def create_job(
         raise HTTPException(status_code=400, detail="Invalid job type: " + str(job_type))
 
 
-@router.get("/{job_type}/jobs", tags=['Jobs'], description="Get a list of all job runs by type")
+async def require_job_admin(request: Request) -> dict:
+    """Authorize by membership of JOB_ADMIN_GROUP.
+
+    Naming a job is no authority over it: legacy job ids can be chosen by the client,
+    and every id was publicly listed until #140.
+    """
+    return require_group(request, JOB_ADMIN_GROUP, 'job admin')
+
+
+# Admin-only. Returns full rows, email included, for every user's job of this type; and
+# v1 jobs share the table, whose ids /v1 promises are never listed. Authorization is a
+# route dependency so it runs before the type is validated.
+@router.get("/{job_type}/jobs", tags=['Jobs'], dependencies=[Depends(require_job_admin)],
+            description="Get a list of all job runs by type. Requires membership of JOB_ADMIN_GROUP.")
 async def list_jobs_by_type(job_type: str, db: AsyncSession = Depends(get_session)):
     job_types = [e for e in JobType]
     if job_type not in job_types:
@@ -224,18 +237,17 @@ async def list_jobs_by_type(job_type: str, db: AsyncSession = Depends(get_sessio
     return jobs
 
 
-@router.get("/{job_type}/jobs/{job_id}", tags=['Jobs'], description="Get a list of all job runs by type and job_id")
+@router.get("/{job_type}/jobs/{job_id}", response_model=List[JobPublic], tags=['Jobs'], description="Get a list of all job runs by type and job_id")
 async def list_jobs_by_type_and_job_id(job_type: str, job_id: str, db: AsyncSession = Depends(get_session)):
     job_types = [e for e in JobType]
     if job_type not in job_types:
         raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
 
     results = await db.execute(select(Job).where(Job.type == job_type).where(Job.job_id == job_id))
-    jobs = results.scalars().all()
-    return jobs
+    return [JobPublic.from_job(job) for job in results.scalars().all()]
 
 
-@router.get("/{job_type}/jobs/{job_id}/{run_id}", tags=['Jobs'], description="Get a single job by type, job_id, and run_id")
+@router.get("/{job_type}/jobs/{job_id}/{run_id}", response_model=JobPublic, tags=['Jobs'], description="Get a single job by type, job_id, and run_id")
 async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_id: str, db: AsyncSession = Depends(get_session)):
     job_types = [e for e in JobType]
     if job_type not in job_types:
@@ -245,16 +257,7 @@ async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_
     job = result.first()
     if not job:
         raise HTTPException(status_code=404, detail=f"No job found with job_id={job_id} and run_id={run_id}")
-    return job.Job
-
-
-async def require_job_admin(request: Request) -> dict:
-    """Authorize by membership of JOB_ADMIN_GROUP.
-
-    Job ids are not secret (GET /{job_type}/jobs lists them), so naming a job is no
-    authority over it.
-    """
-    return require_group(request, JOB_ADMIN_GROUP, 'job admin')
+    return JobPublic.from_job(job.Job)
 
 
 # Listed in `dependencies` so authorization runs before the handler validates or looks

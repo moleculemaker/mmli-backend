@@ -175,18 +175,92 @@ class TestKubernetesRejection:
         assert client.get(f"/{DEFAULTS}/jobs/fine").json()[0]["phase"] == JobStatus.QUEUED
 
 
-class TestReadJobs:
-    def test_list_by_type_returns_every_users_job_including_email(self, client):
+class TestListJobsAccessControl:
+    """Listing every job of a type exposes every user's address and every v1 job id,
+    which /v1 promises are never listed, so it is restricted to JOB_ADMIN_GROUP. See #140."""
+
+    def test_unauthenticated_callers_are_refused(self, client, monkeypatch):
+        _post_job(client, job_id="j1", email="one@illinois.edu")
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
+
+        assert client.get(f"/{DEFAULTS}/jobs").status_code == 401
+
+    def test_authenticated_non_members_are_refused(self, client, monkeypatch):
+        _authenticate(monkeypatch, ["some-other-group"])
+
+        assert client.get(f"/{DEFAULTS}/jobs").status_code == 403
+
+    def test_an_unconfigured_group_refuses_rather_than_falls_open(self, client, monkeypatch):
+        _authenticate(monkeypatch, ["anything"])
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", "")
+
+        assert client.get(f"/{DEFAULTS}/jobs").status_code == 503
+
+    def test_authentication_comes_before_type_validation(self, client, monkeypatch):
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
+
+        assert client.get("/not-a-real-tool/jobs").status_code == 401
+
+    def test_v1_jobs_are_not_listed_to_unauthenticated_callers(self, client, monkeypatch):
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
+        resp = client.post("/v1/tools/novostoic-optstoic/jobs",
+                           json={"primary_precursor": "MNXM1137670", "target_molecule": "MNXM26"})
+        assert resp.status_code == 201
+
+        assert client.get("/novostoic-optstoic/jobs").status_code == 401
+
+
+@pytest.mark.usefixtures("job_admin")
+class TestListJobsAsAdmin:
+    def test_returns_every_users_job_with_full_rows(self, client):
         _post_job(client, job_id="j1", email="one@illinois.edu")
         _post_job(client, job_id="j2", email="two@illinois.edu")
 
         resp = client.get(f"/{DEFAULTS}/jobs")
 
-        # DEFECT: unauthenticated, unpaginated, and returns other users' addresses.
         assert resp.status_code == 200
         emails = sorted(job["email"] for job in resp.json())
         assert emails == ["one@illinois.edu", "two@illinois.edu"]
+        assert "user_agent" in resp.json()[0]
 
+    def test_invalid_job_type_returns_400(self, client):
+        assert client.get("/not-a-real-tool/jobs").status_code == 400
+
+
+SENSITIVE_FIELDS = {"user_agent", "client_origin", "client_fingerprint"}
+
+
+class TestSingleJobReadsWithholdPersonalFields:
+    """Anyone holding a job id can read the job, so these return JobPublic. See #140.
+
+    `email` stays in the response as null rather than being dropped: aceretro passes the
+    row's email into FormGroup.setValue, which throws on an undefined key."""
+
+    def test_by_job_id(self, client):
+        _post_job(client, job_id="j1", email="one@illinois.edu", job_info='{"x": 1}')
+
+        body = client.get(f"/{DEFAULTS}/jobs/j1").json()[0]
+
+        assert body["email"] is None
+        assert SENSITIVE_FIELDS.isdisjoint(body)
+        assert body["job_info"] == '{"x": 1}'
+        assert body["phase"] == JobStatus.QUEUED
+        assert body["time_created"] > 0
+
+    def test_by_job_id_and_run_id(self, client):
+        _post_job(client, job_id="j1", run_id="r1", email="one@illinois.edu")
+
+        body = client.get(f"/{DEFAULTS}/jobs/j1/r1").json()
+
+        assert body["email"] is None
+        assert SENSITIVE_FIELDS.isdisjoint(body)
+        assert body["job_id"] == "j1"
+
+
+class TestReadJobs:
     def test_list_by_job_id_returns_a_list_not_an_object(self, client):
         _post_job(client, job_id="j1")
 
@@ -208,13 +282,10 @@ class TestReadJobs:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_invalid_job_type_returns_400(self, client):
-        assert client.get("/not-a-real-tool/jobs").status_code == 400
-
 
 class TestDeleteJobAccessControl:
-    """DELETE kills a running job's pod and drops its row, and job ids are listed by the
-    unauthenticated GET, so it is restricted to members of JOB_ADMIN_GROUP. See #138."""
+    """DELETE kills a running job's pod and drops its row, and naming a job is no
+    authority over it, so it is restricted to members of JOB_ADMIN_GROUP. See #138."""
 
     def test_unauthenticated_callers_are_refused(self, client, monkeypatch, deleted_k8s_jobs):
         _post_job(client, job_id="j1", run_id="r1")

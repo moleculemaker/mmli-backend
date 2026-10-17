@@ -157,6 +157,41 @@ class Job(JobBase, table=True):
     client_fingerprint: Optional[str] = Field(default=None, nullable=True, index=True)
 
 
+# What the unauthenticated legacy reads return for a job. Anyone holding a job id can read
+# it, so this declares what is safe to show rather than subtracting from Job: a column
+# added to Job stays private until it is added here. Left out: user_agent, client_origin
+# and client_fingerprint.
+class JobPublic(SQLModel):
+    job_id: Optional[str] = None
+    run_id: Optional[str] = None
+    job_info: Optional[str] = None
+    # Always null. Kept as a key because aceretro-frontend passes the row's email into
+    # FormGroup.setValue, which throws on an undefined key but accepts null.
+    email: Optional[str] = None
+
+    # str rather than the enums, so a historical value no longer in JobType or
+    # JobStatus is shown instead of failing the request.
+    phase: Optional[str] = None
+    type: Optional[str] = None
+    image: Optional[str] = None
+    command: Optional[str] = None
+    image_digest: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    notified_at: Optional[int] = None
+
+    time_created: Optional[int] = None
+    time_start: Optional[int] = None
+    time_end: Optional[int] = None
+    deleted: Optional[int] = None
+
+    client_surface: Optional[str] = None
+
+    @classmethod
+    def from_job(cls, job: 'Job') -> 'JobPublic':
+        fields = set(cls.model_fields) - {'email'}
+        return cls(**{name: getattr(job, name) for name in fields})
+
+
 # Anything additional that is passed to the API to create a new Job
 class JobCreate(JobBase):
     pass

@@ -116,13 +116,24 @@ Two limits worth knowing:
   is therefore per replica: with N replicas the effective ceiling is N times
   `SUBMIT_LIMIT`. Reads are not limited, so polling is never throttled.
 
-## Deleting jobs
+## Job administration
 
-`DELETE /{job_type}/jobs/{job_id}/{run_id}` stops the job's Kubernetes Job and removes its
-row, for any user's job. It requires membership of the OIDC group named by
-`JOB_ADMIN_GROUP` (or `auth.jobAdminGroup` in config). If that is unset the endpoint
-returns 503 rather than falling open. The legacy API has no other write endpoints after
-submission: job phase and timestamps are set only by the watcher.
+Two legacy endpoints act on any user's jobs:
+
+- `DELETE /{job_type}/jobs/{job_id}/{run_id}` stops the job's Kubernetes Job and removes
+  its row.
+- `GET /{job_type}/jobs` lists every job of that type as full rows, email addresses
+  included.
+
+Both require membership of the OIDC group named by `JOB_ADMIN_GROUP` (or
+`auth.jobAdminGroup` in config). If that is unset they return 503 rather than falling
+open. The legacy API has no other write endpoints after submission: job phase and
+timestamps are set only by the watcher.
+
+The single-job reads, `GET /{job_type}/jobs/{job_id}` and
+`GET /{job_type}/jobs/{job_id}/{run_id}`, stay open to anyone holding the id and return
+`JobPublic`: no `user_agent`, `client_origin` or `client_fingerprint`, and `email` is
+always null.
 
 ## Usage reporting
 
