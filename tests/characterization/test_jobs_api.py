@@ -11,10 +11,23 @@ import json
 import pytest
 
 from models.enums import JobStatus
-from services import kubejob_service
+from routers import job
+from services import kubejob_service, userinfo_service
 
 
 DEFAULTS = "defaults"
+JOB_ADMIN_GROUP = "mmli-job-admin"
+
+
+def _authenticate(monkeypatch, groups):
+    monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+    monkeypatch.setattr(userinfo_service, "validate_auth_cookie",
+                        lambda request: {"email": "a@b.edu", "groups": groups})
+
+
+@pytest.fixture
+def job_admin(monkeypatch):
+    _authenticate(monkeypatch, [JOB_ADMIN_GROUP])
 
 
 def _post_job(client, job_type=DEFAULTS, **body):
@@ -199,6 +212,43 @@ class TestReadJobs:
         assert client.get("/not-a-real-tool/jobs").status_code == 400
 
 
+class TestDeleteJobAccessControl:
+    """DELETE kills a running job's pod and drops its row, and job ids are listed by the
+    unauthenticated GET, so it is restricted to members of JOB_ADMIN_GROUP. See #138."""
+
+    def test_unauthenticated_callers_are_refused(self, client, monkeypatch, deleted_k8s_jobs):
+        _post_job(client, job_id="j1", run_id="r1")
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
+
+        assert client.delete(f"/{DEFAULTS}/jobs/j1/r1").status_code == 401
+        assert len(client.get(f"/{DEFAULTS}/jobs/j1").json()) == 1
+        assert deleted_k8s_jobs == []
+
+    def test_authenticated_non_members_are_refused(self, client, monkeypatch, deleted_k8s_jobs):
+        _post_job(client, job_id="j1", run_id="r1")
+        _authenticate(monkeypatch, ["some-other-group"])
+
+        assert client.delete(f"/{DEFAULTS}/jobs/j1/r1").status_code == 403
+        assert len(client.get(f"/{DEFAULTS}/jobs/j1").json()) == 1
+        assert deleted_k8s_jobs == []
+
+    def test_an_unconfigured_group_refuses_rather_than_falls_open(self, client, monkeypatch):
+        _authenticate(monkeypatch, ["anything"])
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", "")
+
+        assert client.delete(f"/{DEFAULTS}/jobs/j1/r1").status_code == 503
+
+    def test_authentication_comes_before_any_lookup(self, client, monkeypatch):
+        """An unauthenticated caller learns nothing about which jobs or types exist."""
+        monkeypatch.setattr(job, "JOB_ADMIN_GROUP", JOB_ADMIN_GROUP)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
+
+        assert client.delete(f"/{DEFAULTS}/jobs/nope/nope").status_code == 401
+        assert client.delete("/not-a-real-tool/jobs/j1/r1").status_code == 401
+
+
+@pytest.mark.usefixtures("job_admin")
 class TestDeleteJob:
     def test_delete_removes_the_row_and_the_kubernetes_job(self, client, deleted_k8s_jobs):
         _post_job(client, job_id="j1", run_id="r1")
@@ -212,7 +262,7 @@ class TestDeleteJob:
         assert deleted_k8s_jobs == [{"job_type": DEFAULTS, "job_id": "j1"}]
 
     def test_delete_succeeds_even_if_the_cluster_call_fails(self, client, monkeypatch):
-        """A cluster problem must not leave a user unable to delete their own record."""
+        """A cluster problem must not leave an admin unable to delete the record."""
         def _boom(**kwargs):
             raise RuntimeError("cluster unreachable")
 
