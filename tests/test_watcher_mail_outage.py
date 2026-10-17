@@ -6,9 +6,9 @@ those sends waits out the SMTP timeout: 20 due jobs cost 600s of every pass befo
 watch even starts, and phase updates fall behind by as much. So once a send finds the
 server unreachable, the rest of that pass skips sending; the next pass tries once more.
 
-A refused recipient is different: it fails only that job, so it must not stop the
-others. Every smtplib exception subclasses OSError, which is why the distinction is
-drawn explicitly in _mail_server_unavailable.
+Only a failure before any recipient is involved (connect, greeting, EHLO) counts as an
+outage. Anything later - a refused recipient, or a disconnect after RCPT - may be caused
+by one job's address, which is unvalidated user input, so it fails only that job.
 """
 import logging
 import smtplib
@@ -21,7 +21,7 @@ from sqlmodel import Session, create_engine
 from models.enums import JobStatus, JobType
 from models.sqlmodel.models import Job
 from services import email_service, kubejob_service
-from services.kubejob_service import KubeEventWatcher, _mail_server_unavailable
+from services.kubejob_service import KubeEventWatcher
 
 
 class _Stop(BaseException):
@@ -54,6 +54,9 @@ class _SMTP:
 
     def __exit__(self, *exc):
         return False
+
+    def ehlo_or_helo_if_needed(self):
+        pass
 
     def sendmail(self, from_addr, to_addr, msg):
         if callable(_SMTP.behavior):
@@ -150,22 +153,71 @@ def test_the_mail_server_gets_a_fresh_attempt_each_pass(harness):
     assert all(v is not None for v in notified.values())
 
 
-@pytest.mark.parametrize("exc", [
-    TimeoutError("timed out"),
-    ConnectionRefusedError(111, "refused"),
-    socket.gaierror(-2, "Name or service not known"),
-    smtplib.SMTPServerDisconnected("gone"),
-    smtplib.SMTPConnectError(421, b"busy"),
+def test_a_disconnect_after_rcpt_does_not_stop_the_other_jobs(harness):
+    """A server may drop the connection over one address. That address is whatever was
+    submitted with the job, so it must not switch off sending for everyone else."""
+    def drop_on_first(to_addr):
+        if to_addr == "user0@example.org":
+            raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+
+    _SMTP.behavior = drop_on_first
+    notified = harness(["j0", "j1", "j2"], passes=1)
+
+    assert notified["j0"] is None
+    assert notified["j1"] is not None and notified["j2"] is not None
+
+
+class _FailingAt:
+    """smtplib.SMTP stand-in that raises `exc` at one step: "connect", "ehlo" or "send"."""
+
+    def __init__(self, step, exc):
+        self.step, self.exc, self.closed = step, exc, False
+
+    def __call__(self, host, port=0, timeout=None):
+        if self.step == "connect":
+            raise self.exc
+        return self
+
+    def ehlo_or_helo_if_needed(self):
+        if self.step == "ehlo":
+            raise self.exc
+
+    def sendmail(self, *args):
+        if self.step == "send":
+            raise self.exc
+
+    def quit(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.parametrize("step, exc", [
+    ("connect", TimeoutError("timed out")),
+    ("connect", ConnectionRefusedError(111, "refused")),
+    ("connect", socket.gaierror(-2, "Name or service not known")),
+    ("connect", smtplib.SMTPConnectError(421, b"busy")),
+    ("ehlo", smtplib.SMTPServerDisconnected("gone")),
+    ("ehlo", smtplib.SMTPHeloError(501, b"no")),
 ])
-def test_transport_failures_mean_the_server_is_unavailable(exc):
-    assert _mail_server_unavailable(exc) is True
+def test_failures_before_any_recipient_mean_the_server_is_unavailable(monkeypatch, step, exc):
+    fake = _FailingAt(step, exc)
+    monkeypatch.setattr(email_service.smtplib, "SMTP", fake)
+    with pytest.raises(email_service.MailServerUnavailable):
+        email_service.EmailService().send_email("a@illinois.edu", "s", "b")
+    assert step == "connect" or fake.closed  # a half-open session is not leaked
 
 
 @pytest.mark.parametrize("exc", [
     smtplib.SMTPRecipientsRefused({"a@b": (550, b"no")}),
     smtplib.SMTPSenderRefused(553, b"no", "from@b"),
     smtplib.SMTPDataError(554, b"rejected"),
-    ValueError("not an smtp problem"),
+    smtplib.SMTPServerDisconnected("Connection unexpectedly closed"),
+    TimeoutError("timed out"),
 ])
-def test_per_message_failures_do_not(exc):
-    assert _mail_server_unavailable(exc) is False
+def test_failures_once_recipients_are_involved_do_not(monkeypatch, exc):
+    monkeypatch.setattr(email_service.smtplib, "SMTP", _FailingAt("send", exc))
+    with pytest.raises(Exception) as raised:
+        email_service.EmailService().send_email("a@illinois.edu", "s", "b")
+    assert not isinstance(raised.value, email_service.MailServerUnavailable)

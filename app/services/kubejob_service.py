@@ -12,7 +12,6 @@ import json
 from jinja2 import Template, Environment, BaseLoader
 import uuid
 
-import smtplib
 import time
 import threading
 
@@ -27,7 +26,7 @@ from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
 
-from services.email_service import EmailService
+from services.email_service import EmailService, MailServerUnavailable
 
 log = get_logger(__name__)
 
@@ -132,15 +131,14 @@ WATCHER_STALL_SECONDS = 2 * WATCH_TIMEOUT_SECONDS
 
 
 def _mail_server_unavailable(exc):
-    """True when a send failed because the mail server could not be reached at all.
+    """True when a send failed before any recipient was involved (see MailServerUnavailable).
 
-    Every smtplib exception subclasses OSError, so OSError alone cannot tell a down server
-    from a refused recipient. A refused recipient fails only that one job and must not
-    stop the others from being notified.
+    Only that may stop the other jobs' sends. Anything later - a refused recipient, or a
+    disconnect after RCPT - could be caused by one job's address, which is unvalidated
+    user input; treating it as an outage would let one submitted job switch off
+    notifications for every pass until its Kubernetes Job is deleted.
     """
-    if isinstance(exc, (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError)):
-        return True
-    return isinstance(exc, OSError) and not isinstance(exc, smtplib.SMTPException)
+    return isinstance(exc, MailServerUnavailable)
 
 
 class KubeEventWatcher:

@@ -10,6 +10,16 @@ from config import app_config
 
 SMTP_TIMEOUT_SECONDS = 30
 
+
+class MailServerUnavailable(Exception):
+    """The send failed before any recipient was involved: connect, greeting, or EHLO.
+
+    Kept apart from every later failure because no recipient address can cause it, so
+    callers may treat it as the server being down for everyone. A failure after MAIL FROM
+    or RCPT - a refusal, or even a disconnect - may be specific to the address, and a job's
+    address is whatever was submitted with it.
+    """
+
 class SingleEmailHeader(object):
     def __init__(self, recipients, email_params, template=''):
         self.recipients = recipients
@@ -35,7 +45,14 @@ class SingleEmailHeader(object):
     def sendmail(self):
         # Without a timeout an unresponsive mail server blocks the caller indefinitely, and
         # the caller is usually the Kubernetes watcher thread.
-        smtp_server = smtplib.SMTP(self.server, port=25, timeout=SMTP_TIMEOUT_SECONDS)
+        smtp_server = None
+        try:
+            smtp_server = smtplib.SMTP(self.server, port=25, timeout=SMTP_TIMEOUT_SECONDS)
+            smtp_server.ehlo_or_helo_if_needed()
+        except OSError as e:  # every smtplib exception is an OSError
+            if smtp_server is not None:
+                smtp_server.close()
+            raise MailServerUnavailable(f'{self.server}: {e}') from e
         try:
             # The TO and CC header fields are populated by the header construction, and any additional recipient addresses are effectively BCC
             smtp_server.sendmail(self.from_email, self.recipients, self.msg.as_string())

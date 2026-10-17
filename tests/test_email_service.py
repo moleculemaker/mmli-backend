@@ -29,6 +29,9 @@ class _FakeSMTP:
     def __exit__(self, *exc):
         return False
 
+    def ehlo_or_helo_if_needed(self):
+        pass
+
     def sendmail(self, *args):
         if _FakeSMTP.fail:
             raise _FakeSMTP.fail
