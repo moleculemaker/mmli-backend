@@ -15,9 +15,17 @@ class MailServerUnavailable(Exception):
     """The send failed before any recipient was involved: connect, greeting, or EHLO.
 
     Kept apart from every later failure because no recipient address can cause it, so
-    callers may treat it as the server being down for everyone. A failure after MAIL FROM
-    or RCPT - a refusal, or even a disconnect - may be specific to the address, and a job's
-    address is whatever was submitted with it.
+    callers may treat it as the server being down for everyone. Every later step can
+    depend on the job's address, which is whatever was submitted with it: RCPT carries it
+    directly, and so, indirectly, does MAIL FROM. Although MAIL FROM names only the
+    configured sender, smtplib appends SIZE=<message length> when the server advertises
+    SIZE, the message includes the To: header, and Job.email has no length limit. So an
+    oversized address can get MAIL FROM refused.
+
+    Known limitation: a server that answers EHLO and then stops responding still costs
+    SMTP_TIMEOUT_SECONDS per send, since nothing here marks it unavailable. A timeout or
+    disconnect at MAIL FROM (not a refusal) would be safe to treat as an outage, but that
+    needs sendmail() split into mail()/rcpt()/data().
     """
 
 class SingleEmailHeader(object):
