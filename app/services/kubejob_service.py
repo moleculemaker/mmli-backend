@@ -12,6 +12,7 @@ import json
 from jinja2 import Template, Environment, BaseLoader
 import uuid
 
+import smtplib
 import time
 import threading
 
@@ -130,7 +131,22 @@ KUBE_REQUEST_TIMEOUT = (10, 60)
 WATCHER_STALL_SECONDS = 2 * WATCH_TIMEOUT_SECONDS
 
 
+def _mail_server_unavailable(exc):
+    """True when a send failed because the mail server could not be reached at all.
+
+    Every smtplib exception subclasses OSError, so OSError alone cannot tell a down server
+    from a refused recipient. A refused recipient fails only that one job and must not
+    stop the others from being notified.
+    """
+    if isinstance(exc, (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError)):
+        return True
+    return isinstance(exc, OSError) and not isinstance(exc, smtplib.SMTPException)
+
+
 class KubeEventWatcher:
+
+    # Set when a send finds the mail server unreachable; run() clears it on each pass.
+    mail_server_unavailable = False
 
     def __init__(self):
         self.logger = log
@@ -295,6 +311,7 @@ class KubeEventWatcher:
                 return True
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')
+                self.mail_server_unavailable = self.mail_server_unavailable or _mail_server_unavailable(e)
         elif new_phase == JobStatus.ERROR and updated_job.email:
             try:
                 self.email_service.send_email(updated_job.email,
@@ -303,6 +320,7 @@ class KubeEventWatcher:
                 return True
             except Exception as e:
                 log.error(f'Failed to send email notification on failure: {str(e)}')
+                self.mail_server_unavailable = self.mail_server_unavailable or _mail_server_unavailable(e)
 
         return False
 
@@ -432,9 +450,14 @@ class KubeEventWatcher:
             # reached on every event and every 600s sweep for as long as notified_at is
             # null, and running the dispatch (which reads app_config keys) for a running
             # job, or for a job nobody asked to be told about, is work with no result.
+            #
+            # Skipped for the rest of the pass once the mail server has failed to answer:
+            # every send would wait out the SMTP timeout in turn, on this thread, delaying
+            # every phase update behind it. The jobs stay due and the next pass retries.
             if (updated_job.notified_at is None
                     and new_phase in (JobStatus.COMPLETED, JobStatus.ERROR)
-                    and updated_job.email):
+                    and updated_job.email
+                    and not self.mail_server_unavailable):
                 try:
                     if self.send_notification_email(job_id, job_type, updated_job, new_phase):
                         updated_job.notified_at = int(time.time())
@@ -485,6 +508,8 @@ class KubeEventWatcher:
                 # List all pods in watched namespace to get resource_version
                 namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(
                     namespace=get_namespace(), _request_timeout=KUBE_REQUEST_TIMEOUT)
+                # Each pass gets one fresh attempt at the mail server.
+                self.mail_server_unavailable = False
                 resource_version = namespaced_jobs.metadata.resource_version if namespaced_jobs.metadata.resource_version else resource_version
 
                 # Reconcile existing jobs from the current list BEFORE watching. The watch
