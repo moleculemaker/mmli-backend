@@ -36,6 +36,12 @@ def test_rides_out_a_backend_restart(responses):
     assert len(responses.calls) == 3
 
 
+def test_rides_out_a_reset_partway_through_the_response_body(responses):
+    responses.queue += [requests.exceptions.ChunkedEncodingError("Connection broken"), 200]
+    resp = backend_retry.request_with_retry("GET", "http://backend/x/jobs/1")
+    assert resp.status_code == 200
+
+
 def test_every_attempt_has_a_timeout(responses):
     responses.queue += [200]
     backend_retry.request_with_retry("GET", "http://backend/x/jobs/1")

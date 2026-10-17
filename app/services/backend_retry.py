@@ -37,7 +37,9 @@ def request_with_retry(method, url, budget_seconds=RETRY_BUDGET_SECONDS,
             if resp.status_code < 500 or time.monotonic() >= deadline:
                 return resp
             log.warning(f'{method} {url} answered {resp.status_code}; retrying in {interval_seconds}s')
-        except (requests.ConnectionError, requests.Timeout) as e:
+        # ChunkedEncodingError is a connection reset partway through the response body,
+        # e.g. the backend dying mid-reply. It is not a ConnectionError subclass.
+        except (requests.ConnectionError, requests.Timeout, requests.exceptions.ChunkedEncodingError) as e:
             if time.monotonic() >= deadline:
                 raise
             log.warning(f'{method} {url} failed ({e}); retrying in {interval_seconds}s')
