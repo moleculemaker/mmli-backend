@@ -13,8 +13,8 @@ from typing import List, Optional
 # Body/Path come from `fastapi`, not `fastapi.params`. The latter holds the underlying
 # parameter classes; the public helpers are what the framework expects as defaults, and
 # only they accept the keyword form used below.
-from fastapi import Body, Depends, HTTPException, APIRouter, Path, Request, UploadFile
-from sqlalchemy import delete
+from fastapi import Body, Depends, HTTPException, APIRouter, Path, Request, Response, UploadFile
+from sqlalchemy import delete, or_, update
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette import status
@@ -264,6 +264,49 @@ async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_
     if not job:
         raise HTTPException(status_code=404, detail=f"No job found with job_id={job_id} and run_id={run_id}")
     return JobPublic.from_job(job.Job)
+
+
+@router.post("/{job_type}/jobs/{job_id}/subscription", status_code=status.HTTP_204_NO_CONTENT, tags=['Jobs'],
+             summary="Add a notification address to a job",
+             description="Set the address notified when the job finishes, if it has none. "
+                         "Resubmitting the stored address succeeds; a different one is a 409.")
+async def subscribe_to_job(
+        job_type: str,
+        job_id: str,
+        email: str = Body(embed=True),
+        db: AsyncSession = Depends(get_session),
+):
+    # Validate before querying, as every other route on this router does.
+    if job_type not in [e for e in JobType]:
+        raise HTTPException(status_code=400, detail="Invalid job type: " + job_type)
+
+    try:
+        email = normalize_notify_email(email)
+    except InvalidNotifyEmail as ex:
+        raise HTTPException(status_code=422, detail=f"Invalid email: {ex}")
+    if email is None:
+        raise HTTPException(status_code=422, detail="Invalid email: an address is required.")
+
+    # Anyone holding the job id can call this, so it only ever fills an empty address:
+    # replacing one would let them redirect another user's notification. Conditional in
+    # the UPDATE itself, so two concurrent callers cannot both see it empty. Rows from
+    # before #137 can hold '' rather than null; the watcher treats both as "no address".
+    result = await db.execute(
+        update(Job)
+        .where(Job.type == job_type, Job.job_id == job_id, or_(Job.email.is_(None), Job.email == ''))
+        .values(email=email)
+    )
+    await db.commit()
+    if result.rowcount:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    db_job = (await db.exec(select(Job).where(Job.type == job_type).where(Job.job_id == job_id))).first()
+    if not db_job:
+        raise HTTPException(status_code=404, detail=f"No {job_type} job found with job_id={job_id}")
+    if db_job.email == email:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    # Says that a subscriber exists, never who.
+    raise HTTPException(status_code=409, detail="This job already has a notification address.")
 
 
 # Listed in `dependencies` so authorization runs before the handler validates or looks

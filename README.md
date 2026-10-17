@@ -135,6 +135,12 @@ The single-job reads, `GET /{job_type}/jobs/{job_id}` and
 `JobPublic`: no `user_agent`, `client_origin` or `client_fingerprint`, and `email` is
 always null.
 
+`POST /{job_type}/jobs/{job_id}/subscription` with `{"email": "..."}` adds a notification
+address after submission, for the frontends' "notify me" form. It is open to anyone holding
+the id, so it only fills an empty address: resubmitting the stored one returns 204, a
+different one 409. A job that finished before the address was added is still notified on
+the watcher's next pass, as long as its Kubernetes Job has not been reaped (12h).
+
 ## Usage reporting
 
 `GET /internal/reports/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` returns aggregate counts by
