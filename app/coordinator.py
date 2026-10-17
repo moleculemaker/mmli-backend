@@ -10,6 +10,7 @@ import requests
 from requests import Response
 
 from config import get_logger, app_config
+from services.backend_retry import request_with_retry
 from services.kubejob_service import download_remote_directory_from_minio, upload_local_directory_to_minio, \
     api_batch_v1, get_job_name_from_id
 
@@ -66,7 +67,7 @@ def create_job_step(step_type: str, subjob_id: str, job_config=None) -> str:
 
 
 def get_job_step_status(step_name: str, step_id: str) -> str:
-    resp = requests.get(f'{mmli_hostname}/{step_name}/jobs/{step_id}')
+    resp = request_with_retry('GET', f'{mmli_hostname}/{step_name}/jobs/{step_id}')
     resp.raise_for_status()
     job_list = resp.json()
     log.debug(f'job_type={job_type}  job_id={job_id}  step_type={step_name}  step_id={step_id}  |  job_list={str(job_list)}')
