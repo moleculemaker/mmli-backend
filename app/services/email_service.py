@@ -8,6 +8,8 @@ from email.utils import formataddr
 
 from config import app_config
 
+SMTP_TIMEOUT_SECONDS = 30
+
 class SingleEmailHeader(object):
     def __init__(self, recipients, email_params, template=''):
         self.recipients = recipients
@@ -31,10 +33,11 @@ class SingleEmailHeader(object):
         return jinja2.Environment(loader=jinja2.FileSystemLoader(path or './')).get_template(filename).render(email_params)
 
     def sendmail(self):
-        smtp_server = smtplib.SMTP(self.server, port=25)
-        # The TO and CC header fields are populated by the header construction, and any additional recipient addresses are effectively BCC
-        smtp_server.sendmail(self.from_email, self.recipients, self.msg.as_string())
-        smtp_server.quit()
+        # Without a timeout an unresponsive mail server blocks the caller indefinitely, and
+        # the caller is usually the Kubernetes watcher thread.
+        with smtplib.SMTP(self.server, port=25, timeout=SMTP_TIMEOUT_SECONDS) as smtp_server:
+            # The TO and CC header fields are populated by the header construction, and any additional recipient addresses are effectively BCC
+            smtp_server.sendmail(self.from_email, self.recipients, self.msg.as_string())
 
 class EmailService:
     def __init__(self) -> None:
@@ -48,8 +51,6 @@ class EmailService:
             "message": message_body,
         }
         email = SingleEmailHeader(recipients, email_params, template=template_file)
-        try:
-            email.sendmail()
-        except Exception as e:
-            print("Error in sending job status email: ")
-            print(e)
+        # Raises on failure. Every caller catches it; the watcher depends on seeing it, since
+        # a send reported as successful stamps job.notified_at and is never retried.
+        email.sendmail()
