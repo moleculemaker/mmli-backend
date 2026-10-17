@@ -6,7 +6,7 @@ import pytest
 import sqlmodel
 
 from models.sqlmodel.models import Job
-from services import analytics
+from services import analytics, userinfo_service
 from routers import reports
 
 MCP_HEADERS = {
@@ -158,7 +158,7 @@ class TestNotifyEmail:
 class TestReportAccessControl:
     def _authorize(self, monkeypatch, groups):
         monkeypatch.setattr(reports, "REPORTING_GROUP", "mmli-reporting")
-        monkeypatch.setattr(reports, "validate_auth_cookie",
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie",
                             lambda request: {"email": "a@b.edu", "groups": groups})
 
     def test_group_members_are_allowed(self, client, monkeypatch):
@@ -174,14 +174,14 @@ class TestReportAccessControl:
 
     def test_unauthenticated_callers_are_refused(self, client, monkeypatch):
         monkeypatch.setattr(reports, "REPORTING_GROUP", "mmli-reporting")
-        monkeypatch.setattr(reports, "validate_auth_cookie", lambda request: None)
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie", lambda request: None)
 
         assert client.get("/internal/reports/usage").status_code == 401
 
     def test_an_unconfigured_group_refuses_rather_than_falls_open(self, client, monkeypatch):
         """An unset group must not silently mean "any authenticated user"."""
         monkeypatch.setattr(reports, "REPORTING_GROUP", "")
-        monkeypatch.setattr(reports, "validate_auth_cookie",
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie",
                             lambda request: {"email": "a@b.edu", "groups": ["anything"]})
 
         assert client.get("/internal/reports/usage").status_code == 503
@@ -191,7 +191,7 @@ class TestReportContent:
     @pytest.fixture
     def authorized(self, monkeypatch):
         monkeypatch.setattr(reports, "REPORTING_GROUP", "mmli-reporting")
-        monkeypatch.setattr(reports, "validate_auth_cookie",
+        monkeypatch.setattr(userinfo_service, "validate_auth_cookie",
                             lambda request: {"email": "a@b.edu", "groups": ["mmli-reporting"]})
 
     def test_counts_jobs_by_tool(self, client, authorized):

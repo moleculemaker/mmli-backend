@@ -116,6 +116,14 @@ Two limits worth knowing:
   is therefore per replica: with N replicas the effective ceiling is N times
   `SUBMIT_LIMIT`. Reads are not limited, so polling is never throttled.
 
+## Deleting jobs
+
+`DELETE /{job_type}/jobs/{job_id}/{run_id}` stops the job's Kubernetes Job and removes its
+row, for any user's job. It requires membership of the OIDC group named by
+`JOB_ADMIN_GROUP` (or `auth.jobAdminGroup` in config). If that is unset the endpoint
+returns 503 rather than falling open. The legacy API has no other write endpoints after
+submission: job phase and timestamps are set only by the watcher.
+
 ## Usage reporting
 
 `GET /internal/reports/usage?from=YYYY-MM-DD&to=YYYY-MM-DD` returns aggregate counts by

@@ -77,6 +77,10 @@ CHEMSCRAPER_API_BASE_URL = os.getenv('CHEMSCRAPER_API_BASE_URL', app_config['ext
 # they still describe who is using the service, so they are not public.
 REPORTING_GROUP = os.getenv('REPORTING_GROUP', app_config.get('auth', {}).get('reportingGroup', ''))
 
+# Group membership required to delete a job through the legacy API. Deleting kills the
+# job's pod and drops its row, for any user's job. Unset means nobody can.
+JOB_ADMIN_GROUP = os.getenv('JOB_ADMIN_GROUP', app_config.get('auth', {}).get('jobAdminGroup', ''))
+
 # Secret used to derive the pseudonymous client fingerprint recorded on a submission.
 # Absent by default and absent means disabled: fingerprints are stored as null rather
 # than derived from a guessable or empty salt, because a fingerprint computed from a

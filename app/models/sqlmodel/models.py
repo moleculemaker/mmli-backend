@@ -162,21 +162,6 @@ class JobCreate(JobBase):
     pass
 
 
-# Anything additional that is passed to the API to create a new Job
-class JobUpdate(SQLModel):
-    # Immutable metadata
-    job_id: str 
-    run_id: int
-
-    # Updatable properties
-    time_start: Optional[int] = None
-    time_end: Optional[int] = None
-    job_info: Optional[str] = None
-    email: Optional[str] = None
-    image: Optional[str] = None
-    command: Optional[str] = None
-    phase: Optional[JobStatus] = None
-
 class IdempotencyKey(SQLModel, table=True):
     """Maps a client-supplied Idempotency-Key to the job it created.
 

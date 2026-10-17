@@ -20,35 +20,15 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from config import REPORTING_GROUP, get_logger
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job
-from services.userinfo_service import validate_auth_cookie
+from services.userinfo_service import require_group
 
 router = APIRouter()
 log = get_logger(__name__)
 
 
 async def require_reporting_group(request: Request) -> Dict[str, Any]:
-    """Authorize by OIDC group membership.
-
-    `validate_auth_cookie` accepts a `required_scopes` argument and has always ignored
-    it, so authentication here has to be paired with an explicit membership check;
-    resolving a user proves only that somebody is logged in.
-    """
-    if not REPORTING_GROUP:
-        # Refuse rather than fall open. An unset group would otherwise mean "any
-        # authenticated user", which is not what an operator who left it unset intended.
-        raise HTTPException(
-            status_code=503,
-            detail='Reporting is not configured: no reporting group has been set.',
-        )
-
-    user = validate_auth_cookie(request)
-    if not user:
-        raise HTTPException(status_code=401, detail='Authentication required.')
-
-    if REPORTING_GROUP not in (user.get('groups') or []):
-        raise HTTPException(status_code=403, detail='Not a member of the reporting group.')
-
-    return user
+    """Authorize by membership of REPORTING_GROUP."""
+    return require_group(request, REPORTING_GROUP, 'reporting')
 
 
 def _bounds(from_: Optional[str], to: Optional[str]) -> tuple:

@@ -20,13 +20,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette import status
 from starlette.responses import JSONResponse
 
-from config import get_logger, app_config, STATUS_ERROR
+from config import get_logger, app_config, JOB_ADMIN_GROUP, STATUS_ERROR
 from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
-from models.sqlmodel.models import Job, JobCreate, JobUpdate
+from models.sqlmodel.models import Job, JobCreate
 
 from services import analytics, job_builder, kubejob_service
 from services.minio_service import MinIOService
+from services.userinfo_service import require_group
 
 router = APIRouter()
 
@@ -247,49 +248,19 @@ async def get_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_
     return job.Job
 
 
-@router.put("/{job_type}/jobs/{job_id}/{run_id}", response_model=Job, tags=['Jobs'], description="Overwrite all writeable fields of an existing Job")
-async def update_existing_job(job: Job, job_type: str, db: AsyncSession = Depends(get_session)):
-    # Check if this job_id already exists
-    db_job = await db.get(Job, job.job_id)
-    if not db_job:
-        raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job.job_id} and run_id={job.run_id}")
+async def require_job_admin(request: Request) -> dict:
+    """Authorize by membership of JOB_ADMIN_GROUP.
 
-    # TODO: Validation
-    # TODO: Set internal metadata / fields
-    db_job.phase = job.phase
-    db_job.time_start = job.time_start
-    db_job.time_end = job.time_end
-
-    # Update existing DB job from user input
-    db.add(db_job)
-    await db.commit()
-    await db.refresh(db_job)
-
-    return db_job
+    Job ids are not secret (GET /{job_type}/jobs lists them), so naming a job is no
+    authority over it.
+    """
+    return require_group(request, JOB_ADMIN_GROUP, 'job admin')
 
 
-@router.patch("/{job_type}/jobs/{job_id}/{run_id}", response_model=Job, tags=['Jobs'], description="Update one or more fields of an existing Job")
-async def patch_existing_job(job: JobUpdate, job_type: str, db: AsyncSession = Depends(get_session)):
-    # Check if this job_id already exists
-    db_job = await db.get(Job, job.job_id)
-    if not db_job:
-        raise HTTPException(status_code=404, detail=f"Job does not exist with type={job_type} job_id={job.job_id} and run_id={job.run_id}")
-
-    # TODO: Validation
-    # TODO: Set internal metadata / fields
-    db_job.phase = job.phase if job.phase is not None else db_job.phase
-    db_job.time_start = job.time_start if job.time_start is not None else db_job.time_start
-    db_job.time_end = job.time_end if job.time_end is not None else db_job.time_end
-
-    # Update existing DB job from user input
-    db.add(db_job)
-    await db.commit()
-    await db.refresh(db_job)
-
-    return db_job
-
-
-@router.delete("/{job_type}/jobs/{job_id}/{run_id}", tags=['Jobs'], description="Delete a single Job by type, job_id, and run_id")
+# Listed in `dependencies` so authorization runs before the handler validates or looks
+# anything up: an unauthenticated caller learns nothing about which jobs exist.
+@router.delete("/{job_type}/jobs/{job_id}/{run_id}", tags=['Jobs'], dependencies=[Depends(require_job_admin)],
+               description="Delete a single Job by type, job_id, and run_id. Requires membership of JOB_ADMIN_GROUP.")
 async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, run_id: str, db: AsyncSession = Depends(get_session)):
     # Check if this job_id already exists
     # Validate before querying, as every other route on this router does. Filtering on
@@ -312,7 +283,7 @@ async def delete_job_by_type_and_job_id_and_run_id(job_type: str, job_id: str, r
     # Deliberately best-effort. delete_job already swallows ApiException (a Job that
     # Kubernetes has since reaped is a 404, which is the expected case for anything
     # older than ttlSecondsAfterFinished), and a cluster problem must not leave the
-    # caller unable to delete their own record.
+    # caller unable to delete the record.
     try:
         kubejob_service.delete_job(job_type=job_type, job_id=job_id)
     except Exception as ex:

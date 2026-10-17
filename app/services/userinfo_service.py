@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import requests
+from fastapi import HTTPException
 from requests import Timeout
 
 from config import app_config
@@ -75,3 +76,28 @@ def validate_auth_cookie(request, required_scopes=[]):
     token = get_token_from_request_cookies(request)
     #log.debug('Found validate_token: ' + str(token))
     return userinfo(token)
+
+
+def require_group(request, group: str, name: str) -> dict:
+    """Authorize by OIDC group membership, returning the user.
+
+    `validate_auth_cookie` ignores `required_scopes`, so authentication has to be paired
+    with an explicit membership check; resolving a user proves only that somebody is
+    logged in. `name` describes the group in the error messages, e.g. "reporting".
+    """
+    if not group:
+        # Refuse rather than fall open. An unset group would otherwise mean "any
+        # authenticated user", which is not what an operator who left it unset intended.
+        raise HTTPException(
+            status_code=503,
+            detail=f'{name[0].upper()}{name[1:]} is not configured: no {name} group has been set.',
+        )
+
+    user = validate_auth_cookie(request)
+    if not user:
+        raise HTTPException(status_code=401, detail='Authentication required.')
+
+    if group not in (user.get('groups') or []):
+        raise HTTPException(status_code=403, detail=f'Not a member of the {name} group.')
+
+    return user
