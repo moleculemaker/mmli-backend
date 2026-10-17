@@ -33,6 +33,12 @@ class _FakeSMTP:
         if _FakeSMTP.fail:
             raise _FakeSMTP.fail
 
+    def quit(self):
+        pass
+
+    def close(self):
+        pass
+
 
 @pytest.fixture(autouse=True)
 def fake_smtp(monkeypatch):

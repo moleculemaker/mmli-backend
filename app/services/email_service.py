@@ -35,9 +35,18 @@ class SingleEmailHeader(object):
     def sendmail(self):
         # Without a timeout an unresponsive mail server blocks the caller indefinitely, and
         # the caller is usually the Kubernetes watcher thread.
-        with smtplib.SMTP(self.server, port=25, timeout=SMTP_TIMEOUT_SECONDS) as smtp_server:
+        smtp_server = smtplib.SMTP(self.server, port=25, timeout=SMTP_TIMEOUT_SECONDS)
+        try:
             # The TO and CC header fields are populated by the header construction, and any additional recipient addresses are effectively BCC
             smtp_server.sendmail(self.from_email, self.recipients, self.msg.as_string())
+        finally:
+            # Not `with`: SMTP.__exit__ raises if QUIT is answered with anything but 221,
+            # and by then the message has been delivered. Reporting that as a failed send
+            # leaves the job due, so the watcher would send it again on every pass.
+            try:
+                smtp_server.quit()
+            except (smtplib.SMTPException, OSError):
+                smtp_server.close()
 
 class EmailService:
     def __init__(self) -> None:
