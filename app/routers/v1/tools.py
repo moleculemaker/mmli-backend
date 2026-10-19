@@ -32,6 +32,7 @@ def _descriptor(identifier: str, entry: Dict[str, Any], base: str) -> Dict[str, 
     """Render one registry entry as a schema.org SoftwareApplication."""
     runtime = app_config['kubernetes_jobs'].get(identifier, {})
     has_schema = entry.get('input_schema') is not None
+    has_output_schema = entry.get('output_schema') is not None
 
     return {
         '@context': SCHEMA_ORG,
@@ -62,6 +63,8 @@ def _descriptor(identifier: str, entry: Dict[str, Any], base: str) -> Dict[str, 
         'links': {
             'self': f'{base}/tools/{identifier}',
             'input_schema': f'{base}/tools/{identifier}/input-schema' if has_schema else None,
+            # Only tools on the generic job contract publish the shape of their results
+            'output_schema': f'{base}/tools/{identifier}/output-schema' if has_output_schema else None,
             'submit': f'{base}/tools/{identifier}/jobs',
         },
     }
@@ -125,3 +128,29 @@ async def get_input_schema(tool: str, request: Request) -> Dict[str, Any]:
     # $id is applied at serve time rather than stored, because the correct value depends
     # on the host this API is reached at.
     return {'$id': f'{_base_url(request)}/tools/{tool}/input-schema', **schema}
+
+
+@router.get('/tools/{tool}/output-schema', tags=['Discovery'],
+            summary='JSON Schema describing this tool\'s results')
+async def get_output_schema(tool: str, request: Request) -> Dict[str, Any]:
+    """Return the JSON Schema 2020-12 document that this tool's results match.
+
+    Published only by tools on the generic job contract, whose results are served
+    exactly as the container wrote them. Other tools' results are reshaped per tool.
+    """
+    entry = tool_registry.get_tool(tool)
+    if entry is None:
+        raise ProblemException(
+            404, 'Unknown tool', f'No tool is registered with identifier "{tool}".',
+            type_uri=UNKNOWN_TOOL,
+        )
+
+    schema = entry.get('output_schema')
+    if schema is None:
+        raise ProblemException(
+            404, 'Tool has no output schema',
+            f'"{tool}" does not publish the shape of its results.',
+            type_uri=UNKNOWN_TOOL,
+        )
+
+    return {'$id': f'{_base_url(request)}/tools/{tool}/output-schema', **schema}

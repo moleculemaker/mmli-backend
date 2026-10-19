@@ -45,7 +45,7 @@ def _load_yaml() -> Dict[str, Any]:
 def _load_schema(filename: str) -> Dict[str, Any]:
     path = SCHEMAS_DIR / filename
     if not path.is_file():
-        raise ToolRegistryError(f'input_schema file not found: {path}')
+        raise ToolRegistryError(f'schema file not found: {path}')
     with open(path, 'r') as handle:
         return json.load(handle)
 
@@ -66,6 +66,17 @@ def _build() -> Dict[str, Dict[str, Any]]:
 
         schema_filename = entry.get('input_schema')
         entry['input_schema'] = _load_schema(schema_filename) if schema_filename else None
+
+        # Declaring an output schema opts a tool into the generic job contract, which
+        # writes the validated input as job.json, so it needs an input schema as well.
+        output_filename = entry.get('output_schema')
+        entry['output_schema'] = _load_schema(output_filename) if output_filename else None
+        if entry['output_schema'] is not None and entry['input_schema'] is None:
+            raise ToolRegistryError(
+                f'tools.yaml gives "{identifier}" an output_schema but no input_schema. '
+                f'The generic job contract needs both.'
+            )
+
         entry['identifier'] = identifier
         entry.setdefault('internal', False)
         registry[identifier] = entry
@@ -106,6 +117,21 @@ def get_input_schema(identifier: str) -> Optional[Dict[str, Any]]:
     """Return a tool's JSON Schema, or None when it accepts no job_info."""
     tool = get_tool(identifier)
     return tool.get('input_schema') if tool else None
+
+
+def get_output_schema(identifier: str) -> Optional[Dict[str, Any]]:
+    """Return the JSON Schema for a tool's results.json, or None for per-tool tools."""
+    tool = get_tool(identifier)
+    return tool.get('output_schema') if tool else None
+
+
+def uses_generic_contract(identifier: str) -> bool:
+    """True when a tool runs with no per-tool code: job.json in, results.json out.
+
+    See services/generic_job.py. Tools without an output_schema keep their branches in
+    job_builder and routers/files.py.
+    """
+    return get_output_schema(identifier) is not None
 
 
 def unregistered_job_types() -> set:

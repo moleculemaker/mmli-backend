@@ -30,7 +30,7 @@ from routers.v1.problems import (
     IDEMPOTENCY_CONFLICT, INVALID_INPUT, JOB_FAILED, JOB_NOT_FINISHED, NOT_CANCELABLE,
     UNKNOWN_JOB, UNKNOWN_TOOL, UPSTREAM_FAILURE, ProblemException,
 )
-from services import analytics, job_builder, kubejob_service, tool_registry
+from services import analytics, generic_job, job_builder, kubejob_service, tool_registry
 from services.analytics import SURFACE_TOKEN
 from services.minio_service import MinIOService
 
@@ -242,6 +242,17 @@ async def submit_job(
 
     _validate_against_schema(tool, submitted)
 
+    # job.json is where a generic tool's input goes; an upload of that name would be
+    # silently replaced by it.
+    if tool_registry.uses_generic_contract(tool) and any(
+            upload.filename == generic_job.JOB_INPUT_FILENAME for upload in uploads):
+        raise ProblemException(
+            422, 'Reserved file name',
+            f'"{generic_job.JOB_INPUT_FILENAME}" is reserved for the job input document. '
+            f'Rename the file.',
+            type_uri=INVALID_INPUT,
+        )
+
     # Replaying a key returns the original job rather than starting a second container.
     if idempotency_key:
         existing = (await db.exec(
@@ -390,8 +401,20 @@ async def get_results(job_id: str, request: Request,
             type_uri=JOB_FAILED, status_of_job=str(job.phase),
         )
 
-    from routers.files import get_results as legacy_get_results
-    results = await legacy_get_results(job.type, job_id, service, db)
+    if tool_registry.uses_generic_contract(job.type):
+        try:
+            results = generic_job.read_results(service, job.type, job_id)
+        except generic_job.InvalidResults as ex:
+            raise ProblemException(
+                502, 'Job produced invalid results',
+                f'Job {job_id} wrote results that do not match the output schema published '
+                f'for "{job.type}".',
+                type_uri=UPSTREAM_FAILURE, errors=ex.errors,
+                schema_url=f'/v1/tools/{job.type}/output-schema',
+            )
+    else:
+        from routers.files import get_results as legacy_get_results
+        results = await legacy_get_results(job.type, job_id, service, db)
     if results is None:
         raise ProblemException(
             409, 'Job completed but produced no results',

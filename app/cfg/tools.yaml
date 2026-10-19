@@ -33,6 +33,11 @@
 #   repository     source of the tool itself, not of this API
 #   execution      kubernetes-job | parent-job | subjob
 #   input_schema   filename in app/schemas/, or null when the tool takes no job_info
+#   output_schema  filename in app/schemas/ for the tool's results.json. Setting it opts
+#                  the tool into the generic job contract (services/generic_job.py):
+#                  input written as job.json, results.json served as-is, no per-tool
+#                  code. Required for every new tool; omit it only for the tools that
+#                  predate the contract. Built with moleculemaker/job-template
 #   input_files    what must be uploaded to the job before submission, or null
 #   schema_status  verified   - derived from this repository's own parsing code
 #                  from-container - derived from the tool container's source or examples

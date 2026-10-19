@@ -32,7 +32,7 @@ from fastapi import HTTPException
 
 from config import get_logger, app_config
 from models.enums import JobType
-from services import kubejob_service
+from services import generic_job, kubejob_service, tool_registry
 from services.clean_service import CleanService
 from services.crispr_copies_service import CRISPRCopiesService
 from services.minio_service import MinIOService
@@ -85,6 +85,11 @@ def prepare_job(job_type: str, job_id: str, job_info: str, service: MinIOService
     log.debug(f"Creating Kubernetes job: {job_type}")
     # runs in Kubernetes, read Docker image name from config
     image_name = app_config['kubernetes_jobs'][job_type]['image']
+
+    # No command: the image's ENTRYPOINT reads job.json (see services/generic_job.py)
+    if tool_registry.uses_generic_contract(job_type):
+        generic_job.write_job_input(service, job_type, job_id, job_info)
+        return PreparedJob(job_id=job_id, job_info=job_info, image_name=image_name)
 
     # Command + environment are set differently for each job (see below)
     command = ''
