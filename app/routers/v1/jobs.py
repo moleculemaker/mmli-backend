@@ -242,16 +242,24 @@ async def submit_job(
 
     _validate_against_schema(tool, submitted)
 
-    # job.json is where a generic tool's input goes; an upload of that name would be
-    # silently replaced by it.
-    if tool_registry.uses_generic_contract(tool) and any(
-            upload.filename == generic_job.JOB_INPUT_FILENAME for upload in uploads):
-        raise ProblemException(
-            422, 'Reserved file name',
-            f'"{generic_job.JOB_INPUT_FILENAME}" is reserved for the job input document. '
-            f'Rename the file.',
-            type_uri=INVALID_INPUT,
-        )
+    # A generic tool's input is job.json in the same directory as its uploads. Plain file
+    # names only: prejob.py joins object names onto a local path, so one such as
+    # x/../job.json could still land on job.json.
+    if tool_registry.uses_generic_contract(tool):
+        for upload in uploads:
+            name = upload.filename or ''
+            if name in ('', '.', '..') or '/' in name or '\\' in name:
+                raise ProblemException(
+                    422, 'Invalid file name',
+                    f'"{name}" is not a plain file name.', type_uri=INVALID_INPUT,
+                )
+            if name == generic_job.JOB_INPUT_FILENAME:
+                raise ProblemException(
+                    422, 'Reserved file name',
+                    f'"{generic_job.JOB_INPUT_FILENAME}" is reserved for the job input '
+                    f'document. Rename the file.',
+                    type_uri=INVALID_INPUT,
+                )
 
     # Replaying a key returns the original job rather than starting a second container.
     if idempotency_key:

@@ -1,4 +1,6 @@
-"""The generic job contract: tools that need no per-tool code in this backend.
+"""The generic job contract: tools that need no per-tool input or results code.
+
+(Notification email still dispatches per tool in kubejob_service; mmli-backend#145.)
 
 A tool opts in by declaring an `output_schema` in tools.yaml. Then:
 
@@ -10,6 +12,9 @@ A tool opts in by declaring an `output_schema` in tools.yaml. Then:
               after validation against the output schema. Larger outputs are separate
               files, listed in results.json under `artifacts` and served by name from
               /v1/jobs/{id}/artifacts/{name}
+  routes      /v1 only. The legacy create and upload routes take a client-chosen job_id,
+              which would let anyone holding an id overwrite job.json, so both refuse
+              these tools
 
 moleculemaker/job-template implements the container side of this contract.
 """

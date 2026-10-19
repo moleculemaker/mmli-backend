@@ -36,8 +36,10 @@
 #   output_schema  filename in app/schemas/ for the tool's results.json. Setting it opts
 #                  the tool into the generic job contract (services/generic_job.py):
 #                  input written as job.json, results.json served as-is, no per-tool
-#                  code. Required for every new tool; omit it only for the tools that
-#                  predate the contract. Built with moleculemaker/job-template
+#                  input or results code. (Notification email still needs a branch in
+#                  kubejob_service until mmli-backend#145.) Required for every new tool;
+#                  omit it only for the tools that predate the contract. Submitted via
+#                  /v1 only. Built with moleculemaker/job-template
 #   input_files    what must be uploaded to the job before submission, or null
 #   schema_status  verified   - derived from this repository's own parsing code
 #                  from-container - derived from the tool container's source or examples
