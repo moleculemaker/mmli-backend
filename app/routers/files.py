@@ -18,6 +18,7 @@ from models.sqlmodel.db import get_session
 
 from models.enums import JobType, JobTypes
 
+from services import generic_job, tool_registry
 from services.aceretro_service import ACERetroService
 from services.chemscraper_service import ChemScraperService
 from services.clean_service import CleanService
@@ -62,6 +63,12 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     if bucket_name not in JobTypes:
         raise HTTPException(status_code=400, detail=f"Unknown bucket: {bucket_name}")
 
+    # A client-chosen job_id here could overwrite an existing job's job.json. Generic
+    # tools upload files with their /v1 submission instead.
+    if tool_registry.uses_generic_contract(bucket_name):
+        raise HTTPException(status_code=400,
+                            detail=f'Upload "{bucket_name}" files with POST /v1/tools/{bucket_name}/jobs')
+
     first_four_bytes = file.file.read(4)
     file.file.seek(0)
     if bucket_name != 'chemscraper' or first_four_bytes == b'%PDF':
@@ -92,6 +99,12 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     ),
 )
 async def get_results(bucket_name: str, job_id: str, service: MinIOService = Depends(), db: AsyncSession = Depends(get_session)):
+    if tool_registry.uses_generic_contract(bucket_name):
+        try:
+            return generic_job.read_results(service, bucket_name, job_id)
+        except generic_job.InvalidResults as ex:
+            raise HTTPException(status_code=502, detail=f'Job produced invalid results: {ex}')
+
     if bucket_name == JobType.ACERETRO:
         print("Getting ACERETRO job result")
         return await ACERetroService.resultPostProcess(bucket_name, job_id, service, db)
