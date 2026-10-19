@@ -116,6 +116,22 @@ class TestSubmission:
         assert resp.json()["type"].endswith("/invalid-input")
         assert client.k8s_jobs == []
 
+    def test_the_legacy_route_cannot_overwrite_an_existing_jobs_input(self, client, monkeypatch):
+        """The legacy route takes a client-chosen job_id and skips schema validation."""
+        # The legacy route only accepts JobType values, so make a real one generic
+        registry = dict(tool_registry.get_registry())
+        registry["molli"] = {**registry["molli"], "input_schema": INPUT_SCHEMA,
+                             "output_schema": OUTPUT_SCHEMA}
+        monkeypatch.setattr(tool_registry, "_REGISTRY", registry)
+        job_id = client.post("/v1/tools/molli/jobs", json=INPUT).json()["job_id"]
+
+        resp = client.post("/molli/jobs", json={"job_id": job_id, "job_info": '{"evil": 1}'})
+
+        assert resp.status_code == 400
+        assert "/v1/tools/molli/jobs" in resp.json()["detail"]
+        assert json.loads(client.minio.get_file("molli", f"{job_id}/in/job.json")) == INPUT
+        assert len(client.k8s_jobs) == 1
+
 
 class TestResults:
     def test_results_json_is_served_as_written(self, client):
