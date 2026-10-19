@@ -19,6 +19,7 @@ A tool opts in by declaring an `output_schema` in tools.yaml. Then:
 moleculemaker/job-template implements the container side of this contract.
 """
 import json
+import math
 from typing import Any, List, Optional
 
 from fastapi import HTTPException
@@ -43,6 +44,13 @@ def _reject_constant(name: str) -> None:
     raise ValueError(f'{name} is not a JSON value')
 
 
+def _finite_float(text: str) -> float:
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(f'{text} is out of range for a JSON number')
+    return value
+
+
 def write_job_input(service: MinIOService, job_type: str, job_id: str, job_info: str) -> None:
     service.ensure_bucket_exists(job_type)
     if not service.upload_file(job_type, f'{job_id}/in/{JOB_INPUT_FILENAME}', job_info.encode('utf-8')):
@@ -60,8 +68,9 @@ def read_results(service: MinIOService, job_type: str, job_id: str) -> Optional[
         return None
 
     try:
-        # Python accepts NaN and +/-Infinity, which are not JSON and break the response
-        results = json.loads(content, parse_constant=_reject_constant)
+        # Python accepts NaN and +/-Infinity, and reads 1e999 as inf. None can be rendered
+        # back into a JSON response.
+        results = json.loads(content, parse_constant=_reject_constant, parse_float=_finite_float)
     except ValueError as ex:
         raise InvalidResults([f'{RESULTS_FILENAME} is not valid JSON: {ex}'])
 

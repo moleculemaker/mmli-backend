@@ -191,7 +191,7 @@ class TestResults:
 
         assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
 
-    @pytest.mark.parametrize("constant", [b"NaN", b"Infinity", b"-Infinity"])
+    @pytest.mark.parametrize("constant", [b"NaN", b"Infinity", b"-Infinity", b"1e999", b"-1e999"])
     def test_non_json_numbers_are_a_502_not_a_500(self, client, constant):
         """Python's json accepts these and jsonschema calls them numbers, but they are
         not JSON and cannot be rendered into a response."""
