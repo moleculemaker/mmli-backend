@@ -39,6 +39,10 @@ class InvalidResults(Exception):
         self.errors = errors
 
 
+def _reject_constant(name: str) -> None:
+    raise ValueError(f'{name} is not a JSON value')
+
+
 def write_job_input(service: MinIOService, job_type: str, job_id: str, job_info: str) -> None:
     service.ensure_bucket_exists(job_type)
     if not service.upload_file(job_type, f'{job_id}/in/{JOB_INPUT_FILENAME}', job_info.encode('utf-8')):
@@ -56,7 +60,8 @@ def read_results(service: MinIOService, job_type: str, job_id: str) -> Optional[
         return None
 
     try:
-        results = json.loads(content)
+        # Python accepts NaN and +/-Infinity, which are not JSON and break the response
+        results = json.loads(content, parse_constant=_reject_constant)
     except ValueError as ex:
         raise InvalidResults([f'{RESULTS_FILENAME} is not valid JSON: {ex}'])
 

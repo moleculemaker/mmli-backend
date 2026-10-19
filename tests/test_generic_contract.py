@@ -191,6 +191,19 @@ class TestResults:
 
         assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
 
+    @pytest.mark.parametrize("constant", [b"NaN", b"Infinity", b"-Infinity"])
+    def test_non_json_numbers_are_a_502_not_a_500(self, client, constant):
+        """Python's json accepts these and jsonschema calls them numbers, but they are
+        not JSON and cannot be rendered into a response."""
+        job_id = _submit(client).json()["job_id"]
+        # In a field the schema leaves unconstrained, so only the JSON parse can catch it
+        results = b'{"rows": [{"length": 3, "score": ' + constant + b'}], "artifacts": []}'
+        client.minio.put(TOOL, f"{job_id}/out/results.json", results)
+        _finish(client, job_id)
+
+        assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
+        assert client.get(f"/{TOOL}/results/{job_id}").status_code == 502
+
     def test_a_completed_job_without_results_json_is_a_409(self, client):
         job_id = _submit(client).json()["job_id"]
         _finish(client, job_id)
