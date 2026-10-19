@@ -181,8 +181,9 @@ class TestResults:
         body = resp.json()
         assert body["type"].endswith("/upstream-failure")
         assert body["schema_url"] == f"/v1/tools/{TOOL}/output-schema"
-        assert any("artifacts" in e for e in body["errors"])
-        assert any("'3' is not of type 'integer'" in e for e in body["errors"])
+        # Same {pointer, detail} shape as every other /v1 problem
+        assert {"pointer": "", "detail": "'artifacts' is a required property"} in body["errors"]
+        assert {"pointer": "/rows/0/length", "detail": "'3' is not of type 'integer'"} in body["errors"]
 
     def test_results_that_are_not_json_are_a_502(self, client):
         job_id = _submit(client).json()["job_id"]
@@ -203,6 +204,26 @@ class TestResults:
 
         assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
         assert client.get(f"/{TOOL}/results/{job_id}").status_code == 502
+
+    def test_deeply_nested_results_are_a_502_not_a_500(self, client):
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put(TOOL, f"{job_id}/out/results.json", b"[" * 100_000 + b"]" * 100_000)
+        _finish(client, job_id)
+
+        assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
+        assert client.get(f"/{TOOL}/results/{job_id}").status_code == 502
+
+    def test_a_large_invalid_document_is_not_echoed_back(self, client):
+        """jsonschema messages repr the failing value, which can be the whole document."""
+        job_id = _submit(client).json()["job_id"]
+        rows = [{"length": "x" * 100} for _ in range(2000)]
+        client.minio.put(TOOL, f"{job_id}/out/results.json", json.dumps({"rows": rows}).encode())
+        _finish(client, job_id)
+
+        resp = client.get(f"/v1/jobs/{job_id}/results")
+
+        assert resp.status_code == 502
+        assert len(resp.content) < 20_000
 
     def test_a_completed_job_without_results_json_is_a_409(self, client):
         job_id = _submit(client).json()["job_id"]

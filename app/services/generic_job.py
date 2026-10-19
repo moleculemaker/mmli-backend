@@ -18,9 +18,10 @@ A tool opts in by declaring an `output_schema` in tools.yaml. Then:
 
 moleculemaker/job-template implements the container side of this contract.
 """
+import itertools
 import json
 import math
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 from jsonschema import Draft202012Validator
@@ -32,12 +33,26 @@ JOB_INPUT_FILENAME = 'job.json'
 RESULTS_FILENAME = 'results.json'
 
 
-class InvalidResults(Exception):
-    """results.json exists but is not JSON or does not match the tool's output schema."""
+# jsonschema messages repr the failing value, which can be most of the document
+MAX_ERRORS = 20
+MAX_DETAIL_LENGTH = 300
 
-    def __init__(self, errors: List[str]):
-        super().__init__('; '.join(errors))
+
+class InvalidResults(Exception):
+    """results.json exists but is not JSON or does not match the tool's output schema.
+
+    `errors` uses the {pointer, detail} shape of every /v1 problem.
+    """
+
+    def __init__(self, errors: List[Dict[str, str]]):
+        super().__init__('; '.join(f"{e['pointer'] or '/'}: {e['detail']}" for e in errors))
         self.errors = errors
+
+
+def _error(pointer: str, detail: str) -> Dict[str, str]:
+    if len(detail) > MAX_DETAIL_LENGTH:
+        detail = detail[:MAX_DETAIL_LENGTH] + '...'
+    return {'pointer': pointer, 'detail': detail}
 
 
 def _reject_constant(name: str) -> None:
@@ -71,13 +86,16 @@ def read_results(service: MinIOService, job_type: str, job_id: str) -> Optional[
         # Python accepts NaN and +/-Infinity, and reads 1e999 as inf. None can be rendered
         # back into a JSON response.
         results = json.loads(content, parse_constant=_reject_constant, parse_float=_finite_float)
-    except ValueError as ex:
-        raise InvalidResults([f'{RESULTS_FILENAME} is not valid JSON: {ex}'])
+    except (ValueError, RecursionError) as ex:
+        # RecursionError: nesting deeper than the parser's stack, which is not valid JSON
+        # for any purpose here
+        raise InvalidResults([_error('', f'{RESULTS_FILENAME} is not valid JSON: {ex}')])
 
     schema = tool_registry.get_output_schema(job_type)
     errors = [
-        f'{error.json_path}: {error.message}'
-        for error in Draft202012Validator(schema).iter_errors(results)
+        _error('/' + '/'.join(str(p) for p in error.absolute_path) if error.absolute_path else '',
+               error.message)
+        for error in itertools.islice(Draft202012Validator(schema).iter_errors(results), MAX_ERRORS)
     ]
     if errors:
         raise InvalidResults(errors)
