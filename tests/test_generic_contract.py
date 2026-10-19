@@ -213,6 +213,34 @@ class TestResults:
         assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
         assert client.get(f"/{TOOL}/results/{job_id}").status_code == 502
 
+    def test_validation_too_deep_for_a_recursive_schema_is_a_502(self, client, monkeypatch):
+        """Parses fine, but a $ref-recursive schema recurses once per level when validating."""
+        registry = dict(tool_registry.get_registry())
+        registry[TOOL] = {**registry[TOOL], "output_schema": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "#/$defs/node",
+            "$defs": {"node": {"type": "array", "items": {"$ref": "#/$defs/node"}}},
+        }}
+        monkeypatch.setattr(tool_registry, "_REGISTRY", registry)
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put(TOOL, f"{job_id}/out/results.json", b"[" * 500 + b"]" * 500)
+        _finish(client, job_id)
+
+        assert client.get(f"/v1/jobs/{job_id}/results").status_code == 502
+        assert client.get(f"/{TOOL}/results/{job_id}").status_code == 502
+
+    def test_one_huge_failing_value_is_truncated(self, client):
+        job_id = _submit(client).json()["job_id"]
+        rows = [{"length": "x" * 100_000}]
+        client.minio.put(TOOL, f"{job_id}/out/results.json",
+                         json.dumps({"rows": rows, "artifacts": []}).encode())
+        _finish(client, job_id)
+
+        resp = client.get(f"/v1/jobs/{job_id}/results")
+
+        assert resp.status_code == 502
+        assert len(resp.content) < 5_000
+
     def test_a_large_invalid_document_is_not_echoed_back(self, client):
         """jsonschema messages repr the failing value, which can be the whole document."""
         job_id = _submit(client).json()["job_id"]

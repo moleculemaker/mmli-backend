@@ -92,11 +92,15 @@ def read_results(service: MinIOService, job_type: str, job_id: str) -> Optional[
         raise InvalidResults([_error('', f'{RESULTS_FILENAME} is not valid JSON: {ex}')])
 
     schema = tool_registry.get_output_schema(job_type)
-    errors = [
-        _error('/' + '/'.join(str(p) for p in error.absolute_path) if error.absolute_path else '',
-               error.message)
-        for error in itertools.islice(Draft202012Validator(schema).iter_errors(results), MAX_ERRORS)
-    ]
+    try:
+        errors = [
+            _error('/' + '/'.join(str(p) for p in error.absolute_path) if error.absolute_path else '',
+                   error.message)
+            for error in itertools.islice(Draft202012Validator(schema).iter_errors(results), MAX_ERRORS)
+        ]
+    except RecursionError:
+        # A $ref-recursive schema validates one stack frame per level of nesting
+        raise InvalidResults([_error('', f'{RESULTS_FILENAME} is nested too deeply to validate')])
     if errors:
         raise InvalidResults(errors)
     return results
