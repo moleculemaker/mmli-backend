@@ -14,18 +14,29 @@ from services import kubejob_service
 
 
 class _FakeContainerStatus:
-    def __init__(self, image_id):
+    def __init__(self, image_id, name="job"):
+        self.name = name
         self.image_id = image_id
 
 
 class _FakePodStatus:
-    def __init__(self, container_statuses):
+    def __init__(self, init_container_statuses, container_statuses):
+        self.init_container_statuses = init_container_statuses
         self.container_statuses = container_statuses
 
 
+BACKEND_IMAGE = "moleculemaker/mmli-backend@sha256:b89fe4"
+
+
 class _FakePod:
+    """Shaped like job.tpl.yaml's pods: the tool runs in the `job` init container,
+    between `init` and `post-job`, which both run the backend image."""
+
     def __init__(self, image_id):
-        self.status = _FakePodStatus([_FakeContainerStatus(image_id)])
+        self.status = _FakePodStatus(
+            [_FakeContainerStatus(BACKEND_IMAGE, "init"), _FakeContainerStatus(image_id)],
+            [_FakeContainerStatus(BACKEND_IMAGE, "post-job")],
+        )
 
 
 class _FakePodList:
@@ -64,6 +75,14 @@ class TestImageDigestExtraction:
 
         assert kubejob_service.get_image_digest("somn", "j1") == \
             "moleculemaker/somn@sha256:abc123"
+
+    def test_reads_the_job_container_not_the_backend_containers_around_it(self, fake_pods):
+        """`post-job` is the pod's only regular container; reading those alone would
+        record the backend's digest as the tool's."""
+        fake_pods["pods"] = [_FakePod("moleculemaker/clean-image-amd64@sha256:6aff32")]
+
+        assert kubejob_service.get_image_digest("clean", "j1") == \
+            "moleculemaker/clean-image-amd64@sha256:6aff32"
 
     def test_ignores_an_image_id_with_no_digest(self, fake_pods):
         """Some runtimes report a bare tag before the image is pulled."""

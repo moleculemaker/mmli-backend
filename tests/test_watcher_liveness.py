@@ -30,6 +30,7 @@ def _watcher(alive=True, last_progress=None):
     w = KubeEventWatcher()  # __init__ is a no-op under conftest
     w.logger = logging.getLogger("test-watcher")
     w.last_progress = time.monotonic() if last_progress is None else last_progress
+    w.last_pod_progress = time.monotonic()
     w.is_alive = lambda: alive
     return w
 
