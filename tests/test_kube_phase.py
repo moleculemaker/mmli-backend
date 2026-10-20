@@ -114,29 +114,32 @@ class TestConditionStatusIsHonored:
     code read only `.type` and would have accepted either."""
 
     def test_complete_false_is_not_a_completion(self):
-        assert _derive(conditions=[_Condition("Complete", status="False")]) == JobStatus.PROCESSING
+        assert _derive(conditions=[_Condition("Complete", status="False")]) == JobStatus.QUEUED
 
     def test_failed_false_is_not_a_failure(self):
-        assert _derive(conditions=[_Condition("Failed", status="False")]) == JobStatus.PROCESSING
+        assert _derive(conditions=[_Condition("Failed", status="False")]) == JobStatus.QUEUED
 
 
 class TestNonTerminalShapes:
+    """Every unfinished Job derives to 'queued'. The Job cannot tell waiting from
+    running (see test_queued_phase.py); the pod watch moves a job on to 'processing'."""
+
     def test_no_conditions_yet(self):
         """A freshly accepted Job. Not an error, and not a completion."""
-        assert _derive(conditions=None) == JobStatus.PROCESSING
+        assert _derive(conditions=None) == JobStatus.QUEUED
 
     def test_an_empty_condition_list(self):
-        assert _derive(conditions=[]) == JobStatus.PROCESSING
+        assert _derive(conditions=[]) == JobStatus.QUEUED
 
     def test_absent_status(self):
-        assert _derive(has_status=False) == JobStatus.PROCESSING
+        assert _derive(has_status=False) == JobStatus.QUEUED
 
     def test_suspended_is_not_terminal(self):
         """A suspended Job has not finished; it has been paused and may yet run."""
-        assert _derive(conditions=[_Condition("Suspended")]) == JobStatus.PROCESSING
+        assert _derive(conditions=[_Condition("Suspended")]) == JobStatus.QUEUED
 
     def test_zero_failed_pods_is_not_a_failure(self):
-        assert _derive(failed=0) == JobStatus.PROCESSING
+        assert _derive(failed=0) == JobStatus.QUEUED
 
 
 class TestCounterFallback:
@@ -149,7 +152,7 @@ class TestCounterFallback:
     def test_succeeded_short_of_a_parallel_completion_target(self):
         """A Job needing 3 successes with 1 recorded is still running. Comparing against
         `completions` rather than testing `succeeded > 0` is what keeps this correct."""
-        assert _derive(succeeded=1, completions=3) == JobStatus.PROCESSING
+        assert _derive(succeeded=1, completions=3) == JobStatus.QUEUED
 
     def test_succeeded_meets_a_parallel_completion_target(self):
         assert _derive(succeeded=3, completions=3) == JobStatus.COMPLETED

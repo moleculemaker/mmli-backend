@@ -141,6 +141,27 @@ def _mail_server_unavailable(exc):
     return isinstance(exc, MailServerUnavailable)
 
 
+# Every pod of a job we created carries this label (services/templates/job.tpl.yaml).
+JOB_POD_LABEL_SELECTOR = 'type=mmli-job'
+
+
+def _job_container_started(pod):
+    """True once the pod's `job` container is running or has run.
+
+    The tool runs in the init container named `job`, after `init` has downloaded its
+    inputs and before `post-job` uploads its outputs. Until `job` starts, the pod is
+    waiting: for a node (the single GPU node, usually), for an image pull, or for its
+    inputs.
+    """
+    if pod.status is None:
+        return False
+    for status in (pod.status.init_container_statuses or []) + (pod.status.container_statuses or []):
+        if status.name == 'job' and status.state is not None \
+                and (status.state.running or status.state.terminated):
+            return True
+    return False
+
+
 class KubeEventWatcher:
 
     # Set when a send finds the mail server unreachable; run() clears it on each pass.
@@ -150,7 +171,9 @@ class KubeEventWatcher:
         self.logger = log
         #self.logger.setLevel('DEBUG')
         self.last_progress = time.monotonic()
+        self.last_pod_progress = time.monotonic()
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
+        self.pod_thread = threading.Thread(target=self.run_pods, name='kube-pod-watcher', daemon=True)
         # Get global instance of the job handler database interface
 
         self.engine = db.create_engine(SQLALCHEMY_DATABASE_URL.replace('+asyncpg', ''))
@@ -164,6 +187,7 @@ class KubeEventWatcher:
         self.stream = None
         self.logger.info('Starting KubeWatcher')
         self.thread.start()
+        self.pod_thread.start()
         self.logger.info('Started KubeWatcher')
 
     def send_notification_email(self, job_id, job_type, updated_job, new_phase):
@@ -333,10 +357,13 @@ class KubeEventWatcher:
         and a missed completion is permanent (the watch never replays old events), which
         strands the job at whatever phase it last had. The succeeded/failed counters are a
         last-resort fallback for the same reason.
+
+        An unfinished Job is 'queued', never 'processing': it reads the same while its pod
+        waits for a node as while it computes. run_pods() makes that move, from the pod.
         """
         status = job_object.status
         if status is None:
-            return JobStatus.PROCESSING
+            return JobStatus.QUEUED
 
         met = {c.type for c in (status.conditions or []) if c.status == 'True'}
         if met & {'Complete', 'SuccessCriteriaMet'}:
@@ -351,7 +378,7 @@ class KubeEventWatcher:
         if status.failed is not None and status.failed > 0:
             return JobStatus.ERROR
 
-        return JobStatus.PROCESSING
+        return JobStatus.QUEUED
 
     def _reconcile_job_phase(self, job_object, ignored_namespaces, required_labels):
         """Derive a job's phase from its current k8s status and persist it.
@@ -393,6 +420,11 @@ class KubeEventWatcher:
                 self.logger.debug(f'Ignoring event for canceled job: {job_id}')
                 return
 
+            # The Job cannot see the move to 'processing' (see _derive_phase), so its
+            # events and the sweep must not undo the one run_pods() wrote.
+            if new_phase == JobStatus.QUEUED and updated_job.phase == JobStatus.PROCESSING:
+                new_phase = JobStatus.PROCESSING
+
             # Record which image actually ran, while the pod still exists to be asked.
             # Retried rather than attempted once: the digest is not readable until the
             # image has been pulled, so the first event for a job usually cannot supply it.
@@ -407,7 +439,7 @@ class KubeEventWatcher:
             # usually the last moment the pod exists, and skipping it would lose the digest
             # for exactly the short jobs whose whole lifecycle fits between two passes.
             phase_changed = updated_job.phase != new_phase
-            if updated_job.image_digest is None and (new_phase == JobStatus.PROCESSING or phase_changed):
+            if updated_job.image_digest is None and (new_phase in (JobStatus.QUEUED, JobStatus.PROCESSING) or phase_changed):
                 digest = get_image_digest(job_type, job_id)
                 if digest:
                     self.logger.debug(f'Recording image digest for {job_id}: {digest}')
@@ -574,25 +606,100 @@ class KubeEventWatcher:
                 time.sleep(2)
                 continue
 
+    def _reconcile_pod(self, pod):
+        """Move a job from 'queued' to 'processing' once its `job` container has started.
+
+        Only that one move. Everything else stays with the Job watch, and the update is
+        conditional on 'queued' in the database rather than read-then-write, because the
+        two watches run on separate threads: a pod event that arrives after the Job watch
+        wrote 'completed' or 'error', or after a cancel, must not reopen the job.
+        """
+        job_id = (pod.metadata.labels or {}).get('jobId')
+        if not job_id or not _job_container_started(pod):
+            return
+        with Session(self.engine) as session:
+            result = session.execute(
+                db.update(Job)
+                .where(Job.job_id == job_id, Job.phase == JobStatus.QUEUED)
+                .values(phase=JobStatus.PROCESSING))
+            session.commit()
+        if result.rowcount:
+            self.logger.debug(f'Updating job phase: {job_id} -> {JobStatus.PROCESSING}')
+
+    def run_pods(self):
+        """Watch job pods, so a job reports 'processing' when its container starts.
+
+        A second watch because nothing on the Job changes at that moment (see
+        _derive_phase). Same shape as run(): list and reconcile every pod, then watch
+        from the list's resourceVersion until the server ends the watch, then again.
+        The list is the recovery pass for any event missed while reconnecting.
+        """
+        k8s_event_stream = None
+        w = watch.Watch()
+
+        while True:
+            time.sleep(1)
+            try:
+                pods = api_v1.list_namespaced_pod(
+                    namespace=get_namespace(), label_selector=JOB_POD_LABEL_SELECTOR,
+                    _request_timeout=KUBE_REQUEST_TIMEOUT)
+                self.last_pod_progress = time.monotonic()
+                for pod in (pods.items or []):
+                    self._reconcile_pod_isolated(pod)
+
+                k8s_event_stream = w.stream(func=api_v1.list_namespaced_pod,
+                                            namespace=get_namespace(),
+                                            label_selector=JOB_POD_LABEL_SELECTOR,
+                                            resource_version=pods.metadata.resource_version,
+                                            timeout_seconds=WATCH_TIMEOUT_SECONDS,
+                                            _request_timeout=WATCH_REQUEST_TIMEOUT)
+                for event in k8s_event_stream:
+                    self._reconcile_pod_isolated(event['object'])
+            except Exception as e:
+                # No resourceVersion carries over: each pass lists afresh, so an expired
+                # one (410) needs no handling of its own.
+                self.logger.error('KubeWatcher reconnecting its pod watch to Kube API: %s' % str(e))
+                self.logger.error(traceback.format_exc())
+                if k8s_event_stream:
+                    k8s_event_stream.close()
+                k8s_event_stream = None
+                time.sleep(2)
+
+    def _reconcile_pod_isolated(self, pod):
+        # One bad pod must not drop the watch, as in run().
+        try:
+            self._reconcile_pod(pod)
+        except Exception as e:
+            self.logger.error(f'Skipped a pod event due to error: {e}')
+            self.logger.error(traceback.format_exc())
+        self.last_pod_progress = time.monotonic()
+
     def is_alive(self):
-        return self.thread and self.thread.is_alive()
+        return bool(self.thread and self.thread.is_alive()
+                    and self.pod_thread and self.pod_thread.is_alive())
 
     def is_healthy(self):
         """True while the watcher thread is running AND still making progress.
 
         is_alive() alone cannot see the failure that matters most: a thread blocked on a
         read that never returns is alive. Progress is recorded on every reconnect, every
-        reconciled Job, and every watch event (see run()).
+        reconciled Job, and every watch event (see run()), and likewise for pods (see
+        run_pods()). Both watches must be progressing: a stalled pod watch leaves every
+        job 'queued' for its whole run.
         """
-        return bool(self.is_alive()) and time.monotonic() - self.last_progress < WATCHER_STALL_SECONDS
+        oldest = min(self.last_progress, self.last_pod_progress)
+        return bool(self.is_alive()) and time.monotonic() - oldest < WATCHER_STALL_SECONDS
 
     def close(self):
         if self.stream:
             self.stream.close()
             self.stream = None
-        if self.is_alive():
+        if self.thread and self.thread.is_alive():
             self.thread.join(timeout=3)
             self.thread = None
+        if self.pod_thread and self.pod_thread.is_alive():
+            self.pod_thread.join(timeout=3)
+            self.pod_thread = None
 
 
 def get_namespace():
@@ -731,7 +838,13 @@ def get_image_digest(job_type: str, job_id: str) -> Optional[str]:
             _request_timeout=KUBE_REQUEST_TIMEOUT,
         )
         for pod in pods.items:
-            for container_status in (pod.status.container_statuses or []):
+            # Only `job` runs the tool. `init` and `post-job` are the mmli-backend image,
+            # and `post-job` is the pod's one regular container, so reading
+            # container_statuses alone records the backend's digest instead.
+            statuses = (pod.status.init_container_statuses or []) + (pod.status.container_statuses or [])
+            for container_status in statuses:
+                if container_status.name != 'job':
+                    continue
                 image_id = container_status.image_id
                 if not image_id:
                     continue
