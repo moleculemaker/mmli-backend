@@ -238,13 +238,14 @@ class KubeEventWatcher:
             # the rationale that it "is very fast"; it is not (a run waits on the single
             # GPU node before it computes), and the frontend offers the user a
             # notification checkbox, so it is handled above now.
-            frontend_url = app_config['kubernetes_jobs'].get(job_type, {}).get('frontend_url')
+            frontend_url = (app_config['kubernetes_jobs'].get(job_type) or {}).get('frontend_url')
             if frontend_url:
                 results_url = f"{frontend_url.rstrip('/')}/result/{updated_job.job_id}"
                 job_type_name = (get_tool(job_type) or {}).get('name') or job_type
             else:
-                # Exactly six types reach this silent branch today, none with a
-                # frontend_url:
+                # Exactly six types reach this silent branch today. None has a
+                # frontend_url in config.yaml or any chart values file, and
+                # tests/test_notification_email.py fails if one gains it:
                 #   OED_DLKCAT, OED_UNIKP, OED_CATPRED - OED subjobs, fast enough not to
                 #     need one. Note OED_CHEMINFO is NOT among them: it has a branch above
                 #     and does email, so "OED jobs" is not the right description of this set.

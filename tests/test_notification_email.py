@@ -302,9 +302,14 @@ class TestEveryEnvironmentsConfigMapResolvesEveryKey:
         missing = []
         for job_type in NOTIFYING_JOB_TYPES:
             try:
-                _notify(_watcher(), job_type)
+                sent = _notify(_watcher(), job_type)
             except KeyError as missing_key:
                 missing.append(f"{job_type} reads {missing_key}")
+                continue
+            # A tool on the default path doesn't raise without its frontend_url: it
+            # logs a warning and sends nothing. Count that as missing too.
+            if len(sent) != 1:
+                missing.append(f"{job_type} sent {len(sent)} emails")
 
         assert not missing, (
             f"{values_file} (coalesced onto {_BASE_VALUES}) is missing config keys the "
@@ -327,6 +332,15 @@ class TestTheSilentTypesStaySilent:
     @pytest.mark.parametrize("job_type", DELIBERATELY_SILENT_JOB_TYPES, ids=str)
     def test_no_email_is_sent(self, job_type):
         assert _notify(_watcher(), job_type) == []
+
+    @pytest.mark.parametrize("values_file", DEPLOYED_VALUES_FILES)
+    def test_no_environment_gives_one_a_frontend_url(self, values_file, monkeypatch):
+        """A `kubernetes_jobs.<type>.frontend_url` in one cluster's values would start
+        emailing that type there. For the ez-specificity subjobs that is a second email
+        for a submission whose parent already sends one."""
+        monkeypatch.setattr(kubejob_service, "app_config", _deployed_config(values_file))
+        assert {str(t): _notify(_watcher(), t) for t in DELIBERATELY_SILENT_JOB_TYPES} == \
+            {str(t): [] for t in DELIBERATELY_SILENT_JOB_TYPES}
 
 
 def _with_frontend_url(monkeypatch, job_type, url):
@@ -375,7 +389,11 @@ class TestAToolWithAFrontendUrlGetsTheDefaultEmail:
         assert len(sent) == 1
         assert "failed" in sent[0]["subject"].lower()
 
-    def test_without_a_frontend_url_it_stays_silent(self):
+    def test_a_tool_block_left_empty_stays_silent(self, monkeypatch):
+        """A values block whose children are all commented out loads as null."""
+        config = dict(kubejob_service.app_config)
+        config['kubernetes_jobs'] = dict(config['kubernetes_jobs'], **{str(JobType.OED_DLKCAT): None})
+        monkeypatch.setattr(kubejob_service, "app_config", config)
         assert _notify(_watcher(), JobType.OED_DLKCAT) == []
 
 
