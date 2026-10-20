@@ -113,7 +113,11 @@ class TestPodReconcile:
         assert _phase(watcher) == JobStatus.QUEUED
 
     def test_a_pod_for_an_unknown_job_is_ignored(self, watcher):
+        _seed(watcher, JobStatus.QUEUED)
         watcher._reconcile_pod(_pod(job_id="nope", init=COMPUTING.status.init_container_statuses))
+        with Session(watcher.engine) as session:
+            assert session.get(Job, "nope") is None
+        assert _phase(watcher) == JobStatus.QUEUED
 
 
 class _JobObject:
@@ -262,3 +266,23 @@ class TestHealth:
 
     def test_both_watches_progressing_is_healthy(self):
         assert self._watcher(time.monotonic(), time.monotonic()).is_healthy() is True
+
+
+class _Thread:
+    def __init__(self, alive):
+        self.alive = alive
+
+    def is_alive(self):
+        return self.alive
+
+
+class TestIsAlive:
+    """conftest replaces is_alive for every test, so this calls the real one."""
+
+    @pytest.mark.parametrize("job_alive,pod_alive,expected", [
+        (True, True, True), (True, False, False), (False, True, False),
+    ])
+    def test_both_threads_must_be_alive(self, job_alive, pod_alive, expected, real_watcher_is_alive):
+        w = KubeEventWatcher()
+        w.thread, w.pod_thread = _Thread(job_alive), _Thread(pod_alive)
+        assert real_watcher_is_alive(w) is expected
