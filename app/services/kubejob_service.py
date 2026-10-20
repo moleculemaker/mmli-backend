@@ -145,21 +145,29 @@ def _mail_server_unavailable(exc):
 JOB_POD_LABEL_SELECTOR = 'type=mmli-job'
 
 
+def _job_container_status(pod):
+    """The status of the pod's `job` container, the one that runs the tool, or None.
+
+    `job` is an init container, after `init` (downloads inputs) and before `post-job`
+    (uploads outputs); both of those run the mmli-backend image.
+    """
+    if pod.status is None:
+        return None
+    for status in (pod.status.init_container_statuses or []) + (pod.status.container_statuses or []):
+        if status.name == 'job':
+            return status
+    return None
+
+
 def _job_container_started(pod):
     """True once the pod's `job` container is running or has run.
 
-    The tool runs in the init container named `job`, after `init` has downloaded its
-    inputs and before `post-job` uploads its outputs. Until `job` starts, the pod is
-    waiting: for a node (the single GPU node, usually), for an image pull, or for its
-    inputs.
+    Until then the pod is waiting: for a node (the single GPU node, usually), for an
+    image pull, or for its inputs.
     """
-    if pod.status is None:
-        return False
-    for status in (pod.status.init_container_statuses or []) + (pod.status.container_statuses or []):
-        if status.name == 'job' and status.state is not None \
-                and (status.state.running or status.state.terminated):
-            return True
-    return False
+    status = _job_container_status(pod)
+    return bool(status is not None and status.state is not None
+                and (status.state.running or status.state.terminated))
 
 
 class KubeEventWatcher:
@@ -838,13 +846,10 @@ def get_image_digest(job_type: str, job_id: str) -> Optional[str]:
             _request_timeout=KUBE_REQUEST_TIMEOUT,
         )
         for pod in pods.items:
-            # Only `job` runs the tool. `init` and `post-job` are the mmli-backend image,
-            # and `post-job` is the pod's one regular container, so reading
-            # container_statuses alone records the backend's digest instead.
-            statuses = (pod.status.init_container_statuses or []) + (pod.status.container_statuses or [])
-            for container_status in statuses:
-                if container_status.name != 'job':
-                    continue
+            # Only `job` runs the tool. `post-job` is the pod's one regular container, so
+            # reading container_statuses alone records the backend's digest instead.
+            container_status = _job_container_status(pod)
+            if container_status is not None:
                 image_id = container_status.image_id
                 if not image_id:
                     continue
