@@ -28,3 +28,30 @@ subjects:
   - kind: ServiceAccount
     name: {{ .Release.Name }}-foreman
     namespace: {{ .Release.Namespace }}
+---
+# The watcher reads job pods: which container is running (queued vs processing) and
+# which image digest ran. Job pods run in the release namespace, so a namespaced Role is
+# enough; a ClusterRole would let the backend read every pod spec in the cluster.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Release.Name }}-foreman-pods
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Release.Name }}-foreman-pods
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ .Release.Name }}-foreman-pods
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-foreman
+    namespace: {{ .Release.Namespace }}
