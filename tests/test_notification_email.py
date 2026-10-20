@@ -353,6 +353,11 @@ class TestAToolWithAFrontendUrlGetsTheDefaultEmail:
         assert len(sent) == 1
         assert f"https://tool.example.org/result/{_Job().job_id}" in sent[0]["body"]
 
+    def test_a_trailing_slash_in_the_url_does_not_double_up(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org/")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert f"https://tool.example.org/result/{_Job().job_id}" in sent[0]["body"]
+
     def test_the_email_names_the_tool_from_the_registry(self, monkeypatch):
         _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
         sent = _notify(_watcher(), JobType.OED_DLKCAT)

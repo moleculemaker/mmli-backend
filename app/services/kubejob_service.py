@@ -240,7 +240,7 @@ class KubeEventWatcher:
             # notification checkbox, so it is handled above now.
             frontend_url = app_config['kubernetes_jobs'].get(job_type, {}).get('frontend_url')
             if frontend_url:
-                results_url = f'{frontend_url}/result/{updated_job.job_id}'
+                results_url = f"{frontend_url.rstrip('/')}/result/{updated_job.job_id}"
                 job_type_name = (get_tool(job_type) or {}).get('name') or job_type
             else:
                 # Exactly six types reach this silent branch today, none with a
