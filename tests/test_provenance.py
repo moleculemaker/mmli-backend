@@ -197,11 +197,11 @@ class TestCancellationIsTerminal:
             return session.get(Job, "j1").phase
 
     def test_a_canceled_job_is_not_resurrected_by_a_stale_event(self, watcher):
-        """Deleting a Job produces events that derive to 'processing'.
+        """Deleting a Job produces events that derive to 'queued'.
 
         Kubernetes never reports a terminal condition for a Job that was deleted, so
         without an explicit guard the watcher would move a job we deliberately stopped
-        back to 'processing' and it would poll forever.
+        back to 'queued' and it would poll forever.
         """
         self._seed(watcher, JobStatus.CANCELED)
 

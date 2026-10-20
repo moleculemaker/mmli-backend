@@ -412,7 +412,7 @@ class KubeEventWatcher:
                 return
 
             # 'canceled' is ours, not Kubernetes'. A canceled job's Job object is
-            # deleted, and the events that produces derive to 'processing' (no terminal
+            # deleted, and the events that produces derive to 'queued' (no terminal
             # condition is ever set), which would silently resurrect it. Nothing the
             # cluster reports about a job we deliberately stopped is more accurate than
             # the fact that we stopped it.
