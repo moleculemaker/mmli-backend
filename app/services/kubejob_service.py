@@ -27,6 +27,7 @@ from models.sqlmodel.models import Job
 import sqlalchemy as db
 
 from services.email_service import EmailService
+from services.tool_registry import get_tool
 
 log = get_logger(__name__)
 
@@ -229,31 +230,40 @@ class KubeEventWatcher:
         elif job_type in JobTypes:
             # This is the fall-through, not a list of skips. `JobTypes` is derived
             # from the JobType enum, so EVERY member lands here unless it was given a
-            # branch above -- and landing here means NO email, silently. Adding a tool
-            # to the enum is therefore not enough: without a branch above it will never
-            # notify, and nothing will say so. That is how CLEANDB_MEPESM was missed,
-            # on the rationale that it "is very fast"; it is not (a run waits on the
-            # single GPU node before it computes), and the frontend offers the user a
+            # branch above. A tool that lands here emails only if its
+            # `kubernetes_jobs.<type>.frontend_url` is configured: the default links to
+            # `{frontend_url}/result/{job_id}`, the route new apps standardize on, and
+            # names the tool from tools.yaml. Without that key it is silent, and nothing
+            # says so but the warning below. That is how CLEANDB_MEPESM was missed, on
+            # the rationale that it "is very fast"; it is not (a run waits on the single
+            # GPU node before it computes), and the frontend offers the user a
             # notification checkbox, so it is handled above now.
-            # Exactly six types reach this branch today:
-            #   OED_DLKCAT, OED_UNIKP, OED_CATPRED - OED subjobs, fast enough not to
-            #     need one. Note OED_CHEMINFO is NOT among them: it has a branch above
-            #     and does email, so "OED jobs" is not the right description of this set.
-            #   EZSPEC_UNIDOCK, EZSPEC_INFERENCE - intermediary steps of an
-            #     ez-specificity run; the parent job is what the user waits on.
-            #   CHEMSCRAPER - NOT a deliberate skip. It is this same bug, still open: the
-            #     chemscraper frontend submits through POST /chemscraper/jobs, which
-            #     builds a real Kubernetes Job this watcher observes, so a user who typed
-            #     an address is never notified. Its working email path hangs off
-            #     POST /chemscraper/analyze, which is deprecated and which the frontend
-            #     does not call. Fixing it needs its own change.
-            # ML_SIMPLEFOLD and DEFAULT do NOT reach here - both return earlier.
-            # tests/test_notification_email.py partitions every JobType into the ones
-            # that notify and the ones that stay silent, and fails on any member listed
-            # in neither -- so a tool added to the enum cannot default into silence here
-            # without a test going red.
-            log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
-            return False
+            frontend_url = (app_config['kubernetes_jobs'].get(job_type) or {}).get('frontend_url')
+            if frontend_url:
+                results_url = f"{frontend_url.rstrip('/')}/result/{updated_job.job_id}"
+                job_type_name = (get_tool(job_type) or {}).get('name') or job_type
+            else:
+                # Exactly six types reach this silent branch today. None has a
+                # frontend_url in config.yaml or any chart values file, and
+                # tests/test_notification_email.py fails if one gains it:
+                #   OED_DLKCAT, OED_UNIKP, OED_CATPRED - OED subjobs, fast enough not to
+                #     need one. Note OED_CHEMINFO is NOT among them: it has a branch above
+                #     and does email, so "OED jobs" is not the right description of this set.
+                #   EZSPEC_UNIDOCK, EZSPEC_INFERENCE - intermediary steps of an
+                #     ez-specificity run; the parent job is what the user waits on.
+                #   CHEMSCRAPER - NOT a deliberate skip. It is this same bug, still open: the
+                #     chemscraper frontend submits through POST /chemscraper/jobs, which
+                #     builds a real Kubernetes Job this watcher observes, so a user who typed
+                #     an address is never notified. Its working email path hangs off
+                #     POST /chemscraper/analyze, which is deprecated and which the frontend
+                #     does not call. Fixing it needs its own change.
+                # ML_SIMPLEFOLD and DEFAULT do NOT reach here - both return earlier.
+                # tests/test_notification_email.py partitions every JobType into the ones
+                # that notify and the ones that stay silent, and fails on any member listed
+                # in neither -- so a tool added to the enum cannot default into silence here
+                # without a test going red.
+                log.warning(f'Skipping notification email for unconfigured JobType: {job_type}')
+                return False
 
         else:
             raise ValueError(f"Unrecognized job type {job_type} not in existing Job Types {str(JobTypes)}")
