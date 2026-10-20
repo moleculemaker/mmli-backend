@@ -137,11 +137,12 @@ class TestMepEsmIsNotified:
 
 # Every JobType must be listed in exactly one of these two sets.
 #
-# The dispatch's catch-all (`elif job_type in JobTypes`) returns silently, and `JobTypes`
-# is derived from the enum -- `[str(job_type) for job_type in JobType]` in
-# `app/models/enums.py` -- so every member satisfies it by construction. A tool added to
-# the enum and forgotten in the dispatch therefore never raises and never emails; it just
-# logs a warning that reads as intentional. That is precisely how CLEANDB_MEPESM went
+# The dispatch's catch-all (`elif job_type in JobTypes`) returns silently unless the tool
+# has a `kubernetes_jobs.<type>.frontend_url` (#145), and `JobTypes` is derived from the
+# enum -- `[str(job_type) for job_type in JobType]` in `app/models/enums.py` -- so every
+# member satisfies it by construction. A tool added to the enum with neither a branch nor
+# a frontend_url therefore never raises and never emails; it just logs a warning that
+# reads as intentional. That is precisely how CLEANDB_MEPESM went
 # unnotified, and it is why "no known type raises" cannot be the safety net: the
 # `raise ValueError` below the catch-all is unreachable for any JobType member.
 #
@@ -326,6 +327,51 @@ class TestTheSilentTypesStaySilent:
     @pytest.mark.parametrize("job_type", DELIBERATELY_SILENT_JOB_TYPES, ids=str)
     def test_no_email_is_sent(self, job_type):
         assert _notify(_watcher(), job_type) == []
+
+
+def _with_frontend_url(monkeypatch, job_type, url):
+    """Give one tool a `kubernetes_jobs.<type>.frontend_url`, as a new tool's chart
+    values would. Copies the blocks it touches, so the shared app_config is unchanged."""
+    config = dict(kubejob_service.app_config)
+    jobs = dict(config['kubernetes_jobs'])
+    jobs[str(job_type)] = dict(jobs.get(str(job_type), {}), frontend_url=url)
+    config['kubernetes_jobs'] = jobs
+    monkeypatch.setattr(kubejob_service, "app_config", config)
+
+
+class TestAToolWithAFrontendUrlGetsTheDefaultEmail:
+    """#145: a tool with no branch above used to stay silent whatever was configured.
+    With `kubernetes_jobs.<type>.frontend_url` set, it now gets the default email, which
+    links to `/result/:id` -- the route new apps standardize on.
+
+    OED_DLKCAT stands in for a new tool: it reaches the fall-through, and nothing
+    configures a frontend_url for it today."""
+
+    def test_completion_sends_one_email_linking_to_the_result_page(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert len(sent) == 1
+        assert f"https://tool.example.org/result/{_Job().job_id}" in sent[0]["body"]
+
+    def test_the_email_names_the_tool_from_the_registry(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert "OpenEnzymeDB DLKcat" in sent[0]["subject"]
+
+    def test_a_tool_missing_from_the_registry_is_named_by_its_job_type(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        monkeypatch.setattr(kubejob_service, "get_tool", lambda identifier: None)
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert str(JobType.OED_DLKCAT) in sent[0]["subject"]
+
+    def test_failure_sends_an_email(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT, phase=JobStatus.ERROR)
+        assert len(sent) == 1
+        assert "failed" in sent[0]["subject"].lower()
+
+    def test_without_a_frontend_url_it_stays_silent(self):
+        assert _notify(_watcher(), JobType.OED_DLKCAT) == []
 
 
 class TestAnUnknownJobTypeStillRaises:
