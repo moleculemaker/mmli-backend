@@ -55,6 +55,9 @@ def _noop(self, *args, **kwargs):
     return None
 
 
+# Kept so tests can drive the real watch loop against fakes (see the real_watcher_run fixture).
+_real_watcher_run = kubejob_service.KubeEventWatcher.run
+
 kubejob_service.KubeEventWatcher.__init__ = _noop
 kubejob_service.KubeEventWatcher.run = _noop
 kubejob_service.KubeEventWatcher.close = _noop
@@ -150,6 +153,12 @@ def sync_db_url():
     this rather than the async URL the app is configured with.
     """
     return _sync_url
+
+
+@pytest.fixture
+def real_watcher_run():
+    """The unpatched KubeEventWatcher.run, for tests that drive the loop against fakes."""
+    return _real_watcher_run
 
 
 @pytest.fixture

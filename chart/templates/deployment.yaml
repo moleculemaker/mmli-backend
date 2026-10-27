@@ -65,6 +65,17 @@ spec:
         - name: mmli-fastapi
           image: {{ .Values.controller.image }}
           imagePullPolicy: {{ .Values.controller.imagePullPolicy | default "Always" }}
+          # /healthz fails once the Kubernetes watcher thread has stalled for two watch
+          # cycles (WATCHER_STALL_SECONDS in kubejob_service.py), so this restarts the pod
+          # instead of leaving every job stuck at its last phase.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 5
+            failureThreshold: 3
           volumeMounts:
             - name: server-config
               mountPath: /code/app/cfg/config.yaml

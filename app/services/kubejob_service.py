@@ -26,7 +26,7 @@ from models.sqlmodel.db import get_session, engine
 from models.sqlmodel.models import Job
 import sqlalchemy as db
 
-from services.email_service import EmailService
+from services.email_service import EmailService, MailServerUnavailable
 
 log = get_logger(__name__)
 
@@ -111,12 +111,45 @@ def upload_local_directory_to_minio(local_path: str, bucket_name: str, minio_pre
             minioClient.fput_object(bucket_name=bucket_name, object_name=remote_path, file_path=local_file)
 
 
+# The API server ends each watch after this many seconds; run() then re-lists and
+# reconciles, which is the recovery pass for any event that was missed.
+WATCH_TIMEOUT_SECONDS = 600
+
+# Client-side (connect, read) timeouts for the Kubernetes calls the watcher thread makes.
+# timeout_seconds above is only a request to the server: if the connection dies without
+# a FIN or RST reaching us, nothing ends the read and the thread blocks forever. That is
+# how the watcher stopped on 2026-10-15 and stranded every job at 'queued' for two days.
+# The watch's read timeout must outlast WATCH_TIMEOUT_SECONDS, or a quiet but healthy
+# stream (no Job changes for ten minutes) is torn down as if it were dead.
+WATCH_REQUEST_TIMEOUT = (10, WATCH_TIMEOUT_SECONDS + 60)
+KUBE_REQUEST_TIMEOUT = (10, 60)
+
+# How long the watcher may go without making progress before /healthz reports it stuck.
+# Two full watch cycles: a healthy watcher records progress at least once per cycle (on
+# every reconnect), so missing two means it is blocked somewhere, not merely idle.
+WATCHER_STALL_SECONDS = 2 * WATCH_TIMEOUT_SECONDS
+
+
+def _mail_server_unavailable(exc):
+    """True when a send failed before any recipient was involved (see MailServerUnavailable).
+
+    Only that may stop the other jobs' sends. Anything later - a refused recipient, or a
+    disconnect after RCPT - could be caused by one job's address, which is unvalidated
+    user input; treating it as an outage would let one submitted job switch off
+    notifications for every pass until its Kubernetes Job is deleted.
+    """
+    return isinstance(exc, MailServerUnavailable)
+
 
 class KubeEventWatcher:
+
+    # Set when a send finds the mail server unreachable; run() clears it on each pass.
+    mail_server_unavailable = False
 
     def __init__(self):
         self.logger = log
         #self.logger.setLevel('DEBUG')
+        self.last_progress = time.monotonic()
         self.thread = threading.Thread(target=self.run, name='kube-event-watcher', daemon=True)
         # Get global instance of the job handler database interface
 
@@ -276,6 +309,7 @@ class KubeEventWatcher:
                 return True
             except Exception as e:
                 log.error(f'Failed to send email notification on success: {str(e)}')
+                self.mail_server_unavailable = self.mail_server_unavailable or _mail_server_unavailable(e)
         elif new_phase == JobStatus.ERROR and updated_job.email:
             try:
                 self.email_service.send_email(updated_job.email,
@@ -284,6 +318,7 @@ class KubeEventWatcher:
                 return True
             except Exception as e:
                 log.error(f'Failed to send email notification on failure: {str(e)}')
+                self.mail_server_unavailable = self.mail_server_unavailable or _mail_server_unavailable(e)
 
         return False
 
@@ -413,9 +448,14 @@ class KubeEventWatcher:
             # reached on every event and every 600s sweep for as long as notified_at is
             # null, and running the dispatch (which reads app_config keys) for a running
             # job, or for a job nobody asked to be told about, is work with no result.
+            #
+            # Skipped for the rest of the pass once the mail server has failed to answer:
+            # every send would wait out the SMTP timeout in turn, on this thread, delaying
+            # every phase update behind it. The jobs stay due and the next pass retries.
             if (updated_job.notified_at is None
                     and new_phase in (JobStatus.COMPLETED, JobStatus.ERROR)
-                    and updated_job.email):
+                    and updated_job.email
+                    and not self.mail_server_unavailable):
                 try:
                     if self.send_notification_email(job_id, job_type, updated_job, new_phase):
                         updated_job.notified_at = int(time.time())
@@ -452,7 +492,7 @@ class KubeEventWatcher:
         # for ttlSecondsAfterFinished (12h), so they are still listed when we catch up.
         # Without this the reconcile pass below only ever runs when the API server drops the
         # stream, so on a healthy connection the recovery path never executes at all.
-        timeout_seconds = 600
+        timeout_seconds = WATCH_TIMEOUT_SECONDS
         resource_version = ''
         k8s_event_stream = None
 
@@ -463,7 +503,14 @@ class KubeEventWatcher:
             self.logger.info('KubeWatcher is connecting...')
             try:
                 # List all pods in watched namespace to get resource_version
-                namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(namespace=get_namespace())
+                namespaced_jobs: client.V1JobList = api_batch_v1.list_namespaced_job(
+                    namespace=get_namespace(), _request_timeout=KUBE_REQUEST_TIMEOUT)
+                # Progress only once the list succeeds. Recorded on every loop instead, a
+                # list that fails on every attempt (an expired credential, say) would
+                # keep /healthz green while no phase is ever updated.
+                self.last_progress = time.monotonic()
+                # Each pass gets one fresh attempt at the mail server.
+                self.mail_server_unavailable = False
                 resource_version = namespaced_jobs.metadata.resource_version if namespaced_jobs.metadata.resource_version else resource_version
 
                 # Reconcile existing jobs from the current list BEFORE watching. The watch
@@ -479,13 +526,15 @@ class KubeEventWatcher:
                     except Exception as e:
                         self.logger.error(f'Reconcile skipped a job due to error: {e}')
                         self.logger.error(traceback.format_exc())
+                    self.last_progress = time.monotonic()
 
                 # Then, watch for new events using the most recent resource_version
                 # Resource version is used to keep track of stream progress (in case of resume/retry)
                 k8s_event_stream = w.stream(func=api_batch_v1.list_namespaced_job,
                                             namespace=get_namespace(),
                                             resource_version=resource_version,
-                                            timeout_seconds=timeout_seconds)
+                                            timeout_seconds=timeout_seconds,
+                                            _request_timeout=WATCH_REQUEST_TIMEOUT)
 
                 self.logger.info('KubeWatcher connected!')
 
@@ -500,6 +549,7 @@ class KubeEventWatcher:
                     except Exception as e:
                         self.logger.error(f'Skipped a Job event due to error: {e}')
                         self.logger.error(traceback.format_exc())
+                    self.last_progress = time.monotonic()
 
             except (ApiException, HTTPError) as e:
                 self.logger.error('HTTPError encountered - KubeWatcher reconnecting to Kube API: %s' % str(e))
@@ -526,6 +576,15 @@ class KubeEventWatcher:
 
     def is_alive(self):
         return self.thread and self.thread.is_alive()
+
+    def is_healthy(self):
+        """True while the watcher thread is running AND still making progress.
+
+        is_alive() alone cannot see the failure that matters most: a thread blocked on a
+        read that never returns is alive. Progress is recorded on every reconnect, every
+        reconciled Job, and every watch event (see run()).
+        """
+        return bool(self.is_alive()) and time.monotonic() - self.last_progress < WATCHER_STALL_SECONDS
 
     def close(self):
         if self.stream:
@@ -669,6 +728,7 @@ def get_image_digest(job_type: str, job_id: str) -> Optional[str]:
         pods = api_v1.list_namespaced_pod(
             namespace=get_namespace(),
             label_selector=f'job-name={get_job_name_from_id(job_type, job_id)}',
+            _request_timeout=KUBE_REQUEST_TIMEOUT,
         )
         for pod in pods.items:
             for container_status in (pod.status.container_statuses or []):
