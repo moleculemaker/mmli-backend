@@ -25,7 +25,7 @@ from models.enums import JobType, JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
-from services import analytics, job_builder, kubejob_service
+from services import analytics, job_builder, kubejob_service, tool_registry
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -72,6 +72,12 @@ async def create_job(
         service: MinIOService = Depends(),
         db: AsyncSession = Depends(get_session)
 ):
+    # This route trusts a client-chosen job_id and skips schema validation, so a generic
+    # tool's job.json could be overwritten for an existing job. Those tools are /v1 only.
+    if tool_registry.uses_generic_contract(job_type):
+        raise HTTPException(status_code=400,
+                            detail=f'"{job_type}" jobs must be submitted with POST /v1/tools/{job_type}/jobs')
+
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 

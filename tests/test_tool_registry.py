@@ -269,3 +269,43 @@ class TestSchemasRejectBadInput:
 
         with pytest.raises(Exception):
             Draft202012Validator(schema).validate(payload)
+
+
+class TestGenericContract:
+    """New tools use the generic job contract (services/generic_job.py) unless justified.
+
+    These are the tools that predate it, each with its own branches in job_builder and
+    routers/files.py. A new tool belongs here only if it genuinely needs backend-side
+    code, e.g. assembling results from a database or from subjobs, and that reason
+    should be written next to its entry.
+    """
+
+    PREDATES_GENERIC_CONTRACT = frozenset({
+        "aceretro", "chemscraper", "clean", "cleandb-mepesm", "crispr-copies",
+        "ez-specificity", "ezspec-inference", "ezspec-unidock", "ml-simplefold", "molli",
+        "mutagenesis", "novostoic-dgpredictor", "novostoic-enzrank", "novostoic-optstoic",
+        "novostoic-pathways", "oed-catpred", "oed-cheminfo", "oed-dlkcat", "oed-unikp",
+        "reactionminer", "somn",
+    })
+
+    @pytest.mark.parametrize("identifier", sorted(tool_registry.get_registry()))
+    def test_new_tools_declare_an_output_schema(self, identifier):
+        if identifier in self.PREDATES_GENERIC_CONTRACT:
+            return
+
+        assert tool_registry.uses_generic_contract(identifier), (
+            f"{identifier}: new tools need an output_schema in tools.yaml (see "
+            f"moleculemaker/job-template), or a justified entry in PREDATES_GENERIC_CONTRACT"
+        )
+
+    @pytest.mark.parametrize("identifier", sorted(tool_registry.get_registry()))
+    def test_output_schema_is_valid_and_lists_artifacts(self, identifier):
+        """`artifacts` names the output files served by name, so every tool keeps it."""
+        schema = tool_registry.get_output_schema(identifier)
+        if schema is None:
+            return
+
+        assert schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema"
+        Draft202012Validator.check_schema(schema)
+        assert "artifacts" in schema.get("properties", {}), \
+            f"{identifier}: output schema has no `artifacts` property"
