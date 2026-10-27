@@ -44,7 +44,7 @@ def fake_pods(monkeypatch):
     state = {"pods": [], "calls": 0}
 
     class _FakeCoreApi:
-        def list_namespaced_pod(self, namespace, label_selector=None):
+        def list_namespaced_pod(self, namespace, label_selector=None, _request_timeout=None):
             state["calls"] += 1
             return _FakePodList(state["pods"])
 

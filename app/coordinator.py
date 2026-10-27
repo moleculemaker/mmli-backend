@@ -10,6 +10,7 @@ import requests
 from requests import Response
 
 from config import get_logger, app_config
+from services.backend_retry import REQUEST_TIMEOUT_SECONDS, request_with_retry
 from services.kubejob_service import download_remote_directory_from_minio, upload_local_directory_to_minio
 
 job_type = bucket_name = os.getenv('JOB_TYPE')
@@ -35,13 +36,16 @@ def create_job_step(step_type: str, subjob_id: str, job_config=None) -> str:
         "job_info": json.dumps(job_config)   # Any additional JSON inputs?
     } if job_config is not None else { "job_id": subjob_id }
 
-    # Create a subjob that will run this step on the input files
+    # Create a subjob that will run this step on the input files.
+    # A timeout but no retry: failing beats blocking forever on a backend that died
+    # mid-request, and a retry is unsafe here (see request_with_retry).
     resp: Response = requests.post(
         f'{mmli_hostname}/{step_type}/jobs',
         data=json.dumps(req_body),
         headers={
             "Content-Type": "application/json",
-        }
+        },
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
 
     # Ensure that job was submitted successfully
@@ -64,7 +68,7 @@ def create_job_step(step_type: str, subjob_id: str, job_config=None) -> str:
 
 
 def get_job_step_status(step_name: str, step_id: str) -> str:
-    resp = requests.get(f'{mmli_hostname}/{step_name}/jobs/{step_id}')
+    resp = request_with_retry('GET', f'{mmli_hostname}/{step_name}/jobs/{step_id}')
     resp.raise_for_status()
     job_list = resp.json()
     log.debug(f'job_type={job_type}  job_id={job_id}  step_type={step_name}  step_id={step_id}  |  job_list={str(job_list)}')

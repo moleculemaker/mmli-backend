@@ -45,7 +45,8 @@ def test_failed_step_exits_with_step_error_code_without_kubernetes_lookup(monkey
 
     monkeypatch.setattr(kubejob_service, "upload_local_directory_to_minio", lambda **kwargs: None)
     monkeypatch.setattr(requests, "post", lambda url, **kwargs: _Response({"job_id": "unidock1"}))
-    monkeypatch.setattr(requests, "get", lambda url, **kwargs: _Response([{"phase": "error"}]))
+    # The status poll goes through backend_retry.request_with_retry, i.e. requests.request.
+    monkeypatch.setattr(requests, "request", lambda method, url, **kwargs: _Response([{"phase": "error"}]))
 
     def _read_namespaced_job(**kwargs):
         raise AssertionError("coordinator must not look up the failed step's Kubernetes Job")

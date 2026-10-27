@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from starlette.routing import Route
 
 from config import app_config, get_logger
@@ -85,6 +86,21 @@ app.router.routes.insert(
     0, Route("/mcp", mcp_mount, methods=["GET", "POST", "DELETE", "OPTIONS"]),
 )
 app.mount("/mcp", mcp_mount)
+
+
+# Liveness probe target (chart/templates/deployment.yaml). Fails when the Kubernetes
+# watcher thread has died or stopped making progress, so the kubelet restarts the pod.
+# A restart is the only recovery: a Python thread blocked on a socket cannot be
+# interrupted from outside, and while it is blocked no job's phase is ever updated.
+#
+# async on purpose: a sync endpoint runs in the request threadpool, so a saturated pool
+# would fail the probe and restart a healthy pod. is_healthy() does no I/O.
+@app.get("/healthz", include_in_schema=False)
+async def healthz():
+    if watcher.is_healthy():
+        return {"status": "ok"}
+    return JSONResponse(status_code=503, content={"status": "kube watcher stalled"})
+
 
 app.include_router(files.router)
 app.include_router(job.router)
