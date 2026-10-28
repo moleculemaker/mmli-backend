@@ -36,15 +36,34 @@
 #   output_schema  filename in app/schemas/ for the tool's results.json. Setting it opts
 #                  the tool into the generic job contract (services/generic_job.py):
 #                  input written as job.json, results.json served as-is, no per-tool
-#                  input or results code. (Notification email still needs a branch in
-#                  kubejob_service until mmli-backend#145.) Required for every new tool;
-#                  omit it only for the tools that predate the contract. Submitted via
-#                  /v1 only. Built with moleculemaker/job-template
+#                  input or results code. Required for every new tool; omit it only for
+#                  the tools that predate the contract. Submitted via /v1 only. Built
+#                  with moleculemaker/job-template
 #   input_files    what must be uploaded to the job before submission, or null
 #   schema_status  verified   - derived from this repository's own parsing code
 #                  from-container - derived from the tool container's source or examples
 #                  unverified - inferred, needs confirmation
 #   internal       true for job types users never submit directly (created by a parent)
+#
+# Notification email for a new tool is configured outside this file, in the deployed
+# chart values for each environment (chart/values.mmli2.prod.yaml and
+# chart/values.mmli2.staging.yaml), not in a code branch:
+#
+#   config:
+#     kubernetes_jobs:
+#       <job_type>:
+#         frontend_url: "https://<tool>.platform.moleculemaker.org"
+#
+# When the job completes or fails, a user who gave an address is emailed a link to
+# `{frontend_url}/result/{job_id}`, the route frontend-template apps use, with the tool
+# named by its `name` above. Without frontend_url the tool sends no email; the watcher
+# logs a warning and nothing else. tests/test_notification_email.py must list the job
+# type as notifying or deliberately silent.
+#
+# The tools that predate this read a top-level `<app>_frontend_url` key instead (e.g.
+# crisprcopies_frontend_url) in their own branch of send_notification_email in
+# services/kubejob_service.py, because their routes differ. Don't add a new key or branch
+# of that kind for a new tool.
 
 tools:
 

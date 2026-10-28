@@ -157,11 +157,12 @@ class TestToolPrefixedResultLinks:
 
 # Every JobType must be listed in exactly one of these two sets.
 #
-# The dispatch's catch-all (`elif job_type in JobTypes`) returns silently, and `JobTypes`
-# is derived from the enum -- `[str(job_type) for job_type in JobType]` in
-# `app/models/enums.py` -- so every member satisfies it by construction. A tool added to
-# the enum and forgotten in the dispatch therefore never raises and never emails; it just
-# logs a warning that reads as intentional. That is precisely how CLEANDB_MEPESM went
+# The dispatch's catch-all (`elif job_type in JobTypes`) returns silently unless the tool
+# has a `kubernetes_jobs.<type>.frontend_url` (#145), and `JobTypes` is derived from the
+# enum -- `[str(job_type) for job_type in JobType]` in `app/models/enums.py` -- so every
+# member satisfies it by construction. A tool added to the enum with neither a branch nor
+# a frontend_url therefore never raises and never emails; it just logs a warning that
+# reads as intentional. That is precisely how CLEANDB_MEPESM went
 # unnotified, and it is why "no known type raises" cannot be the safety net: the
 # `raise ValueError` below the catch-all is unreachable for any JobType member.
 #
@@ -171,6 +172,7 @@ class TestToolPrefixedResultLinks:
 
 NOTIFYING_JOB_TYPES = [
     JobType.ACERETRO,
+    JobType.CHEMSCRAPER,
     JobType.CLEAN,
     JobType.CLEANDB_MEPESM,
     JobType.CRISPR_COPIES,
@@ -201,29 +203,28 @@ DELIBERATELY_SILENT_JOB_TYPES = [
     # MEP-ESM notification covers the pair.
     JobType.ML_SIMPLEFOLD,
     JobType.DEFAULT,            # example jobs
-    # CHEMSCRAPER is listed here to describe today's behavior, but it is NOT a deliberate
-    # skip -- it is the same live defect this PR fixes for MEP-ESM, and it needs its own
-    # change. Do not read its presence in this list as the question being settled.
-    #
-    # Chemscraper does have an emailing path (chemscraper_service.py:291/:302, success
-    # and failure), but it hangs off `POST /chemscraper/analyze`, which is marked
-    # `deprecated=True` at routers/chemscraper.py:31 and which the frontend never calls.
-    # What the frontend actually calls is the generic route:
-    #
-    #   configuration.component.html:105   email input -> `userEmail`
-    #   configuration.component.ts:114     userEmail -> requestBody.user_email
-    #   configuration.component.ts:90      -> chemscraper.service.ts:44 analyzeDocument()
-    #   chemscraper.service.ts:47          createJobJobTypeJobsPost('chemscraper', {email})
-    #                                      == POST /chemscraper/jobs
-    #   routers/job.py:62 -> job_builder.py:134 -> a real Kubernetes Job
-    #
-    # The watcher observes that Job, reaches this dispatch, finds no CHEMSCRAPER branch,
-    # and returns. So a user who typed an address into the chemscraper form is never
-    # notified -- exactly the MEP-ESM bug, still open. (Verified against a fresh clone of
-    # moleculemaker/chemscraper-frontend @ 697af1a; the method is named analyzeDocument
-    # after the endpoint it no longer uses, which is what hid this.)
-    JobType.CHEMSCRAPER,
 ]
+
+
+class TestChemScraperIsNotified:
+    """The same bug as MEP-ESM. The chemscraper frontend submits through the generic
+    `POST /chemscraper/jobs` (`createJobJobTypeJobsPost('chemscraper', {email})` in
+    chemscraper-frontend's chemscraper.service.ts), which builds a Kubernetes Job this
+    watcher observes. With no CHEMSCRAPER branch, the dispatch fell through to the
+    catch-all and a user who typed an address was never notified. The emailing path in
+    chemscraper_service.py hangs off `POST /chemscraper/analyze`, which is deprecated
+    and which the frontend does not call."""
+
+    def test_completion_email_links_to_the_result_page(self):
+        """The route is 'results/:id' in chemscraper-frontend's app-routing.module.ts."""
+        sent = _notify(_watcher(), JobType.CHEMSCRAPER)
+        assert len(sent) == 1
+        assert sent[0]["body"].endswith(f"/results/{_Job().job_id}")
+
+    def test_failure_sends_an_email(self):
+        sent = _notify(_watcher(), JobType.CHEMSCRAPER, phase=JobStatus.ERROR)
+        assert len(sent) == 1
+        assert "failed" in sent[0]["subject"].lower()
 
 
 class TestEveryJobTypeIsClassified:
@@ -321,9 +322,14 @@ class TestEveryEnvironmentsConfigMapResolvesEveryKey:
         missing = []
         for job_type in NOTIFYING_JOB_TYPES:
             try:
-                _notify(_watcher(), job_type)
+                sent = _notify(_watcher(), job_type)
             except KeyError as missing_key:
                 missing.append(f"{job_type} reads {missing_key}")
+                continue
+            # A tool on the default path doesn't raise without its frontend_url: it
+            # logs a warning and sends nothing. Count that as missing too.
+            if len(sent) != 1:
+                missing.append(f"{job_type} sent {len(sent)} emails")
 
         assert not missing, (
             f"{values_file} (coalesced onto {_BASE_VALUES}) is missing config keys the "
@@ -334,11 +340,9 @@ class TestEveryEnvironmentsConfigMapResolvesEveryKey:
 
 
 class TestTheSilentTypesStaySilent:
-    """These types send nothing today; the list above is what says which of those
-    silences are deliberate and which are open (CHEMSCRAPER is open). This class asserts
-    only the outcome, so do not read a passing test here as the question being settled.
-    What it does pin is that widening the dispatch to reach MEP-ESM did not start
-    notifying any of them.
+    """These types send nothing, deliberately; the list above says why for each. What
+    this pins is that widening the dispatch to reach MEP-ESM and ChemScraper did not
+    start notifying any of them.
 
     Note the catch-all is not the route for all of them: ML_SIMPLEFOLD and DEFAULT return
     earlier in the dispatch and never reach it."""
@@ -346,6 +350,69 @@ class TestTheSilentTypesStaySilent:
     @pytest.mark.parametrize("job_type", DELIBERATELY_SILENT_JOB_TYPES, ids=str)
     def test_no_email_is_sent(self, job_type):
         assert _notify(_watcher(), job_type) == []
+
+    @pytest.mark.parametrize("values_file", DEPLOYED_VALUES_FILES)
+    def test_no_environment_gives_one_a_frontend_url(self, values_file, monkeypatch):
+        """A `kubernetes_jobs.<type>.frontend_url` in one cluster's values would start
+        emailing that type there. For the ez-specificity subjobs that is a second email
+        for a submission whose parent already sends one."""
+        monkeypatch.setattr(kubejob_service, "app_config", _deployed_config(values_file))
+        assert {str(t): _notify(_watcher(), t) for t in DELIBERATELY_SILENT_JOB_TYPES} == \
+            {str(t): [] for t in DELIBERATELY_SILENT_JOB_TYPES}
+
+
+def _with_frontend_url(monkeypatch, job_type, url):
+    """Give one tool a `kubernetes_jobs.<type>.frontend_url`, as a new tool's chart
+    values would. Copies the blocks it touches, so the shared app_config is unchanged."""
+    config = dict(kubejob_service.app_config)
+    jobs = dict(config['kubernetes_jobs'])
+    jobs[str(job_type)] = dict(jobs.get(str(job_type), {}), frontend_url=url)
+    config['kubernetes_jobs'] = jobs
+    monkeypatch.setattr(kubejob_service, "app_config", config)
+
+
+class TestAToolWithAFrontendUrlGetsTheDefaultEmail:
+    """#145: a tool with no branch above used to stay silent whatever was configured.
+    With `kubernetes_jobs.<type>.frontend_url` set, it now gets the default email, which
+    links to `/result/:id` -- the route new apps standardize on.
+
+    OED_DLKCAT stands in for a new tool: it reaches the fall-through, and nothing
+    configures a frontend_url for it today."""
+
+    def test_completion_sends_one_email_linking_to_the_result_page(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert len(sent) == 1
+        assert f"https://tool.example.org/result/{_Job().job_id}" in sent[0]["body"]
+
+    def test_a_trailing_slash_in_the_url_does_not_double_up(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org/")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert f"https://tool.example.org/result/{_Job().job_id}" in sent[0]["body"]
+
+    def test_the_email_names_the_tool_from_the_registry(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert "OpenEnzymeDB DLKcat" in sent[0]["subject"]
+
+    def test_a_tool_missing_from_the_registry_is_named_by_its_job_type(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        monkeypatch.setattr(kubejob_service, "get_tool", lambda identifier: None)
+        sent = _notify(_watcher(), JobType.OED_DLKCAT)
+        assert str(JobType.OED_DLKCAT) in sent[0]["subject"]
+
+    def test_failure_sends_an_email(self, monkeypatch):
+        _with_frontend_url(monkeypatch, JobType.OED_DLKCAT, "https://tool.example.org")
+        sent = _notify(_watcher(), JobType.OED_DLKCAT, phase=JobStatus.ERROR)
+        assert len(sent) == 1
+        assert "failed" in sent[0]["subject"].lower()
+
+    def test_a_tool_block_left_empty_stays_silent(self, monkeypatch):
+        """A values block whose children are all commented out loads as null."""
+        config = dict(kubejob_service.app_config)
+        config['kubernetes_jobs'] = dict(config['kubernetes_jobs'], **{str(JobType.OED_DLKCAT): None})
+        monkeypatch.setattr(kubejob_service, "app_config", config)
+        assert _notify(_watcher(), JobType.OED_DLKCAT) == []
 
 
 class TestAnUnknownJobTypeStillRaises:
