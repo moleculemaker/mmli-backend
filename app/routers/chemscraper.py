@@ -11,6 +11,7 @@ from sqlmodel import select
 
 from models.molecule import Molecule
 from services.minio_service import MinIOService
+from services.object_names import is_plain_file_name, is_valid_job_id
 from services.rdkit_service import RDKitService
 from services.chemscraper_service import ChemScraperService
 from services.email_service import EmailService
@@ -40,18 +41,29 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     # Create a new job and add to the DB
     separator = "|"
     curr_time = time.time()
-    db_job: Job = await db.get(Job, requestBody.jobId)
-    if not db_job:
-        db_job = Job(
-            email=requestBody.user_email,
-            job_info=separator.join(requestBody.fileList),
-            job_id=requestBody.jobId,
-            phase=JobStatus.PROCESSING,
-            # Run ID takes the default value since the app doesn't support multiple runs right now
-            type=JobType.CHEMSCRAPER,
-            user_agent='',
-            time_created=int(curr_time)
-        )
+    # Both go into object names ({jobId}/in/{filename}), so neither may be a path.
+    if not is_valid_job_id(requestBody.jobId):
+        raise HTTPException(status_code=400, detail=f'Invalid jobId: {requestBody.jobId!r}')
+    if not all(is_plain_file_name(name) for name in requestBody.fileList):
+        raise HTTPException(status_code=400, detail='"fileList" entries must be plain file names')
+
+    # This route creates its own job, so an id that already has one is never its
+    # target. Without this, anyone who knew a job id (any tool's: results links and
+    # emails carry them) could re-run this on it: the background task rewrites the row's
+    # phase and times and the job's outputs (#150).
+    if await db.get(Job, requestBody.jobId) is not None:
+        raise HTTPException(status_code=409, detail=f'Job {requestBody.jobId} already exists')
+
+    db_job = Job(
+        email=requestBody.user_email,
+        job_info=separator.join(requestBody.fileList),
+        job_id=requestBody.jobId,
+        phase=JobStatus.PROCESSING,
+        # Run ID takes the default value since the app doesn't support multiple runs right now
+        type=JobType.CHEMSCRAPER,
+        user_agent='',
+        time_created=int(curr_time)
+    )
 
     try:
         db.add(db_job)

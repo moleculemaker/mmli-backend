@@ -33,6 +33,7 @@ from routers.v1.problems import (
 from services import analytics, generic_job, job_builder, kubejob_service, tool_registry
 from services.analytics import SURFACE_TOKEN
 from services.minio_service import MinIOService
+from services.object_names import is_plain_file_name
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -248,7 +249,7 @@ async def submit_job(
     if tool_registry.uses_generic_contract(tool):
         for upload in uploads:
             name = upload.filename or ''
-            if name in ('', '.', '..') or '/' in name or '\\' in name:
+            if not is_plain_file_name(name):
                 raise ProblemException(
                     422, 'Invalid file name',
                     f'"{name}" is not a plain file name.', type_uri=INVALID_INPUT,

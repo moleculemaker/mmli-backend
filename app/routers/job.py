@@ -15,6 +15,7 @@ from typing import List, Optional
 # only they accept the keyword form used below.
 from fastapi import Body, Depends, HTTPException, APIRouter, Path, Request, UploadFile
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette import status
@@ -26,6 +27,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 from services import analytics, job_builder, kubejob_service, tool_registry
+from services.object_names import is_valid_job_id
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -35,6 +37,19 @@ log = get_logger(__name__)
 # EZSpecificity input limits (mirror the frontend's MAX_ENZYMES / substrate cap)
 EZSPEC_MAX_ENZYMES = 5
 EZSPEC_MAX_SUBSTRATES = 10
+
+
+def _duplicate_submission(db_job: Job, job_type: str) -> JSONResponse:
+    """The response to a POST naming a job_id that already exists. See create_job."""
+    log.warning(f'Ignoring duplicate job submission for existing job_id={db_job.job_id} (type={job_type})')
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'job_id': str(db_job.job_id),
+        'run_id': str(db_job.run_id),
+        # Withheld: naming an id is not authorization to read its owner's
+        # address or the inputs they submitted.
+        'email': None,
+        'job_info': None,
+    })
 
 
 async def _mark_job_failed(db: AsyncSession, db_job: Job) -> None:
@@ -79,27 +94,32 @@ async def create_job(
                             detail=f'"{job_type}" jobs must be submitted with POST /v1/tools/{job_type}/jobs')
 
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
+    # It goes into MinIO object names ({job_id}/in/...), so it may not be a path.
+    if not is_valid_job_id(job_id):
+        raise HTTPException(status_code=400, detail=f'Invalid job_id: {job_id!r}')
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type in JobTypes:
-        # Look the job up only once the type is known to be valid, so this cannot
-        # depend on how strictly the database enforces the column.
+        # By primary key alone: job_id is unique across every type, so an id held by
+        # another tool's job is taken too. (Filtering on type as well let such a POST
+        # through to prepare_job's MinIO write and then a 500 from the INSERT.)
+        db_job = await db.get(Job, job_id)
+
+        # A POST naming a job_id that already exists is not a resubmission, and this
+        # endpoint has no authentication: the caller has proved only that they can name
+        # an id, which is not authority over the job that holds it. Stop here, BEFORE
+        # prepare_job: it writes the caller's input to MinIO under this job_id, and a job
+        # still waiting for its pod would then run on it (#150).
         #
-        # The deployed schema (built by alembic) stores `type` as a varchar and would
-        # simply match no rows. A schema built from the SQLModel metadata instead - which
-        # is what SQLModel.metadata.create_all() produces, and what the test suite uses -
-        # maps JobType to a native Postgres enum, where an unrecognized value makes the
-        # driver raise InvalidTextRepresentationError and the request 500s.
-        #
-        # Validating first makes the behavior identical under both, which matters
-        # because those two schemas are not currently guaranteed to agree.
-        statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
-        existing_jobs = await db.exec(statement)
-        db_job: Job = existing_jobs.first()
-        #if db_job:
-        #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+        # Previously this path fell through and (a) launched a second Kubernetes Job
+        # under the same name, (b) replaced the stored job_info with the caller's, and
+        # (c) returned the owner's email address and inputs in the response body.
+        # The response keys and status code are unchanged so existing clients - notably
+        # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
+        if db_job:
+            return _duplicate_submission(db_job, job_type)
 
         # Per-tool preparation (image, command, environment, and any input files a
         # tool needs written before it starts) lives in services/job_builder.py, because
@@ -109,6 +129,9 @@ async def create_job(
             job_type=job_type, job_id=job_id, job_info=job_info, service=service,
         )
         job_id = prepared.job_id
+        # The ez-specificity subjobs take their id from job_info, unchecked until here.
+        if job_id is not None and not is_valid_job_id(job_id):
+            raise HTTPException(status_code=400, detail=f'Invalid job_id: {job_id!r}')
         job_info = prepared.job_info
         image_name = prepared.image_name
         command = prepared.command
@@ -125,56 +148,41 @@ async def create_job(
         # exist yet; since the watch never replays old events, a Job that got created
         # (and, for the short ones, finished) inside that window is stranded at 'queued'
         # even after Kubernetes reports it complete.
-        #
-        # The same reordering exists on the open PR that fixes that stranding bug. It is
-        # repeated here rather than depended upon, because the duplicate-submission
-        # handling below needs the row to already exist and this branch does not build on
-        # that PR. Expect a small conflict if both land.
-        created_new_job = not db_job
-        if created_new_job:
-            db_job: Job = Job(
-                # User input
-                email=email,
-                job_info=job_info,
-                job_id=job_id,
-                run_id=run_id,
+        db_job: Job = Job(
+            # User input
+            email=email,
+            job_info=job_info,
+            job_id=job_id,
+            run_id=run_id,
 
-                type=job_type,
-                command=command,
-                image=image_name,
-                parent_job_id=parent_job_id,
+            type=job_type,
+            command=command,
+            image=image_name,
+            parent_job_id=parent_job_id,
 
-                # Job metadata
-                deleted=0,
-                time_created=int(time.time()),
+            # Job metadata
+            deleted=0,
+            time_created=int(time.time()),
 
-                # Caller attribution
-                **attribution,
-            )
+            # Caller attribution
+            **attribution,
+        )
 
-            db.add(db_job)
+        db.add(db_job)
+        try:
             await db.commit()
-            await db.refresh(db_job)
-
-        # A POST naming a job_id that already exists is not a resubmission, and this
-        # endpoint has no authentication: the caller has proved only that they can name
-        # an id, which is not authority over the job that holds it. Stop here.
-        #
-        # Previously this path fell through and (a) launched a second Kubernetes Job
-        # under the same name, (b) replaced the stored job_info with the caller's, and
-        # (c) returned the owner's email address and inputs in the response body.
-        # The response keys and status code are unchanged so existing clients - notably
-        # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
-        if not created_new_job:
-            log.warning(f'Ignoring duplicate job submission for existing job_id={job_id} (type={job_type})')
-            return JSONResponse(status_code=status.HTTP_200_OK, content={
-                'job_id': str(db_job.job_id),
-                'run_id': str(db_job.run_id),
-                # Withheld: naming an id is not authorisation to read its owner's
-                # address or the inputs they submitted.
-                'email': None,
-                'job_info': None,
-            })
+        except IntegrityError:
+            # Another request created this job_id between the lookup above and here, or
+            # prepare_job switched to an id that is already taken (the ez-specificity
+            # subjobs take theirs from job_info). Answer as the lookup does, and create no
+            # second Kubernetes Job. This can't undo prepare_job's MinIO write, though: a
+            # caller who races an in-flight id still replaces its input (#157 review).
+            await db.rollback()
+            existing = await db.get(Job, job_id) if job_id else None
+            if existing is None:
+                raise  # not a taken id, e.g. a null subjob id failing NOT NULL
+            return _duplicate_submission(existing, job_type)
+        await db.refresh(db_job)
 
         # Run a Kubernetes Job with the given image + command + environment
         try:
