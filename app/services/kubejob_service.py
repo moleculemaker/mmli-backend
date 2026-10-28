@@ -205,7 +205,9 @@ class KubeEventWatcher:
             job_type_name = 'Mutation Effect Prediction'
         elif job_type == JobType.CRISPR_COPIES:
             crispr_copies_frontend_url = app_config['crisprcopies_frontend_url']
-            results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
+            # '/crispr-copies/result/', the only result route in crispr-copies-frontend's
+            # app-routing.module.ts. '/results/' loads an empty page there.
+            results_url = f'{crispr_copies_frontend_url}/crispr-copies/result/{updated_job.job_id}'
             job_type_name = 'CRISPR-Copies'
         elif job_type == JobType.EZ_SPECIFICITY:
             ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
@@ -228,7 +230,9 @@ class KubeEventWatcher:
             job_type_name = 'MOLLI'
         elif job_type == JobType.MUTAGENESIS:
             mutagenesis_frontend_url = app_config['mutagenesis_frontend_url']
-            results_url = f'{mutagenesis_frontend_url}/results/{updated_job.job_id}'
+            # As for crispr-copies: mutagenesis-frontend's only result route is
+            # '/mutagenesis/result/'.
+            results_url = f'{mutagenesis_frontend_url}/mutagenesis/result/{updated_job.job_id}'
             job_type_name = 'Mutagenesis'
         elif 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']

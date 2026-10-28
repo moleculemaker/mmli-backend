@@ -135,6 +135,23 @@ class TestMepEsmIsNotified:
                                          _Job(), JobStatus.COMPLETED) is False
 
 
+class TestCrisprCopiesAndMutagenesisLinkToTheirResultPage:
+    """Both frontends register a single result route, '<tool>/result/:id', in
+    app-routing.module.ts (iBioFoundry/crispr-copies-frontend and
+    iBioFoundry/mutagenesis-frontend), with no '/results/' route and no wildcard. These
+    branches used to link to '/results/:id', which loads the app shell, lands on '/' and
+    renders an empty page -- found from a real prod mutagenesis notification."""
+
+    @pytest.mark.parametrize("job_type, route", [
+        (JobType.CRISPR_COPIES, "crispr-copies/result"),
+        (JobType.MUTAGENESIS, "mutagenesis/result"),
+    ], ids=str)
+    def test_completion_email_links_to_the_result_page(self, job_type, route):
+        sent = _notify(_watcher(), job_type)
+        assert f"/{route}/{_Job().job_id}" in sent[0]["body"]
+        assert "/results/" not in sent[0]["body"]
+
+
 # Every JobType must be listed in exactly one of these two sets.
 #
 # The dispatch's catch-all (`elif job_type in JobTypes`) returns silently, and `JobTypes`
