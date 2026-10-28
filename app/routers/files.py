@@ -20,6 +20,7 @@ from models.sqlmodel.models import Job
 from models.enums import JobType, JobTypes
 
 from services import generic_job, tool_registry
+from services.object_names import is_plain_file_name, is_valid_job_id
 from services.aceretro_service import ACERetroService
 from services.chemscraper_service import ChemScraperService
 from services.clean_service import CleanService
@@ -70,6 +71,12 @@ async def upload_file(bucket_name: str, file: UploadFile = File(...), job_id: Op
     if tool_registry.uses_generic_contract(bucket_name):
         raise HTTPException(status_code=400,
                             detail=f'Upload "{bucket_name}" files with POST /v1/tools/{bucket_name}/jobs')
+
+    # Both go into the object name {job_id}/in/{filename}, so neither may be a path.
+    if job_id and not is_valid_job_id(job_id):
+        raise HTTPException(status_code=400, detail=f'Invalid job_id: {job_id!r}')
+    if not is_plain_file_name(file.filename or ''):
+        raise HTTPException(status_code=400, detail=f'Invalid file name: {file.filename!r}')
 
     # Every frontend uploads all of its files BEFORE creating the job, so an id that
     # already has a job is never a legitimate target. Without this, anyone who knew a job

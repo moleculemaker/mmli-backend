@@ -99,3 +99,16 @@ class TestAnalyzeLeavesExistingJobsAlone:
 
         assert self._row(sync_db_url) == (job_type, JobStatus.COMPLETED, 1, 2)
         assert resp is not None and resp.status_code == 409
+
+
+class TestAnalyzeObjectNames:
+    @pytest.mark.parametrize("job_id", ["victim/in/x", "victim/in/.."])
+    def test_a_job_id_that_is_a_path_is_refused(self, client, stub_analysis, job_id):
+        assert _analyze(client, jobId=job_id).status_code == 400
+
+    @pytest.mark.parametrize("name", ["../../victim/in/paper.pdf", "x/../paper.pdf"])
+    def test_a_file_name_that_is_a_path_is_refused(self, client, stub_analysis, name):
+        assert _analyze(client, jobId="fresh", fileList=[name]).status_code == 400
+
+    def test_a_plain_request_still_works(self, client, stub_analysis):
+        assert _analyze(client, jobId="fresh", fileList=["paper.pdf"]).status_code == 202

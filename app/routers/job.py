@@ -27,6 +27,7 @@ from models.sqlmodel.db import get_session
 from models.sqlmodel.models import Job, JobCreate, JobUpdate
 
 from services import analytics, job_builder, kubejob_service, tool_registry
+from services.object_names import is_valid_job_id
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -93,6 +94,9 @@ async def create_job(
                             detail=f'"{job_type}" jobs must be submitted with POST /v1/tools/{job_type}/jobs')
 
     job_id = job_id if job_id else str(kubejob_service.generate_uuid())
+    # It goes into MinIO object names ({job_id}/in/...), so it may not be a path.
+    if not is_valid_job_id(job_id):
+        raise HTTPException(status_code=400, detail=f'Invalid job_id: {job_id!r}')
     #run_id = run_id if run_id else str(kubejob_service.generate_uuid())
 
     # Validate Job type
@@ -125,6 +129,9 @@ async def create_job(
             job_type=job_type, job_id=job_id, job_info=job_info, service=service,
         )
         job_id = prepared.job_id
+        # The ez-specificity subjobs take their id from job_info, unchecked until here.
+        if job_id is not None and not is_valid_job_id(job_id):
+            raise HTTPException(status_code=400, detail=f'Invalid job_id: {job_id!r}')
         job_info = prepared.job_info
         image_name = prepared.image_name
         command = prepared.command

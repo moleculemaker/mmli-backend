@@ -200,6 +200,25 @@ class TestCreateJobWithExistingId:
         assert resp.json()["job_id"] == "sub"
         assert len(client.k8s_jobs) == 1
 
+    @pytest.mark.parametrize("job_id", ["victim/in/x", "victim/in/.."])
+    def test_a_job_id_that_is_a_path_is_refused_before_anything_is_written(self, client, job_id):
+        _post_job(client, job_type="aceretro", job_id="victim", job_info='{"smiles": "CCCC"}')
+
+        resp = _post_job(client, job_type="aceretro", job_id=job_id, job_info='{"smiles": "CCO"}')
+
+        assert resp.status_code == 400
+        assert list(client.minio.objects["aceretro"]) == ["victim/in/input.json"]
+        assert len(client.k8s_jobs) == 1
+
+    def test_a_subjob_id_from_job_info_that_is_a_path_is_refused(self, client):
+        job_info = json.dumps({"parent_job_id": "p", "ezspec_unidock_job_id": "victim/in/x",
+                               "ezspec_inference_job_id": "i"})
+
+        resp = _post_job(client, job_type="ezspec-unidock", job_info=job_info)
+
+        assert resp.status_code == 400
+        assert client.k8s_jobs == []
+
     def test_does_not_disturb_the_existing_jobs_phase(self, client):
         _post_job(client, job_id="victim")
 

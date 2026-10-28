@@ -8,6 +8,8 @@ bucket, which happens to equal the job type. That coupling is itself part of wha
 replaces.
 """
 
+import pytest
+
 NOVOSTOIC_OPTSTOIC = "novostoic-optstoic"
 
 
@@ -53,6 +55,27 @@ class TestUpload:
 
         assert second.status_code == 200
         assert client.minio.get_file("mutagenesis", f"{first}/in/b.csv") == b"B2C"
+
+    @pytest.mark.parametrize("job_id", ["victim/in/x", "victim/in/.."])
+    def test_a_job_id_that_is_a_path_is_refused(self, client, job_id):
+        """The existence check matches job_id exactly; MinIO sees {job_id}/in/{name}."""
+        client.post("/mutagenesis/upload?job_id=victim", files={"file": ("f", b"A1G", "text/csv")})
+        client.post("/defaults/jobs", json={"job_id": "victim"})
+
+        resp = client.post("/mutagenesis/upload", params={"job_id": job_id},
+                           files={"file": ("f", b"EVIL", "text/csv")})
+
+        assert resp.status_code == 400
+        assert client.minio.get_file("mutagenesis", "victim/in/f") == b"A1G"
+        assert not [k for k in client.minio.objects["mutagenesis"] if k != "victim/in/f"]
+
+    @pytest.mark.parametrize("name", ["../in/f", "x/../f", "a\\b", ".."])
+    def test_a_file_name_that_is_a_path_is_refused(self, client, name):
+        resp = client.post("/mutagenesis/upload?job_id=fresh",
+                           files={"file": (name, b"EVIL", "text/csv")})
+
+        assert resp.status_code == 400
+        assert not client.minio.objects.get("mutagenesis")
 
     def test_chemscraper_uploads_must_be_pdfs(self, client):
         resp = client.post(
