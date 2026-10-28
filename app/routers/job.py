@@ -44,7 +44,7 @@ def _duplicate_submission(db_job: Job, job_type: str) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_200_OK, content={
         'job_id': str(db_job.job_id),
         'run_id': str(db_job.run_id),
-        # Withheld: naming an id is not authorisation to read its owner's
+        # Withheld: naming an id is not authorization to read its owner's
         # address or the inputs they submitted.
         'email': None,
         'job_info': None,
@@ -165,12 +165,16 @@ async def create_job(
         try:
             await db.commit()
         except IntegrityError:
-            # Another request created this job_id between the lookup above and here (a
-            # double-clicked Submit), or prepare_job switched to an id that is already
-            # taken (the ez-specificity subjobs take theirs from job_info). Same answer
-            # as the lookup's, and no second Kubernetes Job.
+            # Another request created this job_id between the lookup above and here, or
+            # prepare_job switched to an id that is already taken (the ez-specificity
+            # subjobs take theirs from job_info). Answer as the lookup does, and create no
+            # second Kubernetes Job. This can't undo prepare_job's MinIO write, though: a
+            # caller who races an in-flight id still replaces its input (#157 review).
             await db.rollback()
-            return _duplicate_submission(await db.get(Job, job_id), job_type)
+            existing = await db.get(Job, job_id) if job_id else None
+            if existing is None:
+                raise  # not a taken id, e.g. a null subjob id failing NOT NULL
+            return _duplicate_submission(existing, job_type)
         await db.refresh(db_job)
 
         # Run a Kubernetes Job with the given image + command + environment

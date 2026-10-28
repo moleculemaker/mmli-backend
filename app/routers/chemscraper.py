@@ -40,18 +40,23 @@ async def analyze_documents(requestBody: AnalyzeRequestBody, background_tasks: B
     # Create a new job and add to the DB
     separator = "|"
     curr_time = time.time()
-    db_job: Job = await db.get(Job, requestBody.jobId)
-    if not db_job:
-        db_job = Job(
-            email=requestBody.user_email,
-            job_info=separator.join(requestBody.fileList),
-            job_id=requestBody.jobId,
-            phase=JobStatus.PROCESSING,
-            # Run ID takes the default value since the app doesn't support multiple runs right now
-            type=JobType.CHEMSCRAPER,
-            user_agent='',
-            time_created=int(curr_time)
-        )
+    # This route creates its own job, so an id that already has one is never its
+    # target. Without this, anyone who knew a job id (any tool's: results links and
+    # emails carry them) could re-run this on it: the background task rewrites the row's
+    # phase and times and the job's outputs (#150).
+    if await db.get(Job, requestBody.jobId) is not None:
+        raise HTTPException(status_code=409, detail=f'Job {requestBody.jobId} already exists')
+
+    db_job = Job(
+        email=requestBody.user_email,
+        job_info=separator.join(requestBody.fileList),
+        job_id=requestBody.jobId,
+        phase=JobStatus.PROCESSING,
+        # Run ID takes the default value since the app doesn't support multiple runs right now
+        type=JobType.CHEMSCRAPER,
+        user_agent='',
+        time_created=int(curr_time)
+    )
 
     try:
         db.add(db_job)
