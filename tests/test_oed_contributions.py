@@ -94,6 +94,15 @@ class TestSubmitContribution:
 
         assert _submit(client).status_code == 500
 
+    def test_failed_data_upload_leaves_the_submission_record(self, client, monkeypatch):
+        upload_file = client.minio.upload_file
+        monkeypatch.setattr(client.minio, "upload_file",
+                            lambda bucket, name, data: name.endswith("submission.json") and upload_file(bucket, name, data))
+
+        assert _submit(client).status_code == 500
+        [key] = _stored(client)
+        assert key.endswith("/submission.json")
+
     def test_upload_route_still_rejects_the_contributions_bucket(self, client):
         response = client.post(f"/{oed.CONTRIBUTIONS_BUCKET}/upload",
                                files={"file": ("kinetics.xlsx", b"data", "application/octet-stream")})

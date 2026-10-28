@@ -24,7 +24,7 @@ CONTRIBUTION_LICENSE = 'CC-BY-4.0'
 
 
 @router.post(
-    "/oed/contributions", tags=['OED'],
+    "/oed/contributions", tags=['OpenEnzymeDB'],
     summary="Submit a dataset to the Open Enzyme Database",
     description=(
         "Accept a data contribution from the OED About page. The file must be "
@@ -75,9 +75,10 @@ def submit_contribution(
         'rights_confirmed': True,
     }
 
+    # submission.json goes first: if the data upload then fails, the folder still records who sent it.
     if (minio.ensure_bucket_exists(CONTRIBUTIONS_BUCKET)
-            and minio.upload_file(CONTRIBUTIONS_BUCKET, f'{contribution_id}/{filename}', content)
-            and minio.upload_file(CONTRIBUTIONS_BUCKET, f'{contribution_id}/submission.json', json.dumps(submission, indent=2))):
+            and minio.upload_file(CONTRIBUTIONS_BUCKET, f'{contribution_id}/submission.json', json.dumps(submission, indent=2))
+            and minio.upload_file(CONTRIBUTIONS_BUCKET, f'{contribution_id}/{filename}', content)):
         return JSONResponse(content={'contributionID': contribution_id, 'submitted_at': submitted_at},
                             status_code=status.HTTP_201_CREATED)
 
