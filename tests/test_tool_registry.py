@@ -6,12 +6,14 @@ own file. Cheap to run, and they fail at the moment the mistake is made rather t
 when a client hits a missing entry.
 """
 import json
+import re
 
 import pytest
 from jsonschema import Draft202012Validator
 
 from models.enums import JobTypes
 from services import tool_registry
+from services.json_schema import INLINE_FLAGS, SchemaValidator, ecma_pattern
 
 
 REQUIRED_FIELDS = ["name", "summary", "description", "execution", "schema_status"]
@@ -241,7 +243,7 @@ class TestSchemasAcceptKnownGoodInput:
     def test_known_good_payload_validates(self, identifier, payload):
         schema = tool_registry.get_input_schema(identifier)
 
-        Draft202012Validator(schema).validate(payload)
+        SchemaValidator(schema).validate(payload)
 
     def test_every_tool_with_a_schema_has_a_case(self):
         """Otherwise a schema could be wrong in a way nothing notices."""
@@ -250,6 +252,49 @@ class TestSchemasAcceptKnownGoodInput:
         }
 
         assert with_schema - set(self.CASES) == set()
+
+
+def _schema_files():
+    return sorted(tool_registry.SCHEMAS_DIR.glob("*.json"))
+
+
+def _keyword_values(node, keyword):
+    """Every value of `keyword` anywhere in a schema document."""
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == keyword:
+                yield value
+            yield from _keyword_values(value, keyword)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _keyword_values(item, keyword)
+
+
+class TestPatternsWorkUnderTheApisRegexRules:
+    """/v1 evaluates `pattern` with `$` rewritten to end-of-string (services/json_schema.py).
+    check_schema only compiles the pattern as written, so a pattern that breaks only
+    after the rewrite would pass CI and 500 on every request for that tool."""
+
+    @pytest.mark.parametrize("path", _schema_files(), ids=lambda p: p.name)
+    def test_every_pattern_compiles_after_the_rewrite(self, path):
+        for pattern in _keyword_values(json.loads(path.read_text()), "pattern"):
+            if isinstance(pattern, str):
+                re.compile(ecma_pattern(pattern))
+
+    @pytest.mark.parametrize("path", _schema_files(), ids=lambda p: p.name)
+    def test_no_pattern_uses_inline_flags(self, path):
+        """The rewrite skips them, so `$` would keep Python's meaning. ECMA has no such
+        syntax anyway, so a frontend couldn't use the schema."""
+        for pattern in _keyword_values(json.loads(path.read_text()), "pattern"):
+            if isinstance(pattern, str):
+                assert not INLINE_FLAGS.search(pattern), pattern
+
+    @pytest.mark.parametrize("path", _schema_files(), ids=lambda p: p.name)
+    def test_no_schema_uses_pattern_properties(self, path):
+        """Not covered by the `$` rule: jsonschema matches patternProperties keys with
+        re.search in three places (patternProperties, additionalProperties,
+        unevaluatedProperties). Constrain keys with propertyNames + pattern instead."""
+        assert list(_keyword_values(json.loads(path.read_text()), "patternProperties")) == []
 
 
 class TestSchemasRejectBadInput:
@@ -268,7 +313,7 @@ class TestSchemasRejectBadInput:
         schema = tool_registry.get_input_schema(identifier)
 
         with pytest.raises(Exception):
-            Draft202012Validator(schema).validate(payload)
+            SchemaValidator(schema).validate(payload)
 
 
 class TestGenericContract:
