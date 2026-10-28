@@ -211,7 +211,9 @@ class KubeEventWatcher:
             job_type_name = 'CRISPR-Copies'
         elif job_type == JobType.EZ_SPECIFICITY:
             ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
-            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
+            # '/ez-specificity/result/': ezspecificity-frontend registers 'result/:id' only
+            # under 'ez-specificity'. A bare '/result/' loads an empty page there.
+            results_url = f'{ezspecificity_frontend_url}/ez-specificity/result/{updated_job.job_id}'
             job_type_name = 'EZspecificity'
         elif job_type == JobType.ML_SIMPLEFOLD:
             # Silent because it is the COMPANION half of a cleandb-mepesm submission,
