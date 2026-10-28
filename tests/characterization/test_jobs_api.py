@@ -118,6 +118,17 @@ class TestCreateJobWithExistingId:
         # second run of the same job.
         assert len(client.k8s_jobs) == 1
 
+    def test_does_not_overwrite_the_stored_input_file(self, client):
+        """#150: prepare_job wrote the caller's input to MinIO before the duplicate check.
+        A job still waiting for its pod would then run on the caller's input."""
+        _post_job(client, job_type="aceretro", job_id="victim", job_info='{"smiles": "CCCC"}')
+        original = client.minio.get_file("aceretro", "victim/in/input.json")
+
+        _post_job(client, job_type="aceretro", job_id="victim", job_info='{"smiles": "CCO"}')
+
+        assert original is not None
+        assert client.minio.get_file("aceretro", "victim/in/input.json") == original
+
     def test_does_not_disturb_the_existing_jobs_phase(self, client):
         _post_job(client, job_id="victim")
 

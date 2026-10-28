@@ -32,6 +32,28 @@ class TestUpload:
         assert resp.json()["jobID"] == "my-job"
         assert client.minio.get_file(NOVOSTOIC_OPTSTOIC, "my-job/in/input.txt") == b"hello"
 
+    def test_upload_for_an_existing_job_is_refused(self, client):
+        """#150: any caller who knew a job id could replace that job's input files."""
+        client.post("/mutagenesis/upload?job_id=victim",
+                    files={"file": ("mutations.csv", b"A1G", "text/csv")})
+        client.post("/defaults/jobs", json={"job_id": "victim"})
+
+        resp = client.post("/mutagenesis/upload?job_id=victim",
+                           files={"file": ("mutations.csv", b"EVIL", "text/csv")})
+
+        assert resp.status_code == 409
+        assert client.minio.get_file("mutagenesis", "victim/in/mutations.csv") == b"A1G"
+
+    def test_several_uploads_before_the_job_exists_still_work(self, client):
+        """The legitimate flow: every frontend uploads all its files, then creates."""
+        first = client.post("/mutagenesis/upload",
+                            files={"file": ("a.csv", b"A1G", "text/csv")}).json()["jobID"]
+        second = client.post(f"/mutagenesis/upload?job_id={first}",
+                             files={"file": ("b.csv", b"B2C", "text/csv")})
+
+        assert second.status_code == 200
+        assert client.minio.get_file("mutagenesis", f"{first}/in/b.csv") == b"B2C"
+
     def test_chemscraper_uploads_must_be_pdfs(self, client):
         resp = client.post(
             "/chemscraper/upload",

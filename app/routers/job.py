@@ -101,6 +101,28 @@ async def create_job(
         #if db_job:
         #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
 
+        # A POST naming a job_id that already exists is not a resubmission, and this
+        # endpoint has no authentication: the caller has proved only that they can name
+        # an id, which is not authority over the job that holds it. Stop here, BEFORE
+        # prepare_job: it writes the caller's input to MinIO under this job_id, and a job
+        # still waiting for its pod would then run on it (#150).
+        #
+        # Previously this path fell through and (a) launched a second Kubernetes Job
+        # under the same name, (b) replaced the stored job_info with the caller's, and
+        # (c) returned the owner's email address and inputs in the response body.
+        # The response keys and status code are unchanged so existing clients - notably
+        # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
+        if db_job:
+            log.warning(f'Ignoring duplicate job submission for existing job_id={job_id} (type={job_type})')
+            return JSONResponse(status_code=status.HTTP_200_OK, content={
+                'job_id': str(db_job.job_id),
+                'run_id': str(db_job.run_id),
+                # Withheld: naming an id is not authorisation to read its owner's
+                # address or the inputs they submitted.
+                'email': None,
+                'job_info': None,
+            })
+
         # Per-tool preparation (image, command, environment, and any input files a
         # tool needs written before it starts) lives in services/job_builder.py, because
         # the versioned API needs exactly the same work. Some tools rewrite job_id or
@@ -126,55 +148,29 @@ async def create_job(
         # (and, for the short ones, finished) inside that window is stranded at 'queued'
         # even after Kubernetes reports it complete.
         #
-        # The same reordering exists on the open PR that fixes that stranding bug. It is
-        # repeated here rather than depended upon, because the duplicate-submission
-        # handling below needs the row to already exist and this branch does not build on
-        # that PR. Expect a small conflict if both land.
-        created_new_job = not db_job
-        if created_new_job:
-            db_job: Job = Job(
-                # User input
-                email=email,
-                job_info=job_info,
-                job_id=job_id,
-                run_id=run_id,
+        db_job: Job = Job(
+            # User input
+            email=email,
+            job_info=job_info,
+            job_id=job_id,
+            run_id=run_id,
 
-                type=job_type,
-                command=command,
-                image=image_name,
-                parent_job_id=parent_job_id,
+            type=job_type,
+            command=command,
+            image=image_name,
+            parent_job_id=parent_job_id,
 
-                # Job metadata
-                deleted=0,
-                time_created=int(time.time()),
+            # Job metadata
+            deleted=0,
+            time_created=int(time.time()),
 
-                # Caller attribution
-                **attribution,
-            )
+            # Caller attribution
+            **attribution,
+        )
 
-            db.add(db_job)
-            await db.commit()
-            await db.refresh(db_job)
-
-        # A POST naming a job_id that already exists is not a resubmission, and this
-        # endpoint has no authentication: the caller has proved only that they can name
-        # an id, which is not authority over the job that holds it. Stop here.
-        #
-        # Previously this path fell through and (a) launched a second Kubernetes Job
-        # under the same name, (b) replaced the stored job_info with the caller's, and
-        # (c) returned the owner's email address and inputs in the response body.
-        # The response keys and status code are unchanged so existing clients - notably
-        # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
-        if not created_new_job:
-            log.warning(f'Ignoring duplicate job submission for existing job_id={job_id} (type={job_type})')
-            return JSONResponse(status_code=status.HTTP_200_OK, content={
-                'job_id': str(db_job.job_id),
-                'run_id': str(db_job.run_id),
-                # Withheld: naming an id is not authorisation to read its owner's
-                # address or the inputs they submitted.
-                'email': None,
-                'job_info': None,
-            })
+        db.add(db_job)
+        await db.commit()
+        await db.refresh(db_job)
 
         # Run a Kubernetes Job with the given image + command + environment
         try:
