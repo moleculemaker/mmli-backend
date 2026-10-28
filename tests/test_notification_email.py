@@ -83,9 +83,9 @@ class TestMepEsmIsNotified:
         assert len(sent) == 1
 
     def test_completion_email_links_to_the_result_page(self):
-        """The route is 'effect-prediction/result/:id' -- singular 'result', unlike the
-        '/results/' every neighbouring branch uses. Getting it wrong sends a live link to
-        a 404, which is worse than the silence this replaces, so the shape is pinned."""
+        """The route is 'effect-prediction/result/:id' -- singular 'result', not
+        '/results/'. Getting it wrong sends a live link to a 404, which is worse than the
+        silence this replaces, so the shape is pinned."""
         w = _watcher()
         sent = _notify(w, JobType.CLEANDB_MEPESM)
         assert f"/effect-prediction/result/{_Job().job_id}" in sent[0]["body"]

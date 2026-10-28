@@ -198,8 +198,8 @@ class KubeEventWatcher:
             job_type_name = 'CLEAN'
         elif job_type == JobType.CLEANDB_MEPESM:
             # Note the route shape: '/effect-prediction/result/' - singular 'result', not
-            # the '/results/' most tools here use. It mirrors the Angular route registered
-            # in CLEANDB-frontend as 'effect-prediction/result/:id' (app-routing.module.ts).
+            # '/results/'. It mirrors the Angular route registered in CLEANDB-frontend as
+            # 'effect-prediction/result/:id' (app-routing.module.ts).
             cleandb_frontend_url = app_config['cleandb_frontend_url']
             results_url = f'{cleandb_frontend_url}/effect-prediction/result/{updated_job.job_id}'
             job_type_name = 'Mutation Effect Prediction'
