@@ -152,6 +152,7 @@ class TestMepEsmIsNotified:
 
 NOTIFYING_JOB_TYPES = [
     JobType.ACERETRO,
+    JobType.CHEMSCRAPER,
     JobType.CLEAN,
     JobType.CLEANDB_MEPESM,
     JobType.CRISPR_COPIES,
@@ -182,29 +183,28 @@ DELIBERATELY_SILENT_JOB_TYPES = [
     # MEP-ESM notification covers the pair.
     JobType.ML_SIMPLEFOLD,
     JobType.DEFAULT,            # example jobs
-    # CHEMSCRAPER is listed here to describe today's behavior, but it is NOT a deliberate
-    # skip -- it is the same live defect this PR fixes for MEP-ESM, and it needs its own
-    # change. Do not read its presence in this list as the question being settled.
-    #
-    # Chemscraper does have an emailing path (chemscraper_service.py:291/:302, success
-    # and failure), but it hangs off `POST /chemscraper/analyze`, which is marked
-    # `deprecated=True` at routers/chemscraper.py:31 and which the frontend never calls.
-    # What the frontend actually calls is the generic route:
-    #
-    #   configuration.component.html:105   email input -> `userEmail`
-    #   configuration.component.ts:114     userEmail -> requestBody.user_email
-    #   configuration.component.ts:90      -> chemscraper.service.ts:44 analyzeDocument()
-    #   chemscraper.service.ts:47          createJobJobTypeJobsPost('chemscraper', {email})
-    #                                      == POST /chemscraper/jobs
-    #   routers/job.py:62 -> job_builder.py:134 -> a real Kubernetes Job
-    #
-    # The watcher observes that Job, reaches this dispatch, finds no CHEMSCRAPER branch,
-    # and returns. So a user who typed an address into the chemscraper form is never
-    # notified -- exactly the MEP-ESM bug, still open. (Verified against a fresh clone of
-    # moleculemaker/chemscraper-frontend @ 697af1a; the method is named analyzeDocument
-    # after the endpoint it no longer uses, which is what hid this.)
-    JobType.CHEMSCRAPER,
 ]
+
+
+class TestChemScraperIsNotified:
+    """The same bug as MEP-ESM. The chemscraper frontend submits through the generic
+    `POST /chemscraper/jobs` (`createJobJobTypeJobsPost('chemscraper', {email})` in
+    chemscraper-frontend's chemscraper.service.ts), which builds a Kubernetes Job this
+    watcher observes. With no CHEMSCRAPER branch, the dispatch fell through to the
+    catch-all and a user who typed an address was never notified. The emailing path in
+    chemscraper_service.py hangs off `POST /chemscraper/analyze`, which is deprecated
+    and which the frontend does not call."""
+
+    def test_completion_email_links_to_the_result_page(self):
+        """The route is 'results/:id' in chemscraper-frontend's app-routing.module.ts."""
+        sent = _notify(_watcher(), JobType.CHEMSCRAPER)
+        assert len(sent) == 1
+        assert sent[0]["body"].endswith(f"/results/{_Job().job_id}")
+
+    def test_failure_sends_an_email(self):
+        sent = _notify(_watcher(), JobType.CHEMSCRAPER, phase=JobStatus.ERROR)
+        assert len(sent) == 1
+        assert "failed" in sent[0]["subject"].lower()
 
 
 class TestEveryJobTypeIsClassified:
@@ -320,11 +320,9 @@ class TestEveryEnvironmentsConfigMapResolvesEveryKey:
 
 
 class TestTheSilentTypesStaySilent:
-    """These types send nothing today; the list above is what says which of those
-    silences are deliberate and which are open (CHEMSCRAPER is open). This class asserts
-    only the outcome, so do not read a passing test here as the question being settled.
-    What it does pin is that widening the dispatch to reach MEP-ESM did not start
-    notifying any of them.
+    """These types send nothing, deliberately; the list above says why for each. What
+    this pins is that widening the dispatch to reach MEP-ESM and ChemScraper did not
+    start notifying any of them.
 
     Note the catch-all is not the route for all of them: ML_SIMPLEFOLD and DEFAULT return
     earlier in the dispatch and never reach it."""

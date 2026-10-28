@@ -193,6 +193,10 @@ class KubeEventWatcher:
             aceretro_frontend_url = app_config['aceretro_frontend_url']
             results_url = f'{aceretro_frontend_url}/results/{updated_job.job_id}'
             job_type_name = 'ACERetro'
+        elif job_type == JobType.CHEMSCRAPER:
+            chemscraper_frontend_url = app_config['chemscraper_frontend_url']
+            results_url = f'{chemscraper_frontend_url}/results/{updated_job.job_id}'
+            job_type_name = 'ChemScraper'
         elif job_type == JobType.CLEAN:
             clean_frontend_url = app_config['clean_frontend_url']
             results_url = f'{clean_frontend_url}/results/{updated_job.job_id}'
@@ -276,7 +280,7 @@ class KubeEventWatcher:
                 results_url = f"{frontend_url.rstrip('/')}/result/{updated_job.job_id}"
                 job_type_name = (get_tool(job_type) or {}).get('name') or job_type
             else:
-                # Exactly six types reach this silent branch today. None has a
+                # Exactly five types reach this silent branch today. None has a
                 # frontend_url in config.yaml or any chart values file, and
                 # tests/test_notification_email.py fails if one gains it:
                 #   OED_DLKCAT, OED_UNIKP, OED_CATPRED - OED subjobs, fast enough not to
@@ -284,12 +288,6 @@ class KubeEventWatcher:
                 #     and does email, so "OED jobs" is not the right description of this set.
                 #   EZSPEC_UNIDOCK, EZSPEC_INFERENCE - intermediary steps of an
                 #     ez-specificity run; the parent job is what the user waits on.
-                #   CHEMSCRAPER - NOT a deliberate skip. It is this same bug, still open: the
-                #     chemscraper frontend submits through POST /chemscraper/jobs, which
-                #     builds a real Kubernetes Job this watcher observes, so a user who typed
-                #     an address is never notified. Its working email path hangs off
-                #     POST /chemscraper/analyze, which is deprecated and which the frontend
-                #     does not call. Fixing it needs its own change.
                 # ML_SIMPLEFOLD and DEFAULT do NOT reach here - both return earlier.
                 # tests/test_notification_email.py partitions every JobType into the ones
                 # that notify and the ones that stay silent, and fails on any member listed
