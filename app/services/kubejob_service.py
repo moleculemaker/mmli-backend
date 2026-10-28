@@ -198,18 +198,22 @@ class KubeEventWatcher:
             job_type_name = 'CLEAN'
         elif job_type == JobType.CLEANDB_MEPESM:
             # Note the route shape: '/effect-prediction/result/' - singular 'result', not
-            # the '/results/' most tools here use. It mirrors the Angular route registered
-            # in CLEANDB-frontend as 'effect-prediction/result/:id' (app-routing.module.ts).
+            # '/results/'. It mirrors the Angular route registered in CLEANDB-frontend as
+            # 'effect-prediction/result/:id' (app-routing.module.ts).
             cleandb_frontend_url = app_config['cleandb_frontend_url']
             results_url = f'{cleandb_frontend_url}/effect-prediction/result/{updated_job.job_id}'
             job_type_name = 'Mutation Effect Prediction'
         elif job_type == JobType.CRISPR_COPIES:
             crispr_copies_frontend_url = app_config['crisprcopies_frontend_url']
-            results_url = f'{crispr_copies_frontend_url}/results/{updated_job.job_id}'
+            # '/crispr-copies/result/', the only result route in crispr-copies-frontend's
+            # app-routing.module.ts. '/results/' loads an empty page there.
+            results_url = f'{crispr_copies_frontend_url}/crispr-copies/result/{updated_job.job_id}'
             job_type_name = 'CRISPR-Copies'
         elif job_type == JobType.EZ_SPECIFICITY:
             ezspecificity_frontend_url = app_config['ezspecificity_frontend_url']
-            results_url = f'{ezspecificity_frontend_url}/result/{updated_job.job_id}'
+            # '/ez-specificity/result/': ezspecificity-frontend registers 'result/:id' only
+            # under 'ez-specificity'. A bare '/result/' loads an empty page there.
+            results_url = f'{ezspecificity_frontend_url}/ez-specificity/result/{updated_job.job_id}'
             job_type_name = 'EZspecificity'
         elif job_type == JobType.ML_SIMPLEFOLD:
             # Silent because it is the COMPANION half of a cleandb-mepesm submission,
@@ -228,7 +232,9 @@ class KubeEventWatcher:
             job_type_name = 'MOLLI'
         elif job_type == JobType.MUTAGENESIS:
             mutagenesis_frontend_url = app_config['mutagenesis_frontend_url']
-            results_url = f'{mutagenesis_frontend_url}/results/{updated_job.job_id}'
+            # As for crispr-copies: mutagenesis-frontend's only result route is
+            # '/mutagenesis/result/'.
+            results_url = f'{mutagenesis_frontend_url}/mutagenesis/result/{updated_job.job_id}'
             job_type_name = 'Mutagenesis'
         elif 'novostoic' in job_type:
             novostoic_frontend_url = app_config['novostoic_frontend_url']

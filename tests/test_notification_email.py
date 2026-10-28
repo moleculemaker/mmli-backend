@@ -83,9 +83,9 @@ class TestMepEsmIsNotified:
         assert len(sent) == 1
 
     def test_completion_email_links_to_the_result_page(self):
-        """The route is 'effect-prediction/result/:id' -- singular 'result', unlike the
-        '/results/' every neighbouring branch uses. Getting it wrong sends a live link to
-        a 404, which is worse than the silence this replaces, so the shape is pinned."""
+        """The route is 'effect-prediction/result/:id' -- singular 'result', not
+        '/results/'. Getting it wrong sends a live link to a 404, which is worse than the
+        silence this replaces, so the shape is pinned."""
         w = _watcher()
         sent = _notify(w, JobType.CLEANDB_MEPESM)
         assert f"/effect-prediction/result/{_Job().job_id}" in sent[0]["body"]
@@ -133,6 +133,26 @@ class TestMepEsmIsNotified:
 
         assert w.send_notification_email("job-abc123", str(JobType.CLEANDB_MEPESM),
                                          _Job(), JobStatus.COMPLETED) is False
+
+
+class TestToolPrefixedResultLinks:
+    """These three frontends register a single result route, '<tool>/result/:id', in
+    app-routing.module.ts (iBioFoundry/crispr-copies-frontend,
+    iBioFoundry/mutagenesis-frontend and moleculemaker/ezspecificity-frontend), with no
+    other result route and no wildcard. The branches used to link to '/results/:id'
+    (crispr-copies, mutagenesis) and '/result/:id' (ez-specificity), both of which load
+    the app shell, land on '/' and render an empty page -- found from a real prod
+    mutagenesis notification."""
+
+    @pytest.mark.parametrize("job_type, route", [
+        (JobType.CRISPR_COPIES, "crispr-copies/result"),
+        (JobType.EZ_SPECIFICITY, "ez-specificity/result"),
+        (JobType.MUTAGENESIS, "mutagenesis/result"),
+    ], ids=str)
+    def test_completion_email_links_to_the_result_page(self, job_type, route):
+        sent = _notify(_watcher(), job_type)
+        assert f"/{route}/{_Job().job_id}" in sent[0]["body"]
+        assert "/results/" not in sent[0]["body"]
 
 
 # Every JobType must be listed in exactly one of these two sets.
