@@ -18,7 +18,6 @@ import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
-from jsonschema import Draft202012Validator
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -32,6 +31,7 @@ from routers.v1.problems import (
 )
 from services import analytics, generic_job, job_builder, kubejob_service, tool_registry
 from services.analytics import SURFACE_TOKEN
+from services.json_schema import SchemaValidator
 from services.minio_service import MinIOService
 
 router = APIRouter()
@@ -115,10 +115,11 @@ def _validate_against_schema(tool: str, inputs: Any) -> None:
 
     errors = [
         {
-            'pointer': '/' + '/'.join(str(p) for p in error.absolute_path),
+            # RFC 6901: the whole document is "", not "/" (the empty-string key)
+            'pointer': '/' + '/'.join(str(p) for p in error.absolute_path) if error.absolute_path else '',
             'detail': error.message,
         }
-        for error in sorted(Draft202012Validator(schema).iter_errors(inputs),
+        for error in sorted(SchemaValidator(schema).iter_errors(inputs),
                             key=lambda e: list(e.absolute_path))
     ]
     if errors:

@@ -12,6 +12,7 @@ from jsonschema import Draft202012Validator
 
 from models.enums import JobTypes
 from services import tool_registry
+from services.json_schema import SchemaValidator
 
 
 REQUIRED_FIELDS = ["name", "summary", "description", "execution", "schema_status"]
@@ -241,7 +242,7 @@ class TestSchemasAcceptKnownGoodInput:
     def test_known_good_payload_validates(self, identifier, payload):
         schema = tool_registry.get_input_schema(identifier)
 
-        Draft202012Validator(schema).validate(payload)
+        SchemaValidator(schema).validate(payload)
 
     def test_every_tool_with_a_schema_has_a_case(self):
         """Otherwise a schema could be wrong in a way nothing notices."""
@@ -268,7 +269,7 @@ class TestSchemasRejectBadInput:
         schema = tool_registry.get_input_schema(identifier)
 
         with pytest.raises(Exception):
-            Draft202012Validator(schema).validate(payload)
+            SchemaValidator(schema).validate(payload)
 
 
 class TestGenericContract:

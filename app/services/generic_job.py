@@ -24,9 +24,9 @@ import math
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
-from jsonschema import Draft202012Validator
 
 from services import tool_registry
+from services.json_schema import SchemaValidator
 from services.minio_service import MinIOService
 
 JOB_INPUT_FILENAME = 'job.json'
@@ -96,7 +96,7 @@ def read_results(service: MinIOService, job_type: str, job_id: str) -> Optional[
         errors = [
             _error('/' + '/'.join(str(p) for p in error.absolute_path) if error.absolute_path else '',
                    error.message)
-            for error in itertools.islice(Draft202012Validator(schema).iter_errors(results), MAX_ERRORS)
+            for error in itertools.islice(SchemaValidator(schema).iter_errors(results), MAX_ERRORS)
         ]
     except RecursionError:
         # A $ref-recursive schema validates one stack frame per level of nesting
