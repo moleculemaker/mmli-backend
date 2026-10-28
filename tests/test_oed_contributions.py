@@ -1,4 +1,5 @@
 """Tests for POST /oed/contributions, the OED About page's data contribution form."""
+import inspect
 import json
 
 import pytest
@@ -98,3 +99,7 @@ class TestSubmitContribution:
                                files={"file": ("kinetics.xlsx", b"data", "application/octet-stream")})
 
         assert response.status_code == 400
+
+    def test_handler_is_sync_so_minio_calls_run_off_the_event_loop(self):
+        # The MinIO client blocks; FastAPI only moves a handler to its threadpool if it is a plain def.
+        assert not inspect.iscoroutinefunction(oed.submit_contribution)

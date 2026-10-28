@@ -36,7 +36,9 @@ CONTRIBUTION_LICENSE = 'CC-BY-4.0'
     ),
     status_code=status.HTTP_201_CREATED,
 )
-async def submit_contribution(
+# Sync, so FastAPI runs it in its threadpool: the MinIO client blocks, and in an async
+# handler a 50 MB put_object would stall every other request on the event loop.
+def submit_contribution(
     file: UploadFile = File(...),
     email: EmailStr = Form(...),
     license_accepted: bool = Form(...),
@@ -55,7 +57,7 @@ async def submit_contribution(
         raise HTTPException(status_code=400, detail=f'File must be one of: {", ".join(CONTRIBUTION_EXTENSIONS)}')
 
     # Read one byte past the limit so an oversized upload is detected without holding it all.
-    content = await file.read(CONTRIBUTION_MAX_BYTES + 1)
+    content = file.file.read(CONTRIBUTION_MAX_BYTES + 1)
     if len(content) > CONTRIBUTION_MAX_BYTES:
         raise HTTPException(status_code=413, detail=f'File exceeds {CONTRIBUTION_MAX_BYTES // (1024 * 1024)} MB')
     if not content:
