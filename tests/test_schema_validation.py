@@ -47,6 +47,53 @@ class TestDollarMatchesOnlyAtTheEnd:
         assert _valid(r"^\[$", "[\n") is False
 
 
+class TestTheRuleHoldsUnderARef:
+    """jsonschema re-picks the validator class for every subschema (descend -> evolve ->
+    validator_for), and a subschema carrying `$schema` -- the root, reached through
+    `$ref: "#"` -- picked the stock Draft202012Validator, dropping the fix."""
+
+    SCHEMA = {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {"id": {"type": "string", "pattern": "^[a-z]+$"}, "child": {"$ref": "#"}},
+    }
+
+    def test_a_recursive_ref_still_rejects_a_trailing_newline(self):
+        assert SchemaValidator(self.SCHEMA).is_valid({"child": {"id": "a"}}) is True
+        assert SchemaValidator(self.SCHEMA).is_valid({"child": {"id": "a\n"}}) is False
+
+    def test_the_stock_validator_is_not_changed(self):
+        """The MCP server validates with jsonschema in the same process."""
+        from jsonschema import Draft202012Validator, validators
+        assert validators.validator_for(self.SCHEMA) is Draft202012Validator
+        assert Draft202012Validator(self.SCHEMA).is_valid({"id": "a\n"}) is True
+
+
+class TestTheRewriteFollowsPythonsParse:
+    def test_a_bracket_first_in_a_negated_class_is_a_literal(self):
+        """Python reads `[^]$]` as a class of `]` and `$`. Treating the `]` as closing
+        it put `\\Z` inside the class, which `re` rejects (bad escape)."""
+        assert ecma_pattern("^[^]$]+$") == r"^[^]$]+\Z"
+        assert _valid("^[^]$]+$", "ab") is True
+        assert _valid("^[^]$]+$", "a]") is False
+
+    def test_a_bracket_first_in_a_class_is_a_literal(self):
+        assert ecma_pattern("^[]$]+$") == r"^[]$]+\Z"
+        assert _valid("^[]$]+$", "]$") is True
+        assert _valid("^[]$]+$", "]$\n") is False
+
+    def test_flags_that_change_neither_dollar_nor_classes_are_still_rewritten(self):
+        assert ecma_pattern("(?i)^a$") == r"(?i)^a\Z"
+
+    @pytest.mark.parametrize("pattern", ["(?m:^a$)", "(?m)^a$", "(?im)^a$", "(?x) a # [comment\n $"])
+    def test_a_pattern_with_multiline_or_verbose_flags_is_left_alone(self, pattern):
+        """`(?m)` makes `$` a line anchor and `(?x)` makes `[` inside a comment a
+        literal; the scanner would read both wrong. ECMA has no `(?m)`/`(?x)` syntax,
+        so no frontend-valid schema uses them; shipped schemas are checked in
+        test_tool_registry."""
+        assert ecma_pattern(pattern) == pattern
+
+
 class TestSubmissionRejectsATrailingNewline:
     """The reproduction from #147, through the API, against a schema that ships today."""
 
