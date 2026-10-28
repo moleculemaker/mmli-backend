@@ -68,6 +68,12 @@ class TestTheRuleHoldsUnderARef:
         assert validators.validator_for(self.SCHEMA) is Draft202012Validator
         assert Draft202012Validator(self.SCHEMA).is_valid({"id": "a\n"}) is True
 
+    def test_the_evolve_copy_matches_the_installed_jsonschema(self):
+        """services/json_schema.py's _evolve copies jsonschema 4.23.0's evolve. Upgrading
+        jsonschema means comparing it with the new evolve, then updating this version."""
+        from importlib.metadata import version
+        assert version("jsonschema") == "4.23.0"
+
 
 class TestTheRewriteFollowsPythonsParse:
     def test_a_bracket_first_in_a_negated_class_is_a_literal(self):
