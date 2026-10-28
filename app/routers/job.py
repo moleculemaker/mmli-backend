@@ -15,6 +15,7 @@ from typing import List, Optional
 # only they accept the keyword form used below.
 from fastapi import Body, Depends, HTTPException, APIRouter, Path, Request, UploadFile
 from sqlalchemy import delete
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette import status
@@ -35,6 +36,19 @@ log = get_logger(__name__)
 # EZSpecificity input limits (mirror the frontend's MAX_ENZYMES / substrate cap)
 EZSPEC_MAX_ENZYMES = 5
 EZSPEC_MAX_SUBSTRATES = 10
+
+
+def _duplicate_submission(db_job: Job, job_type: str) -> JSONResponse:
+    """The response to a POST naming a job_id that already exists. See create_job."""
+    log.warning(f'Ignoring duplicate job submission for existing job_id={db_job.job_id} (type={job_type})')
+    return JSONResponse(status_code=status.HTTP_200_OK, content={
+        'job_id': str(db_job.job_id),
+        'run_id': str(db_job.run_id),
+        # Withheld: naming an id is not authorisation to read its owner's
+        # address or the inputs they submitted.
+        'email': None,
+        'job_info': None,
+    })
 
 
 async def _mark_job_failed(db: AsyncSession, db_job: Job) -> None:
@@ -84,22 +98,10 @@ async def create_job(
     # Validate Job type
     # TODO: Set command+image based on job_type
     if job_type in JobTypes:
-        # Look the job up only once the type is known to be valid, so this cannot
-        # depend on how strictly the database enforces the column.
-        #
-        # The deployed schema (built by alembic) stores `type` as a varchar and would
-        # simply match no rows. A schema built from the SQLModel metadata instead - which
-        # is what SQLModel.metadata.create_all() produces, and what the test suite uses -
-        # maps JobType to a native Postgres enum, where an unrecognized value makes the
-        # driver raise InvalidTextRepresentationError and the request 500s.
-        #
-        # Validating first makes the behavior identical under both, which matters
-        # because those two schemas are not currently guaranteed to agree.
-        statement = select(Job).where(Job.type == job_type).where(Job.job_id == job_id)
-        existing_jobs = await db.exec(statement)
-        db_job: Job = existing_jobs.first()
-        #if db_job:
-        #    raise HTTPException(status_code=409, detail=f"Job already exists with job_id={job_id}")
+        # By primary key alone: job_id is unique across every type, so an id held by
+        # another tool's job is taken too. (Filtering on type as well let such a POST
+        # through to prepare_job's MinIO write and then a 500 from the INSERT.)
+        db_job = await db.get(Job, job_id)
 
         # A POST naming a job_id that already exists is not a resubmission, and this
         # endpoint has no authentication: the caller has proved only that they can name
@@ -113,15 +115,7 @@ async def create_job(
         # The response keys and status code are unchanged so existing clients - notably
         # coordinator.py, which reads job_id from a 200 or a 201 - keep working.
         if db_job:
-            log.warning(f'Ignoring duplicate job submission for existing job_id={job_id} (type={job_type})')
-            return JSONResponse(status_code=status.HTTP_200_OK, content={
-                'job_id': str(db_job.job_id),
-                'run_id': str(db_job.run_id),
-                # Withheld: naming an id is not authorisation to read its owner's
-                # address or the inputs they submitted.
-                'email': None,
-                'job_info': None,
-            })
+            return _duplicate_submission(db_job, job_type)
 
         # Per-tool preparation (image, command, environment, and any input files a
         # tool needs written before it starts) lives in services/job_builder.py, because
@@ -147,7 +141,6 @@ async def create_job(
         # exist yet; since the watch never replays old events, a Job that got created
         # (and, for the short ones, finished) inside that window is stranded at 'queued'
         # even after Kubernetes reports it complete.
-        #
         db_job: Job = Job(
             # User input
             email=email,
@@ -169,7 +162,15 @@ async def create_job(
         )
 
         db.add(db_job)
-        await db.commit()
+        try:
+            await db.commit()
+        except IntegrityError:
+            # Another request created this job_id between the lookup above and here (a
+            # double-clicked Submit), or prepare_job switched to an id that is already
+            # taken (the ez-specificity subjobs take theirs from job_info). Same answer
+            # as the lookup's, and no second Kubernetes Job.
+            await db.rollback()
+            return _duplicate_submission(await db.get(Job, job_id), job_type)
         await db.refresh(db_job)
 
         # Run a Kubernetes Job with the given image + command + environment

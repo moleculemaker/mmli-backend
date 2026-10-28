@@ -129,6 +129,55 @@ class TestCreateJobWithExistingId:
         assert original is not None
         assert client.minio.get_file("aceretro", "victim/in/input.json") == original
 
+    def test_an_id_held_by_another_job_type_is_a_duplicate_too(self, client):
+        """job_id is the table's primary key, so it's taken whatever the type."""
+        _post_job(client, job_id="victim")
+
+        resp = _post_job(client, job_type="aceretro", job_id="victim", job_info='{"smiles": "CCO"}')
+
+        assert resp.status_code == 200
+        assert client.minio.get_file("aceretro", "victim/in/input.json") is None
+        assert len(client.k8s_jobs) == 1
+
+    def test_a_create_that_loses_the_insert_race_is_a_duplicate_not_a_500(self, client, monkeypatch, sync_db_url):
+        """Two creates with the same new id (a double-clicked Submit) both pass the
+        lookup; the second INSERT then hits the primary key. Simulated by committing
+        the competing row while the request is inside prepare_job."""
+        from sqlmodel import Session, create_engine
+        from models.sqlmodel.models import Job
+        from routers import job as job_router
+        real_prepare = job_router.job_builder.prepare_job
+
+        def prepare_while_another_request_commits(**kwargs):
+            engine = create_engine(sync_db_url)
+            with Session(engine) as session:
+                session.add(Job(job_id="raced", type=DEFAULTS, phase=JobStatus.QUEUED,
+                                time_created=0, user_agent="", deleted=0))
+                session.commit()
+            engine.dispose()
+            return real_prepare(**kwargs)
+
+        monkeypatch.setattr(job_router.job_builder, "prepare_job", prepare_while_another_request_commits)
+
+        resp = _post_job(client, job_id="raced")
+
+        assert resp.status_code == 200
+        assert set(resp.json()) == {"job_id", "run_id", "email", "job_info"}
+        assert client.k8s_jobs == []
+
+    def test_a_subjob_whose_job_info_names_a_taken_id_is_a_duplicate(self, client):
+        """prepare_job takes an ez-specificity subjob's id from job_info, after the
+        lookup has checked the request's job_id (absent here, so a fresh one)."""
+        job_info = json.dumps({"parent_job_id": "p", "ezspec_unidock_job_id": "sub",
+                               "ezspec_inference_job_id": "sub-i"})
+        assert _post_job(client, job_type="ezspec-unidock", job_info=job_info).status_code == 201
+
+        resp = _post_job(client, job_type="ezspec-unidock", job_info=job_info)
+
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == "sub"
+        assert len(client.k8s_jobs) == 1
+
     def test_does_not_disturb_the_existing_jobs_phase(self, client):
         _post_job(client, job_id="victim")
 
