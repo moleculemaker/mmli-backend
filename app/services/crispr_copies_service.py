@@ -253,15 +253,10 @@ class CRISPRCopiesService:
         # A failure writes `error` and still exits 0. This container is an init
         # container, so a non-zero exit would stop post-job from running and the log would
         # never reach MinIO. postjob.py uploads the outputs, then fails the Job on `error`.
-        # The setup step (prejob_command: fetch_organism.py, convert_annotations.py) runs
-        # earlier in the backend's init container, writes to the same `log` and touches
-        # `error` when it fails. So: skip the tool when `error` already exists, and append
-        # to `log` (tee -a) rather than replacing the setup step's output.
         command = (
             f'set -o pipefail && '
-            f'([ -e {JOB_OUTPUT_DIR}/error ]'
-            f' || ((({inner} 2>&1 | tee -a {JOB_OUTPUT_DIR}/log) && ls -al {JOB_OUTPUT_DIR}/)'
-            f' || touch {JOB_OUTPUT_DIR}/error))'
+            f'((({inner} 2>&1 | tee {JOB_OUTPUT_DIR}/log) && ls -al {JOB_OUTPUT_DIR}/)'
+            f' || touch {JOB_OUTPUT_DIR}/error)'
         )
         return command
 
