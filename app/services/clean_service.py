@@ -78,6 +78,10 @@ class CleanService:
 
             sequence_count += 1
 
+        if sequence_count == 0:
+            # An empty FASTA crashes CLEAN, return 400
+            raise HTTPException(status_code=400, detail='400: Bad Request - CLEAN requires at least one FASTA Sequence.')
+
         if sequence_count > 20:
             # Invalid FASTA Sequence, return 400
             raise HTTPException(status_code=400, detail='400: Bad Request - CLEAN allows only for a maximum of 20 FASTA Sequences.')
