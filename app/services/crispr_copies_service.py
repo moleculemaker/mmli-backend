@@ -243,17 +243,25 @@ class CRISPRCopiesService:
         # (CMD ["python", "code/main.py"]) — invoke it by that path, not bare main.py.
         inner = f"python code/main.py {rendered}{protein_runtime_suffix}"
         # Mirror the CLEAN command wrapper: tee logs, list outputs on success,
-        # and drop an `error` sentinel + fail the container on any error.
+        # and drop an `error` sentinel on any error.
         # `set -o pipefail` is REQUIRED: without it the pipeline's exit status is
         # `tee`'s (always 0), so a non-zero `python main.py` (crash, argparse
         # rejection, or sys.exit(1)) would be masked, the `error` sentinel skipped,
         # and the job falsely reported Done with no output.csv. The job template runs
         # this under `bash -c` in an `&&` chain, so we join with `&&` (not `;`) to
         # keep that chain intact.
+        # A failure writes `error` and still exits 0. This container is an init
+        # container, so a non-zero exit would stop post-job from running and the log would
+        # never reach MinIO. postjob.py uploads the outputs, then fails the Job on `error`.
+        # The setup step (prejob_command: fetch_organism.py, convert_annotations.py) runs
+        # earlier in the backend's init container, writes to the same `log` and touches
+        # `error` when it fails. So: skip the tool when `error` already exists, and append
+        # to `log` (tee -a) rather than replacing the setup step's output.
         command = (
             f'set -o pipefail && '
-            f'((({inner} 2>&1 | tee {JOB_OUTPUT_DIR}/log) && ls -al {JOB_OUTPUT_DIR}/)'
-            f' || (touch {JOB_OUTPUT_DIR}/error && false))'
+            f'([ -e {JOB_OUTPUT_DIR}/error ]'
+            f' || ((({inner} 2>&1 | tee -a {JOB_OUTPUT_DIR}/log) && ls -al {JOB_OUTPUT_DIR}/)'
+            f' || touch {JOB_OUTPUT_DIR}/error))'
         )
         return command
 

@@ -156,4 +156,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Only here, not at import: crispr_copies_service imports this module for its
+    # file names.
+    from job_log import run_with_job_log
+    run_with_job_log(main, log)
