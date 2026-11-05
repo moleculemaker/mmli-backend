@@ -82,13 +82,13 @@ def job_script(request, monkeypatch):
     return job["command"][2]
 
 
-def _run(script, tmp_path, python_body):
+def _run(script, tmp_path, python_body, dirs=("data/inputs", "in", "out")):
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     python = bin_dir / "python"
     python.write_text("#!/bin/sh\n" + python_body)
     python.chmod(0o755)
-    for d in ("data/inputs", "in", "out"):
+    for d in dirs:
         (tmp_path / d).mkdir(parents=True)
     env = {
         **os.environ,
@@ -113,3 +113,13 @@ def test_successful_run_finishes(job_script, tmp_path):
 
     assert code == 0
     assert outputs == ["finished", "log", "result.csv"]
+
+
+def test_the_tool_does_not_run_when_an_earlier_step_fails(job_script, tmp_path):
+    # The template runs `ls -al ${JOB_INPUT_DIR} && <command> && ...`. With no input
+    # directory that first step fails, and the chain must stop there. A command that
+    # starts with `set -o pipefail;` would run the tool anyway.
+    code, outputs = _run(job_script, tmp_path, 'touch "$JOB_OUTPUT_DIR/tool-ran"\n', dirs=("data/inputs", "out"))
+
+    assert code != 0
+    assert "tool-ran" not in outputs
