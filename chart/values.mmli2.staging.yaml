@@ -325,6 +325,11 @@ minio:
   auth:
     existingSecret: "mmli-backend-minio"
 
+bucketPolicyCheck:
+  enabled: true
+  # Read-only MinIO user `bucket-policy-auditor`; sealed below.
+  existingSecret: mmli-backend-bucket-policy-check
+
 extraDeploy:
 # IP ratelimiting for staging JobMgr
 - apiVersion: traefik.io/v1alpha1
@@ -416,7 +421,23 @@ extraDeploy:
         creationTimestamp: null
         name: huggingface-token
         namespace: staging
-        
+
+# Keys for the read-only MinIO user `bucket-policy-auditor`, used by the
+# bucket-policy-check CronJob.
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    name: mmli-backend-bucket-policy-check
+    namespace: staging
+  spec:
+    encryptedData:
+      access-key: AgATJqelf8dcmoPlyaIUl/KreWrHowCK7TjkcvI3wqmJt/ZqsEwD5dbfgacBMDIe10N/Ecluzt3nZWAO8HyrkuYOC2GnWWIa3u3sMCa9V5IKzIbnruut/N0LfWtSpz3eBdlxZ/mLxhsRc8ZeJlq273bpAtxepi/7JRpeefSZ0fW9sTeMM9yEXjuAGhSD8bT2JjnAGkUbV7g/arcPxL1F6LHD6WhRDMapdO4051fQ7qHpDvZ6mx5W9vgkrXdaryM/kcXI2aDGIic2x+m0/68kbzHXgYtRRryMjfNWkgUjeWyuiNH0Q+3K9Uq09vMNrcRWpxUn/MQRzeFyENXEPNo1N7wi7RMiBdqV998FwuhkaolmrtKz4DhI4oPUl9vTCfp/nzV6xQQ3YQenfirI1MZ2zViVKEZMYymrhjHGwMQY+yD2VWm8bgFF3S9TuyYl/K9Xvy02NiBXKzoTi/lcDZdITUZ8XM5NgQYbkgdpQM8pURHilqRG61MTjyC7pyqYBYdlMH6Q6EsR1IVzpBjXRTLUUV1+WUdChMRhO39YzRlAgi8V78ps9N7fQoPx1o1KPjrYft0Jj4B/tF6+OrsuRM1z0ZbqWl1eM+YuoRs+wwOGpHWfAUxBIG6LmgRojt8snuiJJNosrvkfK9hWNCO6mJNpkfgk1cLOTjvyoz8L8oTclPRq6zfMYSe28+pDL8wESdVHtsqjyTEyPXJ/84uN+XDzfChmGwEG+jo=
+      secret-key: AgBWetKfd0nwAEr4T/pd0GCnJY3yFvcklSmkJvJvOQ/BbzYwwQm8bbqWNhLQhL+Ut8MQqXjl+gUaKmwGTpdHDh5vw7y465L7EtdXQI0dLdgfjj1FhN/c41lKvDNOhHcdCeVGNDV0T7Tw+6IInZ5gR3RJ2HLgtre13yLIYwmZEYwg5TdZQNzDZLaFibS6fLWCEOQs6/AHCk60rE/WmwgpDZVCXRdhM0r6bmrPppbQUZBnTJy4h7y7RyMkeAWnH4Yz7pTSTiDeysuG/nsF7xdvpfCOi8F0iIihBTCXV2gleWOCImk48eZhbv3cpwyW9UrLUxHE/LkPjHn/U9LohKOWDolzdGfIpt6JNraQjz0iDMPYb8VLu/NEDEi5AdeUZ7esJ/Zzk8pY5Dqfk21WOnW22du9CrBD8SgDoeuwHMXhgp7ME8wDbluwkrZOl+kmVrbSbP6ygLf/11zqXNhhFL5SlRTM8najBs/czndLk29bE3aXeqBJFudbeP0rOqXEA/VPz3gtiGRnVPIxnlcPP6wdQm6kXVpwmRtqRkUj5tGX+biUs5+ZagoypUjRhzYiMGqpkxtdrfk/E09iwmm4giNOMgObcj8PX9w48z0W26qSsZypi1hDPwhktFvgiAVOgB3qX9jkQxCXQ26FFoykqIdBT57sj6ptt/rqg+V2XkZBpcC9pBpOz6nZEK+msf/fZAPh2szeqOd9kVn1kn+5byh7+c/kZbeexZqEfjsUEfMsSJCRk9OBaQ96sT/cu35Gk4imI2I=
+    template:
+      metadata:
+        name: mmli-backend-bucket-policy-check
+        namespace: staging
+
 # References Postgres and Minio secrets
 # Update this and reseal if either of those credentials need to change
 - apiVersion: bitnami.com/v1alpha1

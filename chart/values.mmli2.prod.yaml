@@ -315,6 +315,11 @@ minio:
   auth:
     existingSecret: "mmli-backend-minio"
 
+bucketPolicyCheck:
+  enabled: true
+  # Read-only MinIO user `bucket-policy-auditor`; sealed below.
+  existingSecret: mmli-backend-bucket-policy-check
+
 extraDeploy:
 # IP ratelimiting for prod JobMgr
 - apiVersion: traefik.io/v1alpha1
@@ -402,6 +407,22 @@ extraDeploy:
       metadata:
         creationTimestamp: null
         name: huggingface-token
+        namespace: alphasynthesis
+
+# Keys for the read-only MinIO user `bucket-policy-auditor`, used by the
+# bucket-policy-check CronJob.
+- apiVersion: bitnami.com/v1alpha1
+  kind: SealedSecret
+  metadata:
+    name: mmli-backend-bucket-policy-check
+    namespace: alphasynthesis
+  spec:
+    encryptedData:
+      access-key: AgBxDAhPAwQhUY14mltvI4YGIwFm58R7CuXqZqjwPuMsjpfZIQ1OMDA5wTHJzOoDM6XCVbBH7JnkrWPRf4gJx/ljjsJnbrfL4fIjLJKcsuQ30yIdt0ysw2T7zYNS83MnTLJeNSSqH00HA2zja9qj8MQlFXkHIF58L80cHYZnYEOdbvfWqq8FFVdYXQFfFfM2c+CHBkb/j6LzQIiL/luzYSMfK7/6y02AAEaPdT6jZQiJoYmsD92aMJbzbaWZLPLN8qH5C/yZqpj1/LYPS0lH4CaQz51jId9ODJuADZ0fQyxS4kyBkrShHwKaJYIjFPFQw6HmQgG2TqePuAPOW8HejAJXvxNyej+hYgmyLZwF88I13A3qk8AQfYKboUzH0F142ngYZZB1tOAm4CMZaOQk5QnHkWXecfB8lAyiMjmDRwO87EZGQE4m9JRdHV3C5KD0fl/F/UgjO0WPmmPS6cJZcCXIAhYHsyTV8q9a+uBpuccP/Yy/ZEuHuBCL+2/W+63xBX8IL0WS5lV5nQR+XApju0tDyxx388DIVD837GaA5u6veqQ2zer6eRoaKxPRnoGBSMYZzNqaJjQhgZkZuGWZ2yP3FzID7f42Rgi+fgXrGoPc1LrsTJQI6n1QNkS9aYnM3SjkW/vtr8DOILn6KIbDvnj7NxXGJ6rart7wErShg/m0S7kZ3K3uzhSlQRpJKk/8cjtIeER/X0J4ouEamROjlbvEn5ELNB4=
+      secret-key: AgCmnzYbQsJyvCp540TY02L7UPUyJ7i+aFjw1TTOw4pKaIrqbLLcPNf0w3vpoeZU469yj9wyi/MIzrzjC3YYAraaVnSXpkL2NtRJZ+i3shDvoy0qwpPWRwfkqjrAAZ6EVNd3LccmB6RiBmDtAEyJaF31S5HOWiQhjfta1ELYNnLEu02rJ1yrjeOkysYn1AIcV224DfMdHyjBsiUXLFRvttUIRRxwmD0HhvEpXci5F6TkobhW28PsZXVJKD0pkL+mul37mAtHE9G6YtFO6j5KR4qLcwLIze0jnvCSPAd8y5ZwE3yRvu7SBafDog5Ex7lp5FsyhV9dGdJ+ObxU09d0N4z4hUhnJ6K6LgF8KvDs5IgdxEPcvxVplbzbdpLgVAoGTwjYo9sJBt7eAxUnZ1IyfvU8nM/WHO4XGh11W1FIfrH/Ia4FTxlhZgRKcd2ANDEMOPq//fqfJ5A74BmgQUtEA7QXErbwxb0pddu34ybqsDo8brmLBghFnSop/5sOoOSJoBJF03OzwmdXECikHZJsb5bVL6ytXio+oUB9/7EV7Iyirp5oWFzzbAg1Z7rJLvzc6crpuaDaz4MMJCkyZ4rr+N0FPN/keOa5XA9Q+HPmggVu9VqXkuQ13F+pdPxFb2kj/XY13H9w9A90lEv2oS5yzWj2HEydx7lnSMkCnx03Z1HH5wlbXWZD4lg8169b4pNCmmLY9oNEuapyPbWw+vPlFhpqlXwJrfKWCRIHEivDza4p7PO/vWgmNwT2UeF2VOpVSSU=
+    template:
+      metadata:
+        name: mmli-backend-bucket-policy-check
         namespace: alphasynthesis
 
 # References Postgres and Minio secrets

@@ -1,0 +1,48 @@
+{{- if .Values.bucketPolicyCheck.enabled }}
+# Daily check that no MinIO bucket grants anonymous access beyond
+# config.bucketPolicyCheck.allowedAnonymous (see app/bucket_policy_check.py).
+# A failed run fails the Job, which also fires the cluster's KubeJobFailed alert.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-bucket-policy-check
+spec:
+  schedule: {{ .Values.bucketPolicyCheck.schedule | quote }}
+  timeZone: {{ .Values.bucketPolicyCheck.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: server-config
+              configMap:
+                name: {{ .Release.Name }}-config
+          containers:
+            - name: bucket-policy-check
+              image: {{ .Values.controller.image }}
+              imagePullPolicy: {{ .Values.controller.imagePullPolicy | default "Always" }}
+              workingDir: /code/app
+              command: ["python", "bucket_policy_check.py"]
+              # Only the config file is mounted, not secret.yaml: this job's MinIO
+              # account is read-only and it needs no other credentials.
+              volumeMounts:
+                - name: server-config
+                  mountPath: /code/app/cfg/config.yaml
+                  subPath: config.yaml
+              env:
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "bucketPolicyCheck.existingSecret is required" .Values.bucketPolicyCheck.existingSecret }}
+                      key: access-key
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ required "bucketPolicyCheck.existingSecret is required" .Values.bucketPolicyCheck.existingSecret }}
+                      key: secret-key
+{{- end }}
