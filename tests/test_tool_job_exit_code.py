@@ -131,11 +131,12 @@ def _setup_stub(message, exit_code=0):
 
 
 def _run_crispr_pod(monkeypatch, tmp_path, fetch=_setup_stub("fetched"), convert=_setup_stub("converted"),
-                    tool="echo done"):
+                    tool="echo done", prejob="exit 0"):
     """Run CRISPR-Copies' `init` container (prejob.py + the setup step), then its `job`
-    container, in order, sharing one output directory, as the pod does.
+    container, in order, sharing one output directory, as the pod does. As in the pod,
+    the `job` container does not run when `init` fails.
 
-    Returns (init exit code, job exit code, output file names, contents of `log`).
+    Returns (init exit code, job exit code or None, output file names, contents of `log`).
     """
     scripts = _init_container_scripts(monkeypatch, "crispr-copies")
     bin_dir = tmp_path / "bin"
@@ -150,9 +151,9 @@ def _run_crispr_pod(monkeypatch, tmp_path, fetch=_setup_stub("fetched"), convert
         "esac\n"
     )
     python.chmod(0o755)
-    prejob = tmp_path / "prejob.py"  # the backend's MinIO input sync
-    prejob.write_text("#!/bin/sh\nexit 0\n")
-    prejob.chmod(0o755)
+    prejob_script = tmp_path / "prejob.py"  # the backend's MinIO input sync
+    prejob_script.write_text(f"#!/bin/sh\n{prejob}\n")
+    prejob_script.chmod(0o755)
     out = tmp_path / "out"
     env = {
         **os.environ,
@@ -160,12 +161,27 @@ def _run_crispr_pod(monkeypatch, tmp_path, fetch=_setup_stub("fetched"), convert
         "JOB_INPUT_DIR": str(tmp_path / "in"),
         "JOB_OUTPUT_DIR": str(out),
     }
-    codes = [
-        subprocess.run(["bash", "-c", scripts[name]], cwd=tmp_path, env=env, capture_output=True, text=True).returncode
-        for name in ("init", "job")
-    ]
+
+    def run(name):
+        return subprocess.run(["bash", "-c", scripts[name]], cwd=tmp_path, env=env,
+                              capture_output=True, text=True).returncode
+
+    init_code = run("init")
+    job_code = run("job") if init_code == 0 else None
     log = (out / "log").read_text() if (out / "log").exists() else ""
-    return codes[0], codes[1], sorted(p.name for p in out.iterdir()), log
+    return init_code, job_code, sorted(p.name for p in out.iterdir()), log
+
+
+def test_a_failed_input_sync_still_fails_the_init_container(monkeypatch, tmp_path):
+    # The setup step's fallback (`|| ... touch error`) must cover only fetch_organism.py
+    # and convert_annotations.py. Spliced into the template's `... && ./prejob.py && ...`
+    # chain unbraced, it caught a prejob.py failure too and blamed the setup scripts.
+    init_code, job_code, outputs, log = _run_crispr_pod(monkeypatch, tmp_path, prejob="exit 1")
+
+    assert init_code != 0
+    assert job_code is None
+    assert "error" not in outputs
+    assert "CRISPR-Copies setup step failed" not in log
 
 
 @pytest.mark.parametrize("step", ["fetch", "convert"])
