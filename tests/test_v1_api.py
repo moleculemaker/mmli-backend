@@ -328,18 +328,34 @@ class TestArtifacts:
         assert body["count"] == 1
         assert body["items"][0]["name"] == "output.json"
 
-    def test_logs_are_hidden_unless_requested(self, client):
+    # error.log and log carry whatever the container printed, and anyone holding the job
+    # id can read them. The filter is the same for every job type, so one tool's bucket
+    # stands in for all of them.
+    @pytest.mark.parametrize("log_names", [
+        ("error.log", "output.log", "success"),  # novostoic (chart/values.yaml)
+        ("log", "error", "finished"),  # job template; CLEAN, CRISPR-Copies, Mutagenesis
+    ], ids=["novostoic", "job-template"])
+    def test_logs_are_hidden_unless_requested(self, client, log_names):
         job_id = _submit(client).json()["job_id"]
-        for name in ("output.json", "error.log", "output.log", "success"):
+        for name in ("output.json", *log_names):
             client.minio.put("novostoic-optstoic", f"{job_id}/out/{name}", b"x")
 
         default = client.get(f"/v1/jobs/{job_id}/artifacts").json()
         with_logs = client.get(f"/v1/jobs/{job_id}/artifacts?include=logs").json()
 
-        # error.log carries whatever the container printed, and anyone holding the job
-        # id can read it.
         assert [i["name"] for i in default["items"]] == ["output.json"]
-        assert with_logs["count"] == 4
+        assert with_logs["count"] == 1 + len(log_names)
+
+    def test_a_result_in_a_subfolder_with_a_log_name_stays_listed(self, client):
+        # Every log writer puts its files at the top of out/. A tool's own result tree
+        # (Mutagenesis writes into $JOB_OUTPUT_DIR) could hold a file with the same name.
+        job_id = _submit(client).json()["job_id"]
+        for name in ("log", "run1/log", "run1/error"):
+            client.minio.put("novostoic-optstoic", f"{job_id}/out/{name}", b"x")
+
+        default = client.get(f"/v1/jobs/{job_id}/artifacts").json()
+
+        assert [i["name"] for i in default["items"]] == ["run1/error", "run1/log"]
 
     def test_an_artifact_can_be_downloaded(self, client):
         job_id = _submit(client).json()["job_id"]
