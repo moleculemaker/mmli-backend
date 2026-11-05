@@ -98,6 +98,15 @@ minio:
     # rootUser: "admin"
     # rootPassword: ""
 
+# Daily check that no MinIO bucket grants anonymous access beyond
+# config.bucketPolicyCheck.allowedAnonymous (chart/templates/bucket-policy-check.yaml).
+bucketPolicyCheck:
+  enabled: false
+  schedule: "17 8 * * *"
+  # Secret with `access-key` and `secret-key` for a MinIO account limited to
+  # s3:ListAllMyBuckets, s3:GetBucketLocation and s3:GetBucketPolicy.
+  existingSecret: ""
+
 config:
   # Change frontend service URLs depending on where they're deployed (used for email notifications)
   # TODO: Default these to local cluster? For now, default is staging and we override for prod
@@ -143,6 +152,57 @@ config:
     server: "smtp.ncsa.uiuc.edu"
     fromEmail: "devnull+alphasynthesis@ncsa.illinois.edu"
     fromName: "no-reply-ALPHASYNTHESIS"
+
+  # Read by app/bucket_policy_check.py. A bucket not listed under allowedAnonymous must
+  # have no anonymous policy; a listed bucket must have exactly this policy (statement
+  # and action order do not matter).
+  bucketPolicyCheck:
+    recipients:
+      - mjberry@illinois.edu
+      - lambert8@illinois.edu
+    allowedAnonymous:
+      # Uploaded PDFs, fetched directly by the frontend's viewer.
+      chemscraper:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:GetBucketLocation"]
+            Resource: ["arn:aws:s3:::chemscraper"]
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:ListBucket"]
+            Resource: ["arn:aws:s3:::chemscraper"]
+            Condition: {StringEquals: {"s3:prefix": ["/*/in/"]}}
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:GetObject"]
+            Resource: ["arn:aws:s3:::chemscraper/**/in/**"]
+      reactionminer:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:GetBucketLocation"]
+            Resource: ["arn:aws:s3:::reactionminer"]
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:ListBucket"]
+            Resource: ["arn:aws:s3:::reactionminer"]
+            Condition: {StringEquals: {"s3:prefix": ["/*/in/"]}}
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:GetObject"]
+            Resource: ["arn:aws:s3:::reactionminer/**/in/**"]
+      # Docked complexes, fetched directly by the 3D viewer
+      # (EzSpecificityService._docking_rows_with_complexes).
+      ez-specificity:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {AWS: ["*"]}
+            Action: ["s3:GetObject"]
+            Resource: ["arn:aws:s3:::ez-specificity/*/out/*/out/complexes/*"]
 
   kubernetes_jobs:
     # ACERetro backend
