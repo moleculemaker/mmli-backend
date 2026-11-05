@@ -14,6 +14,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -41,7 +42,9 @@ async def require_reporting_group(request: Request) -> Dict[str, Any]:
             detail='Reporting is not configured: no reporting group has been set.',
         )
 
-    user = validate_auth_cookie(request)
+    # validate_auth_cookie makes a blocking HTTP call; on the event loop it would stall
+    # every other request until it returned.
+    user = await run_in_threadpool(validate_auth_cookie, request)
     if not user:
         raise HTTPException(status_code=401, detail='Authentication required.')
 

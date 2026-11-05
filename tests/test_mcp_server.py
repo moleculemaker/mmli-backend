@@ -222,16 +222,15 @@ class TestJobLifecycle:
 
         assert [i["name"] for i in body["items"]] == ["output.json"]
 
-    def test_logs_are_excluded_unless_requested(self, client):
+    def test_logs_are_excluded(self, client):
+        # Logs are for operators, who authenticate with a browser cookie; the MCP server
+        # calls the API without one, so it offers no way to ask for them.
         job_id = _payload(_call(client, "submit_novostoic_optstoic", OPTSTOIC))["job_id"]
         client.minio.put("novostoic-optstoic", f"{job_id}/out/error.log", b"boom")
 
-        without = _payload(_call(client, "list_job_artifacts", {"job_id": job_id}))
-        with_logs = _payload(_call(client, "list_job_artifacts",
-                                   {"job_id": job_id, "include_logs": True}))
+        body = _payload(_call(client, "list_job_artifacts", {"job_id": job_id}))
 
-        assert without["count"] == 0
-        assert with_logs["count"] == 1
+        assert body["count"] == 0
 
     def test_a_job_can_be_canceled(self, client, deleted_k8s_jobs):
         job_id = _payload(_call(client, "submit_novostoic_optstoic", OPTSTOIC))["job_id"]
