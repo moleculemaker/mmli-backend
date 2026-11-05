@@ -10,6 +10,10 @@ log = logging.getLogger(__name__)
 
 SSL_VERIFY = True
 
+# userinfo() runs on request paths anyone can reach (the operator check on job logs), so
+# a slow or unreachable oauth2-proxy must not hold a request open indefinitely.
+USERINFO_TIMEOUT_SECONDS = 5
+
 
 def verify_captcha(captcha_token):
     try:
@@ -38,6 +42,7 @@ def userinfo(access_token) -> dict:
     try:
         resp = requests.get(url=app_config['auth']['userInfoUrl'],
                             verify=SSL_VERIFY,
+                            timeout=USERINFO_TIMEOUT_SECONDS,
                             cookies={"_oauth2_proxy": access_token})
         resp.raise_for_status()
         user = resp.json()
@@ -74,4 +79,7 @@ def get_token_from_request_cookies(request):
 def validate_auth_cookie(request, required_scopes=[]):
     token = get_token_from_request_cookies(request)
     #log.debug('Found validate_token: ' + str(token))
+    if not token:
+        # Nobody to look up. The lookup would fail anyway, but only after an outbound call.
+        return None
     return userinfo(token)

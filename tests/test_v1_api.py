@@ -3,13 +3,15 @@
 These are not characterization tests: /v1 is new, so they describe intended behavior
 rather than pinning existing behavior.
 """
+import asyncio
 import json
+from types import SimpleNamespace
 
 import pytest
 
 from models.enums import JobStatus
 from routers import reports
-from services import kubejob_service
+from services import kubejob_service, userinfo_service
 
 
 SOMN_INPUT = [{
@@ -404,6 +406,50 @@ class TestArtifacts:
         client.minio.put("novostoic-optstoic", f"{job_id}/out/run1/log", b"result")
 
         assert client.get(f"/v1/jobs/{job_id}/artifacts/run1/log").status_code == 200
+
+    def test_an_anonymous_log_request_makes_no_userinfo_call(self, client, monkeypatch):
+        # The userinfo lookup is an outbound HTTP call; with no cookie there is nobody to
+        # look up, so anyone hitting a log URL must not be able to trigger one.
+        monkeypatch.setattr(reports, "REPORTING_GROUP", "mmli-reporting")
+        calls = []
+        monkeypatch.setattr(userinfo_service.requests, "get", lambda *a, **k: calls.append(k))
+        job_id = _submit(client).json()["job_id"]
+
+        assert client.get(f"/v1/jobs/{job_id}/artifacts/log").status_code == 404
+        assert client.get(f"/v1/jobs/{job_id}/artifacts?include=logs").status_code == 403
+        assert calls == []
+
+    def test_the_userinfo_lookup_has_a_timeout(self, monkeypatch):
+        calls = []
+
+        def fake_get(**kwargs):
+            calls.append(kwargs)
+            raise userinfo_service.requests.Timeout()
+
+        monkeypatch.setattr(userinfo_service.requests, "get", fake_get)
+        request = SimpleNamespace(cookies={userinfo_service.app_config['auth']['cookiename']: "token"})
+
+        assert userinfo_service.validate_auth_cookie(request) is None
+        assert calls and calls[0].get("timeout")
+
+    def test_the_operator_lookup_does_not_run_on_the_event_loop(self, client, monkeypatch):
+        # userinfo() is a blocking call; on the event loop it would stall every request.
+        monkeypatch.setattr(reports, "REPORTING_GROUP", "mmli-reporting")
+        on_loop = []
+
+        def lookup(request):
+            try:
+                asyncio.get_running_loop()
+                on_loop.append(True)
+            except RuntimeError:
+                on_loop.append(False)
+            return {"email": "a@b.edu", "groups": ["mmli-reporting"]}
+
+        monkeypatch.setattr(reports, "validate_auth_cookie", lookup)
+        job_id = _submit(client).json()["job_id"]
+        client.get(f"/v1/jobs/{job_id}/artifacts?include=logs")
+
+        assert on_loop == [False]
 
     def test_an_unconfigured_operator_group_hides_logs_from_everyone(self, client, as_user):
         """An unset group must not mean "any authenticated user"."""
