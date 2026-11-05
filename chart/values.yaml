@@ -435,10 +435,14 @@ config:
       imagePullPolicy: "Always"
       volumes: []
 
+    # The four novostoic commands below must exit 0 and touch ${JOB_OUTPUT_DIR}/error when
+    # the tool fails. The tool runs as an init container, so a non-zero exit would stop
+    # post-job from uploading the logs; app/postjob.py uploads them, then fails the Job on
+    # `error` so the job is marked error. Checked by tests/test_novostoic_job_exit_code.py.
     # Config for running NovoStoic job (subjob: dGPredictor)
     novostoic-dgpredictor:
       image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      command: python ./novostoic-job.py dgpredictor 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/error; fi
       imagePullPolicy: "Always"
       volumes:
         - name: "shared-storage"
@@ -449,7 +453,7 @@ config:
     # Config for running NovoStoic job (subjob: EnzRank)
     novostoic-enzrank:
       image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      command: python ./novostoic-job.py enzrank 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/error; fi
       imagePullPolicy: "Always"
       volumes:
         - name: "shared-storage"
@@ -460,7 +464,7 @@ config:
     # Config for running NovoStoic job (subjob: OptStoic)
     novostoic-optstoic:
       image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      command: python ./novostoic-job.py optstoic 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/error; fi
       imagePullPolicy: "Always"
       volumes:
         - name: "shared-storage"
@@ -478,7 +482,7 @@ config:
     # Config for running NovoStoic job (subjob: NovoStoic Pathways Search)
     novostoic-pathways:
       image: "moleculemaker/novostoic"
-      command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/fail; fi
+      command: python ./novostoic-job.py pathways 1> ${JOB_OUTPUT_DIR}/output.log 2> ${JOB_OUTPUT_DIR}/error.log; if [ "$?" -eq 0 ]; then touch ${JOB_OUTPUT_DIR}/success; else touch ${JOB_OUTPUT_DIR}/error; fi
       imagePullPolicy: "Always"
       volumes:
         - name: "shared-storage"
