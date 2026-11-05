@@ -42,7 +42,14 @@ TERMINAL_PHASES = {JobStatus.COMPLETED, JobStatus.ERROR, JobStatus.CANCELED}
 # Files a tool writes for operational reasons rather than as scientific output. Hidden
 # from the artifact listing unless asked for: error logs carry whatever the container
 # chose to print, which can include internal paths and configuration.
-LOG_ARTIFACTS = {'output.log', 'error.log', 'errors.txt', 'success', 'fail'}
+#
+# Keep this in step with every writer of a log or marker into $JOB_OUTPUT_DIR:
+#   - templates/job.tpl.yaml touches `finished` after every successful job command;
+#   - the CLEAN, CRISPR-Copies and Mutagenesis commands (services/*_service.py) tee
+#     their output to `log` and touch `error` on failure;
+#   - the novostoic commands (chart/values.yaml) write `output.log`, `error.log`,
+#     `success` and `fail`.
+LOG_ARTIFACTS = {'output.log', 'error.log', 'errors.txt', 'success', 'fail', 'log', 'error', 'finished'}
 
 # How long a client should wait before polling again. Jobs here run for minutes to
 # hours, so a tight loop helps nobody.

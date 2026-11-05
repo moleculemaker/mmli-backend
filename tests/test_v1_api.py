@@ -341,6 +341,19 @@ class TestArtifacts:
         assert [i["name"] for i in default["items"]] == ["output.json"]
         assert with_logs["count"] == 4
 
+    def test_job_template_log_and_markers_are_hidden_unless_requested(self, client):
+        # The job template touches `finished`; CLEAN, CRISPR-Copies and Mutagenesis tee
+        # to `log` and touch `error` on failure. `log` holds the tool's traceback.
+        job_id = _submit(client).json()["job_id"]
+        for name in ("output.json", "log", "error", "finished"):
+            client.minio.put("novostoic-optstoic", f"{job_id}/out/{name}", b"x")
+
+        default = client.get(f"/v1/jobs/{job_id}/artifacts").json()
+        with_logs = client.get(f"/v1/jobs/{job_id}/artifacts?include=logs").json()
+
+        assert [i["name"] for i in default["items"]] == ["output.json"]
+        assert with_logs["count"] == 4
+
     def test_an_artifact_can_be_downloaded(self, client):
         job_id = _submit(client).json()["job_id"]
         client.minio.put("novostoic-optstoic", f"{job_id}/out/output.json", b'{"a":1}')
