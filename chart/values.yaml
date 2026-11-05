@@ -293,7 +293,12 @@ config:
       # Init-container step (after prejob.py input sync): resolve a dropdown organism
       # accession to genome/feature-table/protein files, and convert any uploaded GFF3
       # to feature_table.txt. No-op for the upload / feature_table paths.
-      prejob_command: "python fetch_organism.py && python convert_annotations.py"
+      # On failure it touches `error` and exits 0, so the job container (which skips the
+      # tool when `error` exists) and post-job still run and upload the log. The scripts
+      # write their own messages to `log` (app/job_log.py). Their raw output must NOT be
+      # captured there: importing config logs app_config, secret.yaml included.
+      # Keep in step with app/cfg/config.yaml (tests/test_tool_job_exit_code.py checks).
+      prejob_command: "(python fetch_organism.py && python convert_annotations.py) || (echo 'CRISPR-Copies setup step failed (fetch_organism.py or convert_annotations.py).' >> ${JOB_OUTPUT_DIR}/log; touch ${JOB_OUTPUT_DIR}/error)"
       volumes: []
 
     # Config for running EZSpecificity parent coordinator job
