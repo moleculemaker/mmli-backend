@@ -1,4 +1,4 @@
-"""A CLEAN job whose inference fails must fail its container, not report success.
+"""A CLEAN job whose inference fails must write the `error` sentinel, not report success.
 
 The CLEAN command pipes the inference through `tee` into the job log. Without
 `set -o pipefail` the pipeline's status is tee's, so a crash (job f289fd27 on 2026-11-04,
@@ -7,6 +7,10 @@ template touched `finished`, and the job was marked completed with no results.
 
 These render the real job template through create_job with the real CLEAN command, then
 run the job container's script with a stand-in `python` on PATH.
+
+A failed inference still exits 0: the job container is an init container, so a non-zero
+exit would stop post-job from uploading the log. postjob.py fails the Job on `error`
+after the upload (tests/test_postjob_exit_code.py).
 """
 import os
 import subprocess
@@ -58,13 +62,13 @@ def _run(script, tmp_path, python_body):
 
 
 @pytest.mark.parametrize("failure", ["exit 1", "kill -9 $$"], ids=["exits-nonzero", "killed"])
-def test_failed_inference_fails_the_container(monkeypatch, tmp_path, failure):
+def test_failed_inference_writes_error_and_lets_post_job_run(monkeypatch, tmp_path, failure):
     script = _job_script(monkeypatch)
 
     code, outputs = _run(script, tmp_path, f"echo Traceback\n{failure}\n")
 
-    assert code != 0
-    assert outputs == ["error", "log"]
+    assert code == 0
+    assert outputs == ["error", "finished", "log"]
 
 
 def test_successful_inference_finishes(monkeypatch, tmp_path):
