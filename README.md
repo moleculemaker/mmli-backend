@@ -63,8 +63,9 @@ jq . results.json
 digest that actually ran, once the pod reports it), and a `links` object — so a client
 never has to build a URL.
 
-Raw output files are listed at `/v1/jobs/$ID/artifacts`; add `?include=logs` for the
-tool's stdout/stderr. `POST /v1/jobs/$ID/cancel` stops a running job.
+Raw output files are listed at `/v1/jobs/$ID/artifacts`. The tool's stdout/stderr logs
+are for operators only: `?include=logs` and downloading a log require a login in the
+reporting group (`auth.reportingGroup`). `POST /v1/jobs/$ID/cancel` stops a running job.
 
 ### Tools that need files
 

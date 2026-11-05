@@ -14,10 +14,11 @@ Differences from the legacy Jobs API that matter to a scripted client:
   responses carry links            so clients never build URLs by string concatenation
 """
 import json
+import posixpath
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from jsonschema import Draft202012Validator
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -26,9 +27,10 @@ from config import STATUS_ERROR, app_config, get_logger
 from models.enums import JobStatus, JobTypes
 from models.sqlmodel.db import get_session
 from models.sqlmodel.models import IdempotencyKey, Job
+from routers.reports import require_reporting_group
 from routers.v1.problems import (
-    IDEMPOTENCY_CONFLICT, INVALID_INPUT, JOB_FAILED, JOB_NOT_FINISHED, NOT_CANCELABLE,
-    UNKNOWN_JOB, UNKNOWN_TOOL, UPSTREAM_FAILURE, ProblemException,
+    ABOUT_BLANK, IDEMPOTENCY_CONFLICT, INVALID_INPUT, JOB_FAILED, JOB_NOT_FINISHED,
+    NOT_CANCELABLE, UNKNOWN_JOB, UNKNOWN_TOOL, UPSTREAM_FAILURE, ProblemException,
 )
 from services import analytics, generic_job, job_builder, kubejob_service, tool_registry
 from services.analytics import SURFACE_TOKEN
@@ -39,11 +41,11 @@ log = get_logger(__name__)
 
 TERMINAL_PHASES = {JobStatus.COMPLETED, JobStatus.ERROR, JobStatus.CANCELED}
 
-# Files a tool writes for operational reasons rather than as scientific output. Hidden
-# from the default artifact listing: error logs carry whatever the container chose to
-# print, which can include internal paths and configuration. This only declutters the
-# listing; it is not access control. ?include=logs lists them, and get_artifact serves
-# them to anyone holding the job id.
+# Files a tool writes for operational reasons rather than as scientific output. Error
+# logs carry whatever the container chose to print, which can include internal paths and
+# configuration, so they are for operators only: hidden from the listing, ?include=logs
+# requires an operator, and get_artifact answers 404 for them to everyone else. Operators
+# are members of the reporting group (see _is_operator).
 #
 # Matched against top-level names in the job's out/ directory only, so a result file in
 # a subfolder that happens to share one of these names stays listed.
@@ -164,6 +166,19 @@ async def _get_job_or_404(db: AsyncSession, job_id: str) -> Job:
             type_uri=UNKNOWN_JOB,
         )
     return job
+
+
+async def _is_operator(request: Request) -> bool:
+    """True for a logged-in member of the reporting group.
+
+    Any refusal counts as "not an operator", including an unset group, which
+    require_reporting_group refuses rather than treating as "anyone logged in".
+    """
+    try:
+        await require_reporting_group(request)
+    except HTTPException:
+        return False
+    return True
 
 
 # The handler returns a plain dict rather than a response model, so FastAPI infers
@@ -455,13 +470,19 @@ async def list_artifacts(job_id: str, request: Request, include: Optional[str] =
                          db: AsyncSession = Depends(get_session)):
     """List raw output files.
 
-    Logs and status-marker files are excluded unless `?include=logs`. Their content is
-    whatever the container printed, which can carry internal paths and configuration,
-    and anyone holding a job id can read them.
+    Logs and status-marker files are excluded. Operators can include them with
+    `?include=logs`; their content is whatever the container printed, which can carry
+    internal paths and configuration.
     """
     job = await _get_job_or_404(db, job_id)
     base = _base_url(request)
     want_logs = include == 'logs'
+    if want_logs and not await _is_operator(request):
+        raise ProblemException(
+            403, 'Logs are restricted to operators',
+            'Job logs can carry internal paths and configuration, so only operators can list them.',
+            type_uri=ABOUT_BLANK,
+        )
 
     prefix = f'{job_id}/out/'
     names = service.list_files(job.type, prefix, recursive=True) or []
@@ -489,7 +510,7 @@ async def list_artifacts(job_id: str, request: Request, include: Optional[str] =
 
 @router.get('/jobs/{job_id}/artifacts/{artifact_path:path}', tags=['Jobs'],
             summary='Download one output file')
-async def get_artifact(job_id: str, artifact_path: str,
+async def get_artifact(job_id: str, artifact_path: str, request: Request,
                        service: MinIOService = Depends(),
                        db: AsyncSession = Depends(get_session)):
     from fastapi.responses import Response
@@ -505,7 +526,12 @@ async def get_artifact(job_id: str, artifact_path: str,
             type_uri=INVALID_INPUT,
         )
 
-    content = service.get_file(job.type, f'{job_id}/out/{artifact_path}')
+    # Normalized so ./log cannot reach a log that `log` would be refused. A non-operator
+    # gets the same 404 as for a missing file, which does not confirm the log exists.
+    is_log = posixpath.normpath(artifact_path) in LOG_ARTIFACTS
+    content = None
+    if not is_log or await _is_operator(request):
+        content = service.get_file(job.type, f'{job_id}/out/{artifact_path}')
     if content is None:
         raise ProblemException(
             404, 'Unknown artifact',

@@ -186,23 +186,10 @@ def build_tool_list() -> List[types.Tool]:
         types.Tool(
             name='list_job_artifacts',
             title='List job output files',
-            description=(
-                'Raw files a job wrote. Logs and status markers are excluded unless '
-                'include_logs is true.'
-            ),
-            inputSchema={
-                '$schema': 'https://json-schema.org/draft/2020-12/schema',
-                'type': 'object',
-                'required': ['job_id'],
-                'additionalProperties': False,
-                'properties': {
-                    'job_id': {'type': 'string', 'description': 'Job id to inspect.'},
-                    'include_logs': {
-                        'type': 'boolean', 'default': False,
-                        'description': 'Include stdout/stderr logs and status markers.',
-                    },
-                },
-            },
+            # Logs are for operators, who authenticate with a browser cookie that this
+            # server does not have, so it offers no way to ask for them.
+            description='Raw files a job wrote. Logs and status markers are excluded.',
+            inputSchema=_job_id_schema('Job id to inspect.'),
         ),
         types.Tool(
             name='cancel_job',
@@ -284,8 +271,7 @@ def create_mcp_app(v1_app: Any, client_key_provider=None):
         if name == 'get_job_results':
             return await _get(f"/jobs/{arguments['job_id']}/results")
         if name == 'list_job_artifacts':
-            suffix = '?include=logs' if arguments.get('include_logs') else ''
-            return await _get(f"/jobs/{arguments['job_id']}/artifacts{suffix}")
+            return await _get(f"/jobs/{arguments['job_id']}/artifacts")
         if name == 'cancel_job':
             return await _post(f"/jobs/{arguments['job_id']}/cancel", None)
 

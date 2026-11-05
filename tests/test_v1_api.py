@@ -8,6 +8,7 @@ import json
 import pytest
 
 from models.enums import JobStatus
+from routers import reports
 from services import kubejob_service
 
 
@@ -328,14 +329,24 @@ class TestArtifacts:
         assert body["count"] == 1
         assert body["items"][0]["name"] == "output.json"
 
-    # error.log and log carry whatever the container printed, and anyone holding the job
-    # id can read them. The filter is the same for every job type, so one tool's bucket
-    # stands in for all of them.
+    @pytest.fixture
+    def as_user(self, monkeypatch):
+        """Make the caller an authenticated user in the given groups (None: no cookie)."""
+        def _as(groups, operator_group="mmli-reporting"):
+            monkeypatch.setattr(reports, "REPORTING_GROUP", operator_group)
+            monkeypatch.setattr(reports, "validate_auth_cookie",
+                                lambda request: None if groups is None
+                                else {"email": "a@b.edu", "groups": groups})
+        return _as
+
+    # error.log and log carry whatever the container printed. The filter is the same for
+    # every job type, so one tool's bucket stands in for all of them.
     @pytest.mark.parametrize("log_names", [
         ("error.log", "output.log", "success"),  # novostoic (chart/values.yaml)
         ("log", "error", "finished"),  # job template; CLEAN, CRISPR-Copies, Mutagenesis
     ], ids=["novostoic", "job-template"])
-    def test_logs_are_hidden_unless_requested(self, client, log_names):
+    def test_logs_are_hidden_unless_an_operator_requests_them(self, client, as_user, log_names):
+        as_user(["mmli-reporting"])
         job_id = _submit(client).json()["job_id"]
         for name in ("output.json", *log_names):
             client.minio.put("novostoic-optstoic", f"{job_id}/out/{name}", b"x")
@@ -356,6 +367,52 @@ class TestArtifacts:
         default = client.get(f"/v1/jobs/{job_id}/artifacts").json()
 
         assert [i["name"] for i in default["items"]] == ["run1/error", "run1/log"]
+
+    @pytest.mark.parametrize("groups", [None, ["some-other-group"]], ids=["anonymous", "non-member"])
+    def test_only_operators_can_list_logs(self, client, as_user, groups):
+        as_user(groups)
+        job_id = _submit(client).json()["job_id"]
+
+        resp = client.get(f"/v1/jobs/{job_id}/artifacts?include=logs")
+
+        assert resp.status_code == 403
+
+    @pytest.mark.parametrize("path", ["log", "./log", "error.log"])
+    def test_a_log_cannot_be_downloaded_by_a_non_operator(self, client, as_user, path):
+        as_user(None)
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put("novostoic-optstoic", f"{job_id}/out/{path.lstrip('./')}", b"traceback")
+
+        resp = client.get(f"/v1/jobs/{job_id}/artifacts/{path}")
+
+        # The same answer as a missing file, so it does not confirm the log exists.
+        assert resp.status_code == 404
+
+    def test_an_operator_can_download_a_log(self, client, as_user):
+        as_user(["mmli-reporting"])
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put("novostoic-optstoic", f"{job_id}/out/log", b"traceback")
+
+        resp = client.get(f"/v1/jobs/{job_id}/artifacts/log")
+
+        assert resp.status_code == 200
+        assert resp.content == b"traceback"
+
+    def test_a_result_in_a_subfolder_with_a_log_name_can_be_downloaded(self, client, as_user):
+        as_user(None)
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put("novostoic-optstoic", f"{job_id}/out/run1/log", b"result")
+
+        assert client.get(f"/v1/jobs/{job_id}/artifacts/run1/log").status_code == 200
+
+    def test_an_unconfigured_operator_group_hides_logs_from_everyone(self, client, as_user):
+        """An unset group must not mean "any authenticated user"."""
+        as_user(["anything"], operator_group="")
+        job_id = _submit(client).json()["job_id"]
+        client.minio.put("novostoic-optstoic", f"{job_id}/out/log", b"traceback")
+
+        assert client.get(f"/v1/jobs/{job_id}/artifacts?include=logs").status_code == 403
+        assert client.get(f"/v1/jobs/{job_id}/artifacts/log").status_code == 404
 
     def test_an_artifact_can_be_downloaded(self, client):
         job_id = _submit(client).json()["job_id"]
