@@ -47,7 +47,7 @@ data:
         imagePullPolicy: Always
         # Init-container step (after prejob.py): resolve a dropdown organism accession to
         # input files + convert any uploaded GFF3 to feature_table.txt. No-op otherwise.
-        prejob_command: "python fetch_organism.py && python convert_annotations.py"
+        prejob_command: "set -o pipefail && ((python fetch_organism.py && python convert_annotations.py) 2>&1 | tee ${JOB_OUTPUT_DIR}/log || touch ${JOB_OUTPUT_DIR}/error)"
         securityContext:
           runAsGroup: 0
           runAsUser: 0
