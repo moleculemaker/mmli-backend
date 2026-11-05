@@ -40,16 +40,23 @@ log = get_logger(__name__)
 TERMINAL_PHASES = {JobStatus.COMPLETED, JobStatus.ERROR, JobStatus.CANCELED}
 
 # Files a tool writes for operational reasons rather than as scientific output. Hidden
-# from the artifact listing unless asked for: error logs carry whatever the container
-# chose to print, which can include internal paths and configuration.
+# from the default artifact listing: error logs carry whatever the container chose to
+# print, which can include internal paths and configuration. This only declutters the
+# listing; it is not access control. ?include=logs lists them, and get_artifact serves
+# them to anyone holding the job id.
 #
-# Keep this in step with every writer of a log or marker into $JOB_OUTPUT_DIR:
-#   - templates/job.tpl.yaml touches `finished` after every successful job command;
-#   - the CLEAN, CRISPR-Copies and Mutagenesis commands (services/*_service.py) tee
+# Matched against top-level names in the job's out/ directory only, so a result file in
+# a subfolder that happens to share one of these names stays listed.
+#
+# Keep this in step with every writer of a log or marker into $JOB_OUTPUT_DIR, found with
+# `git grep -nE 'OUTPUT_DIR[}]?/' -- app chart`:
+#   - app/services/templates/job.tpl.yaml touches `finished` after every successful job
+#     command (as does chart/novostoic.job.yaml, a rendered somn Job);
+#   - the CLEAN, CRISPR-Copies and Mutagenesis commands (app/services/*_service.py) tee
 #     their output to `log` and touch `error` on failure;
 #   - the novostoic commands (chart/values.yaml) write `output.log`, `error.log`,
 #     `success` and `fail`.
-LOG_ARTIFACTS = {'output.log', 'error.log', 'errors.txt', 'success', 'fail', 'log', 'error', 'finished'}
+LOG_ARTIFACTS = {'output.log', 'error.log', 'success', 'fail', 'log', 'error', 'finished'}
 
 # How long a client should wait before polling again. Jobs here run for minutes to
 # hours, so a tight loop helps nobody.
@@ -465,7 +472,7 @@ async def list_artifacts(job_id: str, request: Request, include: Optional[str] =
         short = name[len(prefix):] if name.startswith(prefix) else name
         if not short:
             continue
-        if not want_logs and short.split('/')[-1] in LOG_ARTIFACTS:
+        if not want_logs and short in LOG_ARTIFACTS:
             continue
         items.append({
             'name': short,
