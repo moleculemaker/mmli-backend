@@ -83,7 +83,13 @@ class CleanService:
             raise HTTPException(status_code=400, detail='400: Bad Request - CLEAN allows only for a maximum of 20 FASTA Sequences.')
 
         encoded_data = base64.b64encode(job_config.encode('utf-8')).decode('utf-8')
-        command = f'''echo {encoded_data} | base64 -d > ./data/inputs/{job_id}.fasta && (((python CLEAN_infer_fasta.py --fasta_data {job_id} 2>&1 | tee $JOB_OUTPUT_DIR/log) && ls -al $JOB_OUTPUT_DIR/) || (touch $JOB_OUTPUT_DIR/error && false))'''
+        # `set -o pipefail` is required: the inference is piped to `tee`, so without it the
+        # pipeline's status is tee's (0) and a crash skips the `error` sentinel and is
+        # reported as a completed job with no results.
+        # A failed inference writes `error` and still exits 0. This container is an init
+        # container, so a non-zero exit would stop post-job from running and the log would
+        # never reach MinIO. postjob.py uploads the outputs, then fails the Job on `error`.
+        command = f'''set -o pipefail && echo {encoded_data} | base64 -d > ./data/inputs/{job_id}.fasta && (((python CLEAN_infer_fasta.py --fasta_data {job_id} 2>&1 | tee $JOB_OUTPUT_DIR/log) && ls -al $JOB_OUTPUT_DIR/) || touch $JOB_OUTPUT_DIR/error)'''
 
         return command
 

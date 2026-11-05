@@ -65,3 +65,17 @@ def test_missing_output_directory_exits_nonzero(monkeypatch, job_env, tmp_path):
         run_postjob()
 
     assert exited.value.code == 1
+
+
+def test_error_sentinel_uploads_then_exits_nonzero(monkeypatch, job_env):
+    """A tool that fails writes `error` and exits 0 so its log is uploaded; postjob.py
+    then fails the Job so the watcher marks it 'error'."""
+    (job_env / "error").touch()
+    calls = []
+    monkeypatch.setattr(kubejob_service, "upload_local_directory_to_minio", lambda **kwargs: calls.append(kwargs))
+
+    with pytest.raises(SystemExit) as exited:
+        run_postjob()
+
+    assert exited.value.code == 1
+    assert calls == [{"local_path": str(job_env), "bucket_name": "clean", "minio_prefix": "job1/out"}]
