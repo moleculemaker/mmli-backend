@@ -34,6 +34,8 @@ log.info(f'Uploaded successfully to MinIO: {job_output_dir}')
 # A tool that fails can write `error` and exit 0 so that its outputs and log are
 # uploaded above (the tool runs as an init container, and this container runs only if
 # it succeeds). Fail the Job now, after the upload, so the job is marked 'error'.
-if os.path.exists(os.path.join(job_output_dir, 'error')):
-    log.error(f'Job[{bucket_name}]: {job_id} wrote an error sentinel; failing the Job')
-    sys.exit(1)
+# The novostoic commands in chart/values.yaml write `fail` instead of `error`.
+for sentinel in ('error', 'fail'):
+    if os.path.exists(os.path.join(job_output_dir, sentinel)):
+        log.error(f'Job[{bucket_name}]: {job_id} wrote a `{sentinel}` sentinel; failing the Job')
+        sys.exit(1)
