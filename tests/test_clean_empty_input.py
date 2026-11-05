@@ -21,6 +21,15 @@ def test_legacy_rejects_no_sequences(client, input_fasta):
     assert client.k8s_jobs == []
 
 
+@pytest.mark.parametrize("input_fasta", [{}, []], ids=["empty-object", "empty-list"])
+def test_v1_rejects_no_sequences(client, input_fasta):
+    # v1 validates against clean.input.json (an array with minItems 1) before the builder runs
+    resp = client.post('/v1/tools/clean/jobs', json={'input_fasta': input_fasta})
+
+    assert resp.status_code == 422
+    assert client.k8s_jobs == []
+
+
 def test_legacy_accepts_one_sequence(client):
     resp = client.post('/clean/jobs', json={'job_info': json.dumps({'input_fasta': [SEQUENCE]})})
 
