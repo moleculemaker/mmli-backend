@@ -33,6 +33,9 @@ with open(CONFIG_FILEPATH, "r") as server_yaml_file:
     # app_config takes on the format in cfg/config.yaml
     app_config = yaml.load(server_yaml_file, Loader=yaml.FullLoader)
 
+    # Logged before the secrets below are merged in, so they never reach the log.
+    log.info(f'Server configuration: {str(app_config)}', )
+
     try:
         with open(SECRET_FILEPATH, "r") as secret_yaml_file:
             # app_secrets takes on the format in cfg/secrets.yaml
@@ -49,7 +52,6 @@ with open(CONFIG_FILEPATH, "r") as server_yaml_file:
         log.error(f'Failed to load secrets file: {ex}')
 
 log.info(f'Valid job types : {str(JobTypes)}')
-log.info(f'Server configuration: {str(app_config)}', )
 
 # Override app_config with some individual environment variables
 # TODO: Is this needed??
