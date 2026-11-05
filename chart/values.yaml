@@ -102,7 +102,9 @@ minio:
 # config.bucketPolicyCheck.allowedAnonymous (chart/templates/bucket-policy-check.yaml).
 bucketPolicyCheck:
   enabled: false
+  # 08:17 Central, so a failure email arrives at the start of the working day.
   schedule: "17 8 * * *"
+  timeZone: "America/Chicago"
   # Secret with `access-key` and `secret-key` for a MinIO account limited to
   # s3:ListAllMyBuckets, s3:GetBucketLocation and s3:GetBucketPolicy.
   existingSecret: ""

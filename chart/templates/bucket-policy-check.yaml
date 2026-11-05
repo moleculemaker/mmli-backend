@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-bucket-policy-check
 spec:
   schedule: {{ .Values.bucketPolicyCheck.schedule | quote }}
+  timeZone: {{ .Values.bucketPolicyCheck.timeZone | quote }}
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 3
@@ -37,11 +38,11 @@ spec:
                 - name: MINIO_ACCESS_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.bucketPolicyCheck.existingSecret }}
+                      name: {{ required "bucketPolicyCheck.existingSecret is required" .Values.bucketPolicyCheck.existingSecret }}
                       key: access-key
                 - name: MINIO_SECRET_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: {{ .Values.bucketPolicyCheck.existingSecret }}
+                      name: {{ required "bucketPolicyCheck.existingSecret is required" .Values.bucketPolicyCheck.existingSecret }}
                       key: secret-key
 {{- end }}

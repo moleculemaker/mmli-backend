@@ -5,9 +5,14 @@ Exits 0 when every bucket matches, 1 when any bucket differs from the allowlist,
 when the policies could not be read. Differences are logged and, when recipients are
 configured, emailed.
 
-A bucket missing from the allowlist must have no anonymous policy at all. A bucket on
-the allowlist must have exactly the listed policy, so a narrowing is reported too: the
-allowlist has to stay a true record of what is public.
+A bucket missing from the allowlist must have no bucket policy at all, whoever its
+principal names. A bucket on the allowlist must have exactly the listed policy, so a
+narrowing is reported too: the allowlist has to stay a true record of what is public.
+
+Matching is exact after sorting lists. If a MinIO upgrade starts returning an equivalent
+policy in a different form (say "Principal": "*" instead of {"AWS": ["*"]}), every
+allowlisted bucket is reported at once; that, rather than a real change, is the likely
+cause of such an email. Update the allowlist to the new form.
 
 Why this exists: MinIO creates buckets private, but its console and `mc anonymous set`
 make a bucket public in one step. ez-specificity was found on 2026-11-05 with the canned
@@ -64,7 +69,7 @@ def find_differences(actual, allowed):
         if have == want:
             continue
         if want is None:
-            differences.append(f'{bucket}: has an anonymous policy but is not on the allowlist:\n  {have}')
+            differences.append(f'{bucket}: has a bucket policy but is not on the allowlist:\n  {have}')
         elif have is None:
             differences.append(f'{bucket}: allowlisted policy is no longer set; update the allowlist')
         else:
@@ -91,7 +96,7 @@ def notify(recipients, server, differences):
     from services.email_service import EmailService
 
     body = (f'The daily MinIO bucket policy check on {server} found buckets whose '
-            f'anonymous access differs from the allowlist (config.bucketPolicyCheck).\n\n'
+            f'policy differs from the allowlist (config.bucketPolicyCheck).\n\n'
             + '\n\n'.join(differences)
             + '\n\nIf a change was intended, update the allowlist in the chart values. '
               'Otherwise revert it, e.g. `mc anonymous set none <alias>/<bucket>`.')
@@ -108,14 +113,16 @@ def main():
     recipients = settings.get('recipients') or []
 
     client = Minio(MINIO_SERVER, access_key=MINIO_ACCESS_KEY, secret_key=MINIO_SECRET_KEY, secure=False)
+    # The comparison is inside the try too: a policy that is not valid JSON fails in
+    # normalize(), and that must take the same emailed exit-2 path as a failed read.
     try:
         actual = read_policies(client)
+        differences = find_differences(actual, allowed)
     except Exception as ex:
-        log.error(f'Could not read bucket policies from {MINIO_SERVER}: {ex}')
-        notify(recipients, MINIO_SERVER, [f'The check could not read bucket policies: {ex}'])
+        log.error(f'Could not read or parse bucket policies from {MINIO_SERVER}: {ex}')
+        notify(recipients, MINIO_SERVER, [f'The check could not read or parse bucket policies: {ex}'])
         return 2
 
-    differences = find_differences(actual, allowed)
     if not differences:
         log.info(f'All {len(actual)} buckets match the allowlist')
         return 0

@@ -122,6 +122,12 @@ def test_main_exits_2_and_notifies_when_policies_cannot_be_read(run):
     assert len(sent) == 1 and 'could not read' in sent[0][0]
 
 
+def test_main_exits_2_and_notifies_when_a_policy_is_not_valid_json(run):
+    code, sent = run({'clean': 'not json'}, {})
+    assert code == 2
+    assert len(sent) == 1 and 'could not read or parse' in sent[0][0]
+
+
 def test_notify_sends_one_email_per_recipient_and_survives_a_failure(monkeypatch):
     from services import email_service
 
